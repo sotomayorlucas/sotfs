@@ -1,0 +1,82 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*.*.*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to release (e.g. v0.2.0)"
+        required: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build-binaries:
+    name: build ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+    env:
+      TARGET: ${{ matrix.target }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: release-${{ matrix.target }}
+      - name: Build release binaries
+        run: |
+          cargo build --release --target "$TARGET" \
+            --bin sotfs-fuse \
+            --bin sotfs-dot
+      - name: Package
+        env:
+          REF_NAME: ${{ github.ref_name }}
+          DISPATCH_TAG: ${{ inputs.tag }}
+        run: |
+          tag="${DISPATCH_TAG:-$REF_NAME}"
+          out="sotfs-${tag}-${TARGET}.tar.gz"
+          tar czf "$out" \
+            -C "target/$TARGET/release" \
+              sotfs-fuse \
+              sotfs-dot
+          echo "ARTIFACT=$out" >> "$GITHUB_ENV"
+      - name: Upload to artifacts
+        env:
+          ART_NAME: ${{ env.ARTIFACT }}
+          ART_PATH: ${{ env.ARTIFACT }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.ART_NAME }}
+          path: ${{ env.ART_PATH }}
+
+  release:
+    name: GitHub Release
+    needs: [build-binaries]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REF_NAME: ${{ github.ref_name }}
+          DISPATCH_TAG: ${{ inputs.tag }}
+        run: |
+          tag="${DISPATCH_TAG:-$REF_NAME}"
+          gh release create "$tag" \
+            --title "$tag" \
+            --notes-file CHANGELOG.md \
+            artifacts/**/*.tar.gz

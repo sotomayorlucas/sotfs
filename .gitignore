@@ -1,0 +1,13 @@
+/target
+/fuzz/target
+/fuzz/corpus
+/fuzz/artifacts
+/formal/states
+/formal/tlc_output
+**/*.rs.bk
+*.lcov
+*.profraw
+target/
+.cargo/registry/
+.idea/
+.vscode/

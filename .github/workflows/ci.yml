@@ -1,0 +1,72 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  fmt:
+    name: rustfmt
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with: { components: rustfmt }
+      - run: cargo fmt --all -- --check
+
+  clippy:
+    name: clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with: { components: clippy }
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo clippy --workspace --all-targets -- -D warnings
+
+  test:
+    name: test ${{ matrix.profile }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        profile: [debug, release]
+      fail-fast: false
+    env:
+      PROFILE: ${{ matrix.profile }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: test-${{ matrix.profile }}
+      - name: Install fuse3
+        run: sudo apt-get update && sudo apt-get install -y fuse3
+      - name: Run tests
+        run: |
+          if [ "$PROFILE" = "release" ]; then
+            cargo test --workspace --release
+          else
+            cargo test --workspace
+          fi
+
+  build-binaries:
+    name: build release binaries
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: release-binaries
+      - run: cargo build --release --bin sotfs-fuse --bin sotfs-dot
+      - name: Inspect produced binaries
+        run: |
+          file target/release/sotfs-fuse
+          file target/release/sotfs-dot

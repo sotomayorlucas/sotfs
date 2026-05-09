@@ -1,0 +1,332 @@
+\chapter{sotFS: el grafo Merkle como filesystem}
+\label{cap:sotfs-modelo}
+
+\section{Motivación}
+
+Filesystems tradicionales (\emph{ext4}, \emph{XFS}, \emph{NTFS})
+modelan los datos como un \emph{árbol}: directorios contienen
+inodes, inodes apuntan a bloques. La estructura es jerárquica;
+el mismo bloque pertenece a un solo archivo. Esa decisión tiene
+costos:
+
+\begin{itemize}
+  \item \emph{Hard links} son un bolt-on: dos paths que apuntan
+    al mismo inode existen, pero el modelo subyacente no los
+    refleja como \emph{misma cosa con dos nombres}.
+  \item Deduplicación post-escritura es cara: hay que rescanear
+    bloques iguales y reemplazar referencias.
+  \item Snapshots se hacen vía COW (\emph{copy on write}) o
+    \emph{shadow paging}; son técnicas, no propiedades del
+    modelo.
+\end{itemize}
+
+\texttt{sotFS} usa una estructura distinta: un \emph{Merkle DAG}
+(grafo dirigido acíclico con direccionamiento por hash), donde
+cada nodo se nombra por el hash criptográfico de su contenido
+\cite{Merkle1987-DAG}. La estructura tiene:
+
+\begin{itemize}
+  \item \textbf{Deduplicación intrínseca.} Dos nodos con el mismo
+    contenido tienen el mismo hash; son el mismo nodo.
+  \item \textbf{Snapshots gratis.} Un snapshot es un puntero a
+    la raíz del DAG en un momento; nada se copia.
+  \item \textbf{Verificación cripto.} Dado un hash de raíz, el
+    contenido completo del subgrafo se puede verificar
+    incrementalmente.
+  \item \textbf{Sharing entre dominios.} El mismo bloque puede
+    referenciarse desde dos archivos sin bolt-on.
+\end{itemize}
+
+El precio: la estructura es un \emph{DAG con seis tipos de
+nodo y seis tipos de arista}; las operaciones POSIX se modelan
+como \emph{double pushout} (DPO) graph rewriting. La
+verificación formal vive en \texttt{formal/sotfs\_graph.tla}.
+
+\section{Los seis tipos de nodo}
+
+\begin{lstlisting}[frame=single, basicstyle=\ttfamily\scriptsize]
+Inode      — metadata (mode, uid, mtime); apunta a Blocks
+Dir        — directorio; contiene entradas (Name → Inode)
+Block      — bloque de datos (4 KiB); identificado por hash
+Snapshot   — root pointer + timestamp
+Capability — capability sotFS (subset de la cap del kernel)
+Domain     — partición lógica del filesystem
+\end{lstlisting}
+
+Y los seis tipos de arista:
+
+\begin{lstlisting}[frame=single, basicstyle=\ttfamily\scriptsize]
+contains    Dir → Inode      (el directorio incluye este inode)
+extent      Inode → Block    (este bloque pertenece al inode)
+named-as    Dir → Name → Inode  (la entrada con este nombre)
+parent      Inode → Dir      (inverso de contains; navegabilidad)
+captured    Capability → Inode  (la cap autoriza este inode)
+owns        Domain → Inode   (cuál dominio es dueño)
+\end{lstlisting}
+
+\section{Por qué DAG y no árbol}
+
+\begin{figure}[h]
+  \centering
+  \begin{tikzpicture}[
+      every node/.style={font=\scriptsize},
+      ino/.style={node base, fill=sotxBlue!15, draw=sotxBlue!70,
+                  minimum width=20mm},
+      blk/.style={node base, fill=sotxGreen!15, draw=sotxGreen!70,
+                  minimum width=18mm},
+      arr/.style={-Stealth, draw=sotxFg, line width=0.5pt}
+    ]
+    % Inodes
+    \node[ino] (i1) at (-3,2) {Inode A\\\texttt{file1.txt}};
+    \node[ino] (i2) at (3,2)  {Inode B\\\texttt{file2.txt}};
+    % Blocks
+    \node[blk] (b1) at (-4,0) {Block\\hash=A1};
+    \node[blk] (b2) at (0,0)  {Block\\hash=B2 (shared)};
+    \node[blk] (b3) at (4,0)  {Block\\hash=C3};
+
+    % Edges
+    \draw[arr] (i1) -- (b1) node[font=\scriptsize\ttfamily,midway,fill=sotxBg]
+       {extent};
+    \draw[arr] (i1) -- (b2);
+    \draw[arr] (i2) -- (b2);   % SHARED
+    \draw[arr] (i2) -- (b3);
+
+    \node[hazard, anchor=north west, font=\scriptsize\itshape]
+      at (-4,-1.5)
+      {Block B2 es compartido por dos inodes distintos sin\\
+       hard-link explícito; emerge del Merkle deduplication.};
+  \end{tikzpicture}
+  \caption{Sharing intrínseco: \texttt{file1.txt} y
+  \texttt{file2.txt} comparten un mismo bloque por construcción
+  porque tienen el mismo hash. No es un \emph{hard link}; es la
+  semántica natural del DAG.}
+  \label{fig:sotfs-sharing}
+\end{figure}
+
+\section{Direccionamiento por hash}
+
+Cada nodo tiene un \emph{content hash}: BLAKE3 de 32 bytes sobre
+su contenido serializado. La función:
+
+\begin{lstlisting}[language=rust, frame=single, basicstyle=\ttfamily\scriptsize]
+fn node_hash(node: &Node) -> [u8; 32] {
+    let mut hasher = Blake3::new();
+    hasher.update(&node.type_tag.to_le_bytes());
+    hasher.update(&node.serialize());
+    hasher.finalize().into()
+}
+\end{lstlisting}
+
+\begin{invariante}[Identidad por contenido]
+\label{inv:sotfs-identity}
+Dos nodos con el mismo contenido tienen el mismo hash; el
+filesystem mantiene una sola copia. \emph{Identidad estructural
+implica identidad de almacenamiento}.
+\end{invariante}
+
+\begin{invariante}[Acíclico]
+\label{inv:sotfs-acyclic}
+Los punteros entre nodos son siempre por hash, y un nodo no
+puede contener su propio hash (los hashes son criptográficamente
+fuertes; la probabilidad de un \emph{ciclo accidental} es
+$2^{-256}$). El grafo es DAG por construcción.
+\end{invariante}
+
+\begin{invariante}[Inmutabilidad de nodo]
+\label{inv:sotfs-immutable}
+Un nodo nunca se modifica \emph{en sitio}. Una mutación lógica
+(truncate, append, chmod) crea un nuevo nodo con el contenido
+nuevo, deja el viejo si nadie lo referencia, e \emph{actualiza
+el padre} apuntando al nuevo hijo. Las roots de snapshot
+preservan la vista vieja.
+\end{invariante}
+
+\section{DPO: double pushout para operaciones POSIX}
+
+Toda operación POSIX se modela como una transformación DPO:
+
+\begin{enumerate}
+  \item \textbf{Match.} El operador especifica el \emph{LHS}
+    (subgrafo que tiene que existir antes).
+  \item \textbf{Glue.} Un subgrafo que persiste tras la
+    operación.
+  \item \textbf{Result.} El \emph{RHS}, que reemplaza el LHS
+    manteniendo el glue.
+\end{enumerate}
+
+Para \texttt{rename(d/old, d/new)}:
+
+\begin{itemize}
+  \item LHS: $d \xrightarrow{\text{named-as old}} i$.
+  \item Glue: $d$ y $i$ permanecen.
+  \item RHS: $d \xrightarrow{\text{named-as new}} i$.
+\end{itemize}
+
+Para \texttt{unlink(d/name)}:
+
+\begin{itemize}
+  \item LHS: $d \xrightarrow{\text{named-as name}} i$.
+  \item Glue: $d$ permanece.
+  \item RHS: $i$ se borra (si \texttt{i.refcount == 0}); la arista desaparece.
+\end{itemize}
+
+\section{El \texttt{.tla} de \texttt{sotfs\_graph}}
+
+\begin{lstlisting}[language=tla, frame=single, basicstyle=\ttfamily\scriptsize]
+VARIABLES
+    inodes,         \* Set of active inode IDs
+    dirs,           \* Set of active directory IDs
+    blocks,         \* Set of active block IDs
+    inodeType,      \* Function: InodeId -> {"regular", "directory"}
+    inodeBlocks,    \* Function: InodeId -> SeqSet of BlockIds
+    dirEntries      \* Function: DirId -> Set of <<name, InodeId>>
+
+\* DPO rule: link an existing inode under a new name in a directory.
+LinkInode(d, i, name) ==
+    /\ d \in dirs
+    /\ i \in inodes
+    /\ ~\E e \in dirEntries[d] : e[1] = name      \* gluing condition
+    /\ dirEntries' = [dirEntries EXCEPT
+                       ![d] = @ \cup {<<name, i>>}]
+    /\ UNCHANGED <<inodes, dirs, blocks, inodeType, inodeBlocks>>
+\end{lstlisting}
+
+La cláusula \texttt{\textasciitilde\textbackslash E e \textbackslash in
+dirEntries[d] : e[1] = name} es la \emph{gluing condition}: la
+operación está habilitada sólo si no existe ya una entrada con
+ese nombre. Es la versión TLA del \texttt{EEXIST} de POSIX, pero
+no como un \emph{check ad hoc}; emerge de la estructura DPO.
+
+\section{Las invariantes verificadas}
+
+\begin{lstlisting}[language=tla, frame=single, basicstyle=\ttfamily\scriptsize]
+\* Toda entrada de directorio apunta a un inode vivo.
+DirIntegrity ==
+    \A d \in dirs : \A e \in dirEntries[d] : e[2] \in inodes
+
+\* Todo bloque referenciado por un inode existe.
+ExtentIntegrity ==
+    \A i \in inodes : \A b \in inodeBlocks[i] : b \in blocks
+
+\* Nombres únicos por directorio.
+NameUniqueness ==
+    \A d \in dirs :
+        \A e1, e2 \in dirEntries[d] :
+            (e1 /= e2) => (e1[1] /= e2[1])
+\end{lstlisting}
+
+TLC verifica las tres invariantes en cada estado alcanzable; si
+una operación las rompiera, el contraejemplo lo señala. La
+disciplina DPO hace que la mayoría de invariantes se mantengan
+\emph{por construcción}: cada regla incluye su gluing condition
+como precondición, así que TLC nunca llega a un estado donde la
+invariante esté rota.
+
+\section{Trampa: cycle por hash collision}
+
+\begin{trampa}[BLAKE3 collision (no observada en práctica)]
+La invariante~\ref{inv:sotfs-acyclic} asume que los hashes son
+únicos. BLAKE3 con 256 bits tiene colisiones con probabilidad
+$2^{-128}$ por par; la probabilidad de un ciclo accidental es
+\emph{efectivamente cero}. Pero un atacante con poder de
+construir \emph{collisions intencionales} (problema abierto en
+BLAKE3) podría engañar al filesystem para que un nodo se
+auto-referencie a través de su contenido.
+
+Fix preventivo: chequeo runtime que un nodo recién insertado no
+contiene su propio hash entre sus referencias. Costo: $O(\text{children})$
+por inserción. Reductible si hace falta.
+
+\textbf{Lección:} las propiedades \emph{cripto-derivadas} son
+fuertes pero no infalibles. Un check runtime trivial (anti-self-reference)
+preserva la invariante incluso bajo collision attack.
+\end{trampa}
+
+\section{Trampa: orphan block tras unlink}
+
+\begin{trampa}[\emph{Memory leak} de bloques]
+\texttt{unlink} borra la arista \texttt{named-as} pero el inode
+puede seguir vivo si tenía $\geq 1$ \emph{otra} referencia
+(typical hard-link). Si el código no rastrea el refcount
+correctamente, un bloque queda \emph{orphan} (no alcanzable
+desde ningún root) y nunca se libera.
+
+Fix: cada operación que reduce el refcount marca el bloque como
+\emph{candidato a GC}; el GC corre periódicamente y libera los
+no alcanzables desde root. \texttt{sotFS} implementa el GC como
+mark-and-sweep desde los roots de snapshot.
+
+\textbf{Lección:} un Merkle DAG con sharing requiere GC, no
+basta con refcount. Los refcounts pueden divergir bajo crash
+recovery (cap.~\ref{cap:sotfs-tx}); el GC es la fuente única de
+verdad.
+\end{trampa}
+
+\section{Origen del diseño}
+
+Merkle DAGs vienen de Merkle 1987 \cite{Merkle1987-DAG}; aplicarlos
+a un filesystem es de IPFS y de Git (los dos del mismo año, 2014).
+El uso de DPO graph rewriting para modelar POSIX es contribución
+original de \texttt{sotX} (los specs en \texttt{formal/sotfs\_*.tla}
+fueron escritos antes que el código de
+\texttt{services/sotfs/}). La inspiración en Yggdrasil
+\cite{Sigurbjarnarson2016-Yggdrasil} para el modelo de \emph{crash
+refinement} viene del cap.~\ref{cap:sotfs-tx}.
+
+\section*{Resumen del capítulo}
+
+\begin{itemize}
+  \item sotFS modela el filesystem como un \emph{Merkle DAG}:
+    nodos identificados por hash de su contenido.
+  \item Seis tipos de nodo (\texttt{Inode}, \texttt{Dir},
+    \texttt{Block}, \texttt{Snapshot}, \texttt{Capability},
+    \texttt{Domain}); seis tipos de arista (\texttt{contains},
+    \texttt{extent}, \texttt{named-as}, \texttt{parent},
+    \texttt{captured}, \texttt{owns}).
+  \item Direccionamiento por hash da deduplicación
+    intrínseca, snapshots gratis, sharing entre dominios.
+  \item Operaciones POSIX se modelan como reglas DPO con gluing
+    conditions; la verificación TLA (\citaTLA{sotfs\_graph.tla})
+    chequea las invariantes en cada estado.
+  \item Inmutabilidad de nodos: la mutación lógica crea un nodo
+    nuevo y actualiza el padre; las snapshots preservan la
+    vista vieja sin copiar.
+\end{itemize}
+
+\section*{Ejercicios}
+
+\begin{ejercicio}[$\star$]
+Dibuje el grafo después de las siguientes operaciones partiendo
+de un FS vacío: \texttt{mkdir /a}, \texttt{create /a/file1
+content="hola"}, \texttt{create /a/file2 content="hola"}. ¿Cuántos
+\texttt{Block} nodes hay? ¿Por qué?
+\end{ejercicio}
+
+\begin{ejercicio}[$\star\star$]
+Lea la regla \texttt{LinkInode} del \texttt{.tla}. ¿Qué pasa si
+\texttt{i \textbackslash notin inodes} (inode no vivo)? ¿Cómo
+se compara con el comportamiento POSIX de \texttt{link} sobre
+un inode borrado?
+\end{ejercicio}
+
+\begin{ejercicio}[$\star\star$]
+Diseñe la regla DPO para \texttt{rmdir(d)}. ¿Cuál es la gluing
+condition? ¿Qué ocurre si el directorio no está vacío? Compare
+con la rule de \texttt{unlink}.
+\end{ejercicio}
+
+\begin{ejercicio}[$\star\star\star$]
+Snapshots se hacen con un puntero a la root del DAG en un
+instante. ¿Cuál es el costo en bytes de un snapshot de un FS de
+1 TB con 1M de archivos? Compare con el costo de un snapshot
+COW de un ext4 hipotético del mismo tamaño.
+\end{ejercicio}
+
+\begin{ejercicio}[$\star\star\star$]
+Diseñe un mecanismo de \emph{garbage collection} para sotFS
+basado en mark-and-sweep desde los snapshot roots. ¿Cómo
+manejas concurrent writes que crean nuevos nodos durante el
+mark? Pista: tri-color marking + write barrier sobre roots.
+\end{ejercicio}
+
+% TODO(apendice-E): respuestas a ejercicios 17.1-17.5

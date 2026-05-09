@@ -1,0 +1,117 @@
+.TH SOTFS-FUSE 1 "May 2026" "sotfs 0.2.0" "User Commands"
+.SH NAME
+sotfs-fuse \- mount a sotFS type-graph filesystem via FUSE
+.SH SYNOPSIS
+.B sotfs-fuse
+.I MOUNTPOINT
+.RB [ --db
+.IR PATH ]
+.SH DESCRIPTION
+.B sotfs-fuse
+mounts a content-addressed type-graph filesystem at
+.I MOUNTPOINT
+using the FUSE userspace driver. Without
+.BR --db ,
+the mount is in-memory and ephemeral: the type graph is created fresh
+on mount and discarded on unmount. With
+.BR --db ,
+the graph is loaded from
+.IR PATH " (a "
+.B redb
+file) on mount and persisted back to it on unmount and on
+.BR fsync (2).
+.PP
+The mount is restricted to the UID that ran
+.B sotfs-fuse
+by default; set
+.B SOTFS_FUSE_ALLOW_OTHER=1
+to opt into
+.BR allow_other .
+.SH OPTIONS
+.TP
+.BI --db " PATH"
+Persist the type graph to the redb-backed file
+.IR PATH .
+The file is created on first mount if it does not exist (use
+.BR sotfsctl (1)
+.B mkfs
+to pre-allocate). On unmount and on every
+.BR fsync (2)
+the in-memory graph is serialized back to disk via
+.BR redb 's
+ACID transaction.
+.SH ENVIRONMENT
+.TP
+.B SOTFS_FUSE_TTL_MS
+Override the kernel-side entry/attr cache TTL in milliseconds (default:
+1000). Set to 0 to disable cache amortization for benchmarking raw
+upcall cost.
+.TP
+.B SOTFS_FUSE_ALLOW_OTHER
+If set to any non-empty value, the mount is created with
+.B allow_other
+and
+.BR auto_unmount ,
+allowing other UIDs to access the filesystem. Off by default to
+preserve POSIX per-user isolation.
+.SH FILES
+.TP
+.I PATH
+The redb database file used by
+.BR --db .
+Standard layout follows
+.BR redb (3)
+conventions; do not edit by hand. Use
+.BR sotfsctl (1)
+.B check
+to verify integrity offline and
+.BR sotfsctl (1)
+.B dump
+to inspect.
+.SH EXAMPLES
+.TP
+Ephemeral mount:
+.EX
+$ sotfs-fuse /tmp/mnt
+.EE
+.TP
+Persistent mount:
+.EX
+$ sotfsctl mkfs /var/lib/sotfs/data.redb
+$ sotfs-fuse /mnt/sotfs --db /var/lib/sotfs/data.redb &
+$ ls /mnt/sotfs/
+.EE
+.TP
+Benchmarking with attr cache disabled:
+.EX
+$ SOTFS_FUSE_TTL_MS=0 sotfs-fuse /tmp/mnt
+.EE
+.SH EXIT STATUS
+.TP
+.B 0
+Successful mount and clean unmount.
+.TP
+.B 1
+Mount failed (permissions, missing
+.BR /dev/fuse ,
+backend error).
+.TP
+.B 2
+Invalid command-line arguments.
+.SH SEE ALSO
+.BR sotfsctl (1),
+.BR sotfs-export-hunter (1),
+.BR fusermount3 (1),
+.BR mount.fuse3 (8)
+.SH STANDARDS
+The implemented FUSE callbacks include
+.BR lookup ", " getattr ", " setattr ", " readdir ", " mkdir ", "
+.BR rmdir ", " create ", " unlink ", " rename ", " link ", " open ", "
+.BR read ", " write ", " release ", " opendir ", " releasedir ", "
+.BR symlink ", " readlink ", " statfs ", " access ", " fsync ", "
+.BR flush ", " setxattr ", " getxattr ", " listxattr ", " removexattr .
+Not yet implemented:
+.BR mmap ", " ioctl ", " poll ", " fallocate ", " getlk / setlk ", "
+.BR openat / getdents .
+.SH BUGS
+Report at https://github.com/sotomayorlucas/sotfs/issues.

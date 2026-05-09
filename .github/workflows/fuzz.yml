@@ -1,0 +1,53 @@
+name: Fuzz
+
+on:
+  schedule:
+    - cron: "0 4 * * *"
+  workflow_dispatch:
+    inputs:
+      duration:
+        description: "Seconds per fuzz target"
+        required: false
+        default: "60"
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  fuzz:
+    name: ${{ matrix.target }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - fuzz_op_sequence
+          - fuzz_path_resolution
+          - fuzz_ipc_parser
+          - fuzz_cap_table
+          - fuzz_dir_name_idx
+          - fuzz_tx_sequence
+    env:
+      DURATION: ${{ inputs.duration || '60' }}
+      TARGET: ${{ matrix.target }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@nightly
+      - uses: taiki-e/install-action@cargo-fuzz
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: fuzz-${{ matrix.target }}
+      - name: Run fuzz target
+        run: |
+          cd fuzz
+          cargo +nightly fuzz run "$TARGET" -- -max_total_time="$DURATION"
+      - name: Upload artifacts on crash
+        if: failure()
+        env:
+          ART_NAME: fuzz-${{ matrix.target }}-${{ github.sha }}
+          CRASH_DIR: fuzz/artifacts/${{ matrix.target }}/
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.ART_NAME }}
+          path: ${{ env.CRASH_DIR }}
