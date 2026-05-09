@@ -171,16 +171,100 @@ fn hunter_dash_o_without_arg_fails() {
 }
 
 #[test]
-fn hunter_tail_reports_not_implemented() {
-    // Tail mode is the v0.2.4 follow-up; today it must fail loudly with
-    // a known message so that callers can detect the gap.
+fn hunter_tail_missing_file_reports_open_error() {
     let out = Command::new(hunter_bin())
-        .args(["--tail", "/tmp/whatever.redb"])
+        .args(["--tail", "/tmp/sotfs-no-such-sidecar-9876.jsonl"])
         .output()
         .unwrap();
     assert_eq!(out.status.code(), Some(1));
     let stderr = String::from_utf8_lossy(&out.stderr);
-    assert!(stderr.contains("not implemented"));
+    assert!(stderr.contains("open"));
+}
+
+#[test]
+fn hunter_tail_once_reads_existing_and_exits() {
+    let dir = tmp_dir("tail-once");
+    let sidecar = dir.join("prov.jsonl");
+    std::fs::write(
+        &sidecar,
+        concat!(
+            r#"{"t":1,"op":"Create","inode":42,"cap":null,"domain":0,"detail":"file-a"}"#,
+            "\n",
+            r#"{"t":2,"op":"Write","inode":42,"cap":7,"domain":1,"detail":"size+10"}"#,
+            "\n",
+            r#"{"t":3,"op":"Unlink","inode":42,"cap":null,"domain":0,"detail":"file-a"}"#,
+            "\n",
+        ),
+    )
+    .unwrap();
+
+    let out = Command::new(hunter_bin())
+        .args(["--tail", sidecar.to_str().unwrap(), "--once"])
+        .output()
+        .unwrap();
+    assert!(out.status.success(), "tail --once should succeed: {out:?}");
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    let lines: Vec<&str> = stdout.trim().lines().collect();
+    assert_eq!(lines.len(), 3, "one NDJSON line per entry: {stdout}");
+    // Each line must be valid JSON with the documented streaming shape.
+    for l in &lines {
+        let v: serde_json::Value = serde_json::from_str(l).expect("valid JSON");
+        assert_eq!(v["kind"], "prov");
+        assert!(v["t"].is_u64());
+        assert!(v["op"].is_string());
+        assert!(v["inode"].is_u64());
+    }
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(stderr.contains("emitted 3"));
+}
+
+#[test]
+fn hunter_tail_once_skips_malformed_lines_without_failing() {
+    let dir = tmp_dir("tail-malformed");
+    let sidecar = dir.join("prov.jsonl");
+    std::fs::write(
+        &sidecar,
+        concat!(
+            r#"{"t":1,"op":"Create","inode":1,"cap":null,"domain":0,"detail":""}"#,
+            "\n",
+            // Pre-v0.2.4 format that the FUSE daemon used to emit —
+            // bare keyword `op` value, `Some(x)` for cap. Must be
+            // skipped, not crash the tailer.
+            r#"{"t":2,"op":Write,"inode":1,"cap":Some(3),"domain":0,"detail":""}"#,
+            "\n",
+            r#"{"t":3,"op":"Unlink","inode":1,"cap":null,"domain":0,"detail":""}"#,
+            "\n",
+        ),
+    )
+    .unwrap();
+
+    let out = Command::new(hunter_bin())
+        .args(["--tail", sidecar.to_str().unwrap(), "--once"])
+        .output()
+        .unwrap();
+    assert!(out.status.success(), "{out:?}");
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert_eq!(stdout.trim().lines().count(), 2, "two valid + one skipped");
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(stderr.contains("malformed"));
+}
+
+#[test]
+fn hunter_tail_with_invalid_poll_ms_fails_with_arg_error() {
+    let out = Command::new(hunter_bin())
+        .args(["--tail", "/tmp/x.jsonl", "--poll-ms", "twohundred"])
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(2));
+}
+
+#[test]
+fn hunter_tail_poll_ms_without_arg_fails() {
+    let out = Command::new(hunter_bin())
+        .args(["--tail", "/tmp/x.jsonl", "--poll-ms"])
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(2));
 }
 
 #[test]
