@@ -1124,15 +1124,51 @@ pub fn readlink(g: &TypeGraph, inode_id: InodeId) -> Result<String, GraphError> 
 // ACLs — §6.2.10: POSIX.1e ACL ↔ Capability Graph Correspondence
 // ===========================================================================
 
+/// Convert POSIX permission bits (rwx in lo-3 of u16) to capability `Rights`.
+///
+/// `r` (`0o4`) → [`Rights::READ`], `w` (`0o2`) → [`Rights::WRITE`],
+/// `x` (`0o1`) → [`Rights::EXECUTE`]. ACL grants do not imply
+/// [`Rights::GRANT`]/[`Rights::REVOKE`] — those bits are reserved for
+/// the cap-derivation authority and would let an ACL entry mint
+/// further caps from the file, which contradicts POSIX semantics.
+fn perms_to_rights(p: Permissions) -> Rights {
+    let mode = p.mode();
+    let mut bits = 0u8;
+    if mode & 0o4 != 0 {
+        bits |= Rights::READ;
+    }
+    if mode & 0o2 != 0 {
+        bits |= Rights::WRITE;
+    }
+    if mode & 0o1 != 0 {
+        bits |= Rights::EXECUTE;
+    }
+    Rights(bits)
+}
+
 /// Set the ACL for an inode.
 ///
-/// The ACL is stored alongside the inode and also synthesizes Grants edges
-/// in the capability graph for each ACL entry that grants access.
-/// This establishes the correspondence:
+/// The ACL is stored alongside the inode AND materializes the
+/// correspondence to the capability graph that the design document
+/// promises but pre-v0.2.3 did not actually emit:
+///
+/// ```text
 ///   ACL_USER_OBJ  →  Grants(cap_owner, inode, owner_rights)
-///   ACL_USER(uid) →  Grants(cap_uid,   inode, user_rights)
+///   ACL_USER(uid) →  Grants(cap_uid,   inode, user_rights & mask)
 ///   ACL_GROUP_OBJ →  Grants(cap_group, inode, group_rights & mask)
+///   ACL_GROUP(gid)→  Grants(cap_gid,   inode, group_rights & mask)
 ///   ACL_OTHER     →  Grants(cap_other, inode, other_rights)
+/// ```
+///
+/// Each entry yields exactly one fresh `Capability` node + one
+/// `Grants` edge. POSIX.1e says `USER`, `GROUP`, and `GROUP_OBJ`
+/// effective rights are clamped by `ACL_MASK` if present; we apply
+/// that mask before emitting the cap.
+///
+/// Idempotency: `setacl` first removes any `Grants` edges that
+/// already point at `inode_id` and the caps that owned them, so a
+/// caller can `setacl` the same inode repeatedly without leaking
+/// orphan caps. `link`/`Delegates`/`PointsTo` edges are not touched.
 pub fn setacl(
     g: &mut TypeGraph,
     inode_id: InodeId,
@@ -1141,7 +1177,85 @@ pub fn setacl(
     if !g.contains_inode(inode_id) {
         return Err(GraphError::InodeNotFound(inode_id));
     }
-    g.acls.insert(inode_id, entries);
+
+    // Step 1: purge previously-synthesized Grants edges + their caps.
+    // Identification rule: any Grants edge whose tgt is this inode is
+    // assumed to have been synthesized by an earlier setacl call.
+    // External callers that produce their own Grants edges (today
+    // there are none in-tree) would need to opt out via a tagged-cap
+    // discriminator; that is post-v0.2.3.
+    let existing: Vec<u64> = g
+        .edges
+        .iter()
+        .filter_map(|(aid, edge)| match edge {
+            Edge::Grants { tgt, .. } if *tgt == inode_id => Some(aid.0 as u64),
+            _ => None,
+        })
+        .collect();
+    let mut caps_to_drop = Vec::new();
+    for eid in existing {
+        if let Some(Edge::Grants { src, .. }) = g.remove_edge(eid) {
+            caps_to_drop.push(src);
+            g.cap_grants.remove(&src);
+        }
+    }
+    for cap_id in caps_to_drop {
+        // Each ACL-synthesized cap owns exactly one Grants edge that
+        // we just removed; safe to drop the cap node now.
+        let _ = g.caps.remove(sotfs_graph::arena::ArenaId(cap_id as u32));
+    }
+
+    // Step 2: store the ACL list itself (unchanged from pre-v0.2.3).
+    g.acls.insert(inode_id, entries.clone());
+
+    // Step 3: synthesize fresh caps + Grants edges.
+    //
+    // POSIX.1e ACL_MASK clamps the effective permissions of named
+    // user, named group, and the group_obj entries. USER_OBJ and
+    // OTHER are exempt.
+    let mask: Option<Rights> = entries
+        .iter()
+        .find(|e| e.tag == AclTag::Mask)
+        .map(|e| perms_to_rights(e.permissions));
+
+    for entry in &entries {
+        // ACL_MASK itself is metadata, not a grantable subject.
+        if entry.tag == AclTag::Mask {
+            continue;
+        }
+        let mut rights = perms_to_rights(entry.permissions);
+        if matches!(entry.tag, AclTag::User | AclTag::Group | AclTag::GroupObj) {
+            if let Some(m) = mask {
+                rights = rights.restrict(m);
+            }
+        }
+        if rights.0 == 0 {
+            // Empty grant — skip the edge entirely so there is no
+            // synthetic capability with zero rights cluttering the graph.
+            continue;
+        }
+        let cap_id = g.alloc_cap_id();
+        let edge_id = g.alloc_edge_id();
+        g.insert_cap(
+            cap_id,
+            Capability {
+                id: cap_id,
+                rights,
+                epoch: 0,
+            },
+        );
+        g.insert_edge(
+            edge_id,
+            Edge::Grants {
+                id: edge_id,
+                src: cap_id,
+                tgt: inode_id,
+                rights,
+            },
+        );
+        g.cap_grants.insert(cap_id, edge_id);
+    }
+
     g.record_prov(ProvOp::SetAcl, inode_id, "");
     Ok(())
 }
@@ -1258,11 +1372,7 @@ pub fn update_quota(g: &mut TypeGraph, dir_id: DirId, delta_inodes: i64, delta_b
 /// Check that writing `additional` bytes under `dir_id`'s subtree would
 /// not exceed the byte quota of `dir_id` or any ancestor. Counterpart
 /// to the existing [`check_quota_inode`]; same walk-up shape.
-pub fn check_quota_bytes(
-    g: &TypeGraph,
-    dir_id: DirId,
-    additional: u64,
-) -> Result<(), GraphError> {
+pub fn check_quota_bytes(g: &TypeGraph, dir_id: DirId, additional: u64) -> Result<(), GraphError> {
     let mut current = Some(dir_id);
     while let Some(d) = current {
         if let Some(q) = g.quotas.get(&d) {
