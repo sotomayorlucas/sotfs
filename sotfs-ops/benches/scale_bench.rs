@@ -124,6 +124,7 @@ fn build_kernel_tree(target_nodes: usize) -> TypeGraph {
     let mut count = 1;
     let width = 15;
 
+    #[allow(clippy::too_many_arguments)]
     fn populate(
         g: &mut TypeGraph,
         dir: DirId,

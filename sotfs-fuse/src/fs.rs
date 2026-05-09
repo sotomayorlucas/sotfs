@@ -45,7 +45,6 @@ use fuser::{
 
 use sotfs_graph::graph::TypeGraph;
 use sotfs_graph::types::*;
-use sotfs_ops;
 
 const BLOCK_SIZE: u32 = 4096;
 
@@ -72,6 +71,12 @@ pub struct SotFsFilesystem {
     /// `destroy()` / `fsync()`. When `None`, the mount is in-memory and
     /// drops on unmount.
     backend: Option<Arc<RedbBackend>>,
+}
+
+impl Default for SotFsFilesystem {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl SotFsFilesystem {
@@ -204,7 +209,7 @@ fn inode_to_attr(inode: &Inode) -> FileAttr {
     FileAttr {
         ino: inode.id,
         size: inode.size,
-        blocks: (inode.size + 511) / 512,
+        blocks: inode.size.div_ceil(512),
         atime: to_systime(inode.atime),
         mtime: to_systime(inode.mtime),
         ctime: to_systime(inode.ctime),
@@ -302,11 +307,9 @@ impl Filesystem for SotFsFilesystem {
             }
         }
 
-        if uid.is_some() || gid.is_some() {
-            if sotfs_ops::chown(&mut g, ino, uid, gid).is_err() {
-                reply.error(libc::ENOENT);
-                return;
-            }
+        if (uid.is_some() || gid.is_some()) && sotfs_ops::chown(&mut g, ino, uid, gid).is_err() {
+            reply.error(libc::ENOENT);
+            return;
         }
 
         if let Some(new_size) = size {
@@ -752,7 +755,7 @@ impl Filesystem for SotFsFilesystem {
         };
         // perms is r=4 w=2 x=1; mask uses same bits via R_OK/W_OK/X_OK.
         let want = mask & 0o7;
-        if (perms as i32 & want) == want {
+        if (perms & want) == want {
             reply.ok();
         } else {
             reply.error(libc::EACCES);

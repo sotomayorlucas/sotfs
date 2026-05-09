@@ -8,7 +8,7 @@
 //! All exports are read-only snapshots; the TypeGraph is not modified.
 
 #[cfg(not(feature = "std"))]
-use alloc::{format, string::String, string::ToString, vec::Vec};
+use alloc::{format, string::String, vec::Vec};
 
 use crate::graph::TypeGraph;
 use crate::types::*;
