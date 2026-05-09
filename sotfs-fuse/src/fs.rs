@@ -48,6 +48,18 @@ use sotfs_graph::types::*;
 
 const BLOCK_SIZE: u32 = 4096;
 
+/// Derive a [`CapContext`] from a FUSE request.
+///
+/// Convention: each Linux uid acts as its own security domain (we don't
+/// have a cap-graph mapping yet — that lands with the cap-mediated
+/// admission control work post-v0.3). `cap_id` stays `None` until the
+/// FUSE daemon learns to look up the cap-graph for the (uid,inode)
+/// pair; the value still surfaces in MSO query Q4 (ops_by_domain) and
+/// Q6 (activity_summary).
+fn ctx_from_req(req: &Request<'_>) -> CapContext {
+    CapContext::new(None, req.uid() as u64)
+}
+
 /// The FUSE filesystem backed by a sotFS TypeGraph.
 ///
 /// `graph` lives behind a `parking_lot::RwLock`: read-only callbacks
@@ -292,7 +304,7 @@ impl Filesystem for SotFsFilesystem {
     // -------------------------------------------------------------------
     fn setattr(
         &mut self,
-        _req: &Request,
+        req: &Request,
         ino: u64,
         mode: Option<u32>,
         uid: Option<u32>,
@@ -309,6 +321,7 @@ impl Filesystem for SotFsFilesystem {
         reply: ReplyAttr,
     ) {
         let mut g = self.graph.write();
+        g.set_cap_ctx(ctx_from_req(req));
 
         if let Some(m) = mode {
             if sotfs_ops::chmod(&mut g, ino, (m & 0o7777) as u16).is_err() {
@@ -388,6 +401,7 @@ impl Filesystem for SotFsFilesystem {
         reply: ReplyEntry,
     ) {
         let mut g = self.graph.write();
+        g.set_cap_ctx(ctx_from_req(req));
         let name_str = name.to_str().unwrap_or("");
 
         let parent_dir = match g.dir_for_inode(parent) {
@@ -413,8 +427,9 @@ impl Filesystem for SotFsFilesystem {
     // -------------------------------------------------------------------
     // rmdir: remove a directory
     // -------------------------------------------------------------------
-    fn rmdir(&mut self, _req: &Request, parent: u64, name: &OsStr, reply: ReplyEmpty) {
+    fn rmdir(&mut self, req: &Request, parent: u64, name: &OsStr, reply: ReplyEmpty) {
         let mut g = self.graph.write();
+        g.set_cap_ctx(ctx_from_req(req));
         let name_str = name.to_str().unwrap_or("");
 
         let parent_dir = match g.dir_for_inode(parent) {
@@ -447,6 +462,7 @@ impl Filesystem for SotFsFilesystem {
         reply: ReplyCreate,
     ) {
         let mut g = self.graph.write();
+        g.set_cap_ctx(ctx_from_req(req));
         let name_str = name.to_str().unwrap_or("");
 
         let parent_dir = match g.dir_for_inode(parent) {
@@ -474,8 +490,9 @@ impl Filesystem for SotFsFilesystem {
     // -------------------------------------------------------------------
     // unlink: remove a file
     // -------------------------------------------------------------------
-    fn unlink(&mut self, _req: &Request, parent: u64, name: &OsStr, reply: ReplyEmpty) {
+    fn unlink(&mut self, req: &Request, parent: u64, name: &OsStr, reply: ReplyEmpty) {
         let mut g = self.graph.write();
+        g.set_cap_ctx(ctx_from_req(req));
         let name_str = name.to_str().unwrap_or("");
 
         let parent_dir = match g.dir_for_inode(parent) {
@@ -498,7 +515,7 @@ impl Filesystem for SotFsFilesystem {
     // -------------------------------------------------------------------
     fn rename(
         &mut self,
-        _req: &Request,
+        req: &Request,
         parent: u64,
         name: &OsStr,
         newparent: u64,
@@ -507,6 +524,7 @@ impl Filesystem for SotFsFilesystem {
         reply: ReplyEmpty,
     ) {
         let mut g = self.graph.write();
+        g.set_cap_ctx(ctx_from_req(req));
         let old_name = name.to_str().unwrap_or("");
         let new_name = newname.to_str().unwrap_or("");
 
@@ -538,13 +556,14 @@ impl Filesystem for SotFsFilesystem {
     // -------------------------------------------------------------------
     fn link(
         &mut self,
-        _req: &Request,
+        req: &Request,
         ino: u64,
         newparent: u64,
         newname: &OsStr,
         reply: ReplyEntry,
     ) {
         let mut g = self.graph.write();
+        g.set_cap_ctx(ctx_from_req(req));
         let name_str = newname.to_str().unwrap_or("");
 
         let parent_dir = match g.dir_for_inode(newparent) {
@@ -606,7 +625,7 @@ impl Filesystem for SotFsFilesystem {
     // -------------------------------------------------------------------
     fn write(
         &mut self,
-        _req: &Request,
+        req: &Request,
         ino: u64,
         _fh: u64,
         offset: i64,
@@ -617,6 +636,7 @@ impl Filesystem for SotFsFilesystem {
         reply: ReplyWrite,
     ) {
         let mut g = self.graph.write();
+        g.set_cap_ctx(ctx_from_req(req));
         match sotfs_ops::write_data(&mut g, ino, offset as u64, data) {
             Ok(written) => reply.written(written as u32),
             Err(_) => reply.error(libc::EIO),
@@ -668,6 +688,7 @@ impl Filesystem for SotFsFilesystem {
         reply: ReplyEntry,
     ) {
         let mut g = self.graph.write();
+        g.set_cap_ctx(ctx_from_req(req));
         let name_str = name.to_str().unwrap_or("");
         let target_str = link.to_str().unwrap_or("");
 
@@ -796,7 +817,7 @@ impl Filesystem for SotFsFilesystem {
     // -------------------------------------------------------------------
     fn setxattr(
         &mut self,
-        _req: &Request,
+        req: &Request,
         ino: u64,
         name: &OsStr,
         value: &[u8],
@@ -812,6 +833,7 @@ impl Filesystem for SotFsFilesystem {
             }
         };
         let mut g = self.graph.write();
+        g.set_cap_ctx(ctx_from_req(req));
         match sotfs_ops::setxattr(&mut g, ino, ns, attr, value) {
             Ok(_) => reply.ok(),
             Err(sotfs_graph::GraphError::InodeNotFound(_)) => reply.error(libc::ENOENT),
@@ -873,7 +895,7 @@ impl Filesystem for SotFsFilesystem {
         }
     }
 
-    fn removexattr(&mut self, _req: &Request, ino: u64, name: &OsStr, reply: ReplyEmpty) {
+    fn removexattr(&mut self, req: &Request, ino: u64, name: &OsStr, reply: ReplyEmpty) {
         let (ns, attr) = match split_xattr(name.to_str().unwrap_or("")) {
             Some(parts) => parts,
             None => {
@@ -882,6 +904,7 @@ impl Filesystem for SotFsFilesystem {
             }
         };
         let mut g = self.graph.write();
+        g.set_cap_ctx(ctx_from_req(req));
         match sotfs_ops::removexattr(&mut g, ino, ns, attr) {
             Ok(()) => reply.ok(),
             Err(sotfs_graph::GraphError::XAttrNotFound(_)) => reply.error(libc::ENODATA),
