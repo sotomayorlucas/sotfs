@@ -5,6 +5,126 @@ All notable changes to sotFS will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.4] — 2026-05-09 — close the v0.2.1 carryovers
+
+This release closes four of the five v0.2.1-carryover items. The
+fifth (cap-mediated DPO paths with real `cap_id`/`domain_id` plumbing
+through `sotfs-ops`, the last v0.2.2-review item) and the Coq
+`Admitted` lemmas in `formal/coq/DpoRmdir.v` remain on the v0.2.5
+roadmap.
+
+### Added — `sotfs-export-hunter --tail`
+
+Streams the FUSE provenance JSONL sidecar
+(`SOTFS_PROV_SIDECAR=<path>`) as NDJSON. One line per provenance
+entry, with shape:
+
+```json
+{"t":<u64>, "kind":"prov", "op":"<ProvOp>",
+ "inode":<u64>, "cap":<u64|null>, "domain":<u64>, "detail":<str>}
+```
+
+Three modes:
+
+- `--tail <jsonl>`             — follow forever (poll every 500 ms by
+  default; tune with `--poll-ms <N>`).
+- `--tail <jsonl> --once`      — drain existing entries and exit.
+- `--tail <jsonl> --max-events <N>` — exit cleanly after N events.
+
+Bug fixed during the wiring: pre-v0.2.4 the FUSE daemon's
+`persist_prov_log` hand-formatted the JSONL with `Debug`-formatting
+for `op` and `Option<u64>` fields, producing invalid JSON
+(`"op":Create`, `"cap":Some(7)`). Replaced with
+`serde_json::to_string` after deriving `Serialize`/`Deserialize` on
+`ProvOp` and `ProvenanceEntry` (with `#[serde(rename = ...)]` for
+the documented field names).
+
+The follower also detects file rewrites that result in a length ≥
+the previous `last_pos`: it probes byte `last_pos - 1` and rewinds
+if it isn't `\n`. Pure size comparison would miss this case.
+
+### Changed — clippy CI gate is now strict
+
+The `clippy` job in `.github/workflows/ci.yml` runs
+`cargo clippy --workspace --all-targets --release -- -D warnings`
+without `continue-on-error`. The v0.2.0 → v0.2.3 cleanup pass
+closed the accumulated debt across all crates; this release flips
+the gate. New warnings now fail CI the same as test failures.
+
+Quick lint summary (full list in commit
+`fix(clippy): close strict gate workspace-wide`):
+
+- `sotfs-graph/src/arena.rs`: missing `use alloc::vec` for `vec!`
+  under no_std + alloc — fixed a pre-existing build break that was
+  masked because nothing exercised the no_std build with strict
+  warnings.
+- `sotfs-graph/src/export.rs`: removed dead `string::ToString`
+  import.
+- `sotfs-monitor/src/treewidth.rs`: 4 manual_memcpy → `copy_from_
+  slice`, 2 needless_range_loop → `iter().take(n)`, 2 manual_find
+  → `(0..n).find(...)`, 1 manual_div_ceil, missing `Default` impl.
+- `sotfs-monitor/src/curvature.rs`, `deception.rs`: needless_let_
+  return, manual_clamp, values_mut over (_, v) iteration.
+- `sotfs-fuse/src/fs.rs`: redundant `use sotfs_ops`, missing
+  `Default` impl, manual_div_ceil, collapsible_if, unnecessary_cast.
+- `sotfs-cli/src/bin/sotfsctl.rs`: `&PathBuf` → `&Path`.
+- `sotfs-storage/src/backend.rs`: `result_large_err` allowed locally
+  with a docstring (`redb::Error` is upstream and ~128 bytes; cold
+  path).
+- `sotfs-ops/src/lib.rs`: collapsed nested `if let` matches and a
+  visited+cycle check.
+- `sotfs-ops/benches/{wal,comparison,scale}_bench.rs`: dead const,
+  let_and_return, too_many_arguments-allow.
+- `sotfs-ops/examples/idx_check.rs`: needless_range_loop on a name
+  vector — switched to `iter_mut().enumerate()`.
+
+### Changed — coverage floor 70 → 80
+
+Workspace line coverage measured 74.64% pre-PR and 80.13% after the
+test additions and the tail mode landing. The CI gate
+(`scripts/coverage_gate.py`) now requires ≥ 80 with the
+delta-vs-baseline cap unchanged at 2 pp.
+
+New tests:
+
+- `sotfs-cli/tests/sotfsctl_integration.rs` — 13 cases for every
+  `sotfsctl` subcommand and arg-error path.
+- `sotfs-cli/tests/dot_and_export.rs` — 26 cases for `sotfs-dot`
+  (5 ops × before/after .dot files) and `sotfs-export-hunter`
+  (snapshot to stdout / file, --tail in --once / --max-events / and
+  arg-error variants, malformed-line resilience, follower
+  truncation rewind).
+- `sotfs-graph/tests/error_display.rs` — every `GraphError` variant
+  formats correctly.
+- `sotfs-graph/tests/types_methods.rs` — `Permissions`, `Rights`,
+  `Inode::new_*`, `Quota::check_*`, `Edge::{id, src_node,
+  tgt_node}`.
+- `sotfs-graph/tests/graph_api.rs` — 22 cases for `TypeGraph`
+  accessors and lookup helpers (alloc, contains, get/insert/remove,
+  resolve_path, parent_dir, is_ancestor, prov_log toggling, etc).
+- `sotfs-ops/tests/export_full.rs` — `to_dot` (default / full /
+  minimal styles), `to_d3_json` (well-formed + escape semantics),
+  `to_graph_hunter` (non-trivial graph), `stats`.
+
+### Fixed — `to_d3_json` JSON escaping
+
+`sotfs-graph::export::json_str` only escaped `\` and `"`, leaving
+control characters bare. POSIX permits `\n`, `\t`, etc. in
+filenames, so any volume containing one would emit invalid JSON
+through `to_d3_json`. Replaced with a per-character escaper that
+handles `\\`, `\"`, `\n`, `\r`, `\t`, `\b`, `\f`, and `\uXXXX` for
+any other C0 control. Regression test:
+`sotfs-ops/tests/export_full.rs::to_d3_json_escapes_special_*`.
+
+### Carried over to v0.2.5
+
+- Cap-mediated DPO paths with real `cap_id` / `domain_id` plumbing
+  through `sotfs-ops`.
+- Five `Admitted` lemmas in `formal/coq/DpoRmdir.v`
+  (`TypeInvariant`, `NoDanglingEdges`, `WellFormed`).
+- `sotfs-fuse/src/fs.rs` line coverage (currently 5%; FUSE
+  callbacks need a real mount harness).
+
 ## [0.2.3] — 2026-05-09 — close the v0.2.2-review loop
 
 Three of the four "deferred" items from the v0.2.2 review are now
