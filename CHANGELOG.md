@@ -5,7 +5,64 @@ All notable changes to sotFS will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [Unreleased] — v0.2.2-dev
+
+### Added — provenance log wired end-to-end
+
+The `ProvenanceLog` API existed since v0.2.0 with unit tests but no
+consumer; v0.2.2 closes the loop. Every mutating DPO op in
+`sotfs-ops` now calls `TypeGraph::record_prov(...)` after success
+(create, mkdir, rmdir, link, unlink, rename, write, truncate, chmod,
+chown, setxattr, removexattr, symlink, setacl). The FUSE daemon
+enables the log by default — opt out with `SOTFS_FUSE_NO_PROVENANCE=1`
+for clean bench numbers.
+
+Module relocation: `provenance` moved from `sotfs-ops` to
+`sotfs-graph` so the live `TypeGraph` can hold the
+`Option<ProvenanceLog>` field directly without a circular
+dependency. `sotfs-ops` re-exports the public API (`ProvOp`,
+`ProvenanceEntry`, `ProvenanceLog`, `ProvActivitySummary`) so
+existing imports keep working.
+
+Sidecar persistence: `sotfs-fuse` drains the in-memory log on
+`fsync()` and `destroy()` (unmount) into a JSONL file when
+`SOTFS_PROV_SIDECAR=<path>` is set. Lines are append-only and the
+log is cleared after each drain so memory does not grow unbounded
+on long-running mounts.
+
+Admin CLI: `sotfsctl prov <db.redb> [--inode N]` reads the sidecar
+and prints entries. Useful for SOC review post-incident or as a
+feed into log forwarders.
+
+New tests:
+
+- `sotfs-graph::provenance::tests` (4 tests, moved from sotfs-ops):
+  query correctness on hand-built logs.
+- `sotfs-ops/tests/provenance_integration.rs` (6 tests): the
+  wiring itself — every DPO op records, disabled log records
+  nothing, drain clears, queries return the expected entries.
+
+End-to-end demo: mount with `SOTFS_PROV_SIDECAR` set, perform
+mkdir/create/write/symlink/setxattr/chmod/rename inside the mount,
+unmount, then `sotfsctl prov` prints all eight events with
+`(timestamp, op, inode, cap, domain, detail)`. Filter by inode
+works.
+
+### Deferred — what remains for v0.2.3 / later
+
+Three more reviewer items still open:
+
+- Quotas integration (`update_quota` from `create_file` / `unlink`).
+- ACL `setacl` materializing `Grants` edges in the cap graph.
+- Typestate adoption in `sotfs-ops` and `sotfs-fuse` (or move to
+  `sotfs-experimental`).
+
+Plus the v0.2.1 carry-overs:
+
+- `sotfs-export-hunter --tail` streaming mode.
+- Strict clippy gate (`-D warnings` workspace-wide).
+- Coverage floor 70% → 80%.
+- Five `Admitted` lemmas in `DpoRmdir.v` / `DpoUnlink.v`.
 
 ## [0.2.1] — 2026-05-09 — honesty pass
 

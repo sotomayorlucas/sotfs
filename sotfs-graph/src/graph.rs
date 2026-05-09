@@ -21,6 +21,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::arena::{Arena, ArenaId};
 use crate::error::GraphError;
+use crate::provenance::{ProvOp, ProvenanceLog};
 use crate::types::*;
 
 /// Maximum hard links per inode (bounds treewidth via GC-LINK-3).
@@ -145,6 +146,23 @@ pub struct TypeGraph {
     /// DirId -> quota for subtree rooted at this directory
     pub quotas: BTreeMap<DirId, Quota>,
 
+    // --- Provenance log (§6.4, opt-in) ---
+    /// Append-only audit trail of every successful DPO mutation.
+    ///
+    /// `None` by default: ephemeral mounts and unit tests pay nothing
+    /// for the field. `Some(...)` is set by the FUSE daemon (or any
+    /// caller that wants the audit trail) via [`enable_prov_log`]; from
+    /// that point on, every mutating DPO op in `sotfs-ops` calls
+    /// [`record_prov`].
+    ///
+    /// `#[serde(skip)]` because the log is live state, not a snapshot
+    /// invariant — persistence backends should drain it via
+    /// [`take_prov_log`] (or `prov_log_mut().drain()`) and forward to
+    /// their own append-only sink rather than serializing the whole
+    /// `Vec` into the graph blob.
+    #[serde(skip)]
+    pub prov_log: Option<ProvenanceLog>,
+
     // --- ID allocators ---
     next_inode: u64,
     next_dir: u64,
@@ -218,6 +236,7 @@ impl TypeGraph {
             dir_name_idx: BTreeMap::new(),
             acls: BTreeMap::new(),
             quotas: BTreeMap::new(),
+            prov_log: None,
             next_inode: 2,
             next_dir: 2,
             next_cap: 1,
@@ -525,6 +544,78 @@ impl TypeGraph {
             }
         }
         Ok(())
+    }
+
+    // -----------------------------------------------------------------------
+    // Provenance log integration (§6.4)
+    // -----------------------------------------------------------------------
+
+    /// Enable provenance logging on this graph. After this call, every
+    /// successful mutating DPO op in `sotfs-ops` records a
+    /// [`ProvenanceEntry`] via [`record_prov`]. Idempotent: a second
+    /// call replaces the existing log with a fresh one (existing
+    /// entries are dropped).
+    pub fn enable_prov_log(&mut self) {
+        self.prov_log = Some(ProvenanceLog::new());
+    }
+
+    /// Disable provenance logging and discard any recorded entries.
+    pub fn disable_prov_log(&mut self) {
+        self.prov_log = None;
+    }
+
+    /// Borrow the provenance log immutably (for queries). Returns
+    /// `None` if logging is not enabled.
+    #[inline]
+    pub fn prov_log(&self) -> Option<&ProvenanceLog> {
+        self.prov_log.as_ref()
+    }
+
+    /// Borrow the provenance log mutably (for `drain()` / additional
+    /// `record()` calls beyond the auto-recorded DPO ops).
+    #[inline]
+    pub fn prov_log_mut(&mut self) -> Option<&mut ProvenanceLog> {
+        self.prov_log.as_mut()
+    }
+
+    /// Take the provenance log out, leaving `None` behind. Useful for
+    /// streaming drains where the caller wants the entries and is
+    /// happy to re-enable logging afterwards.
+    pub fn take_prov_log(&mut self) -> Option<ProvenanceLog> {
+        self.prov_log.take()
+    }
+
+    /// Append an entry to the provenance log if logging is enabled.
+    /// Cheap no-op otherwise — every DPO op in `sotfs-ops` calls this
+    /// after a successful mutation, with the inode it touched.
+    ///
+    /// `cap_id` and `domain_id` default to `None` / `0` for the
+    /// uninstrumented FUSE path; v0.2.3 will plumb real values through
+    /// once the cap-secured DPO entry points land. Today the gradient
+    /// is "logging is on or off"; cap/domain attribution is best-effort.
+    #[inline]
+    pub fn record_prov(&mut self, op: ProvOp, inode_id: InodeId, detail: &str) {
+        if let Some(log) = &mut self.prov_log {
+            log.record(crate::types::now(), op, inode_id, None, 0, detail);
+        }
+    }
+
+    /// Like [`record_prov`] but lets the caller supply `cap_id` and
+    /// `domain_id` explicitly. Used by paths that already know the
+    /// security context (e.g. cap-mediated SOT operations); plain
+    /// FUSE callbacks use [`record_prov`].
+    #[inline]
+    pub fn record_prov_full(
+        &mut self,
+        op: ProvOp,
+        inode_id: InodeId,
+        cap_id: Option<CapId>,
+        domain_id: u64,
+        detail: &str,
+    ) {
+        if let Some(log) = &mut self.prov_log {
+            log.record(crate::types::now(), op, inode_id, cap_id, domain_id, detail);
+        }
     }
 
     /// Rebuild `dir_name_idx` from the current edge set. Call after
