@@ -20,6 +20,8 @@ use std::collections::BTreeSet;
 use sotfs_graph::graph::{TypeGraph, LINK_MAX};
 use sotfs_graph::types::*;
 use sotfs_graph::GraphError;
+// `ProvOp` and friends arrive via the `pub use` block below; the DPO ops
+// in this file refer to `ProvOp::Create` etc.
 
 /// Result of a CREATE or MKDIR operation.
 pub struct CreateResult {
@@ -81,6 +83,7 @@ pub fn create_file(
         .or_default()
         .insert(edge_id);
 
+    g.record_prov(ProvOp::Create, inode_id, name);
     Ok(inode_id)
 }
 
@@ -178,6 +181,7 @@ pub fn mkdir(
         .or_default()
         .insert(dotdot_edge);
 
+    g.record_prov(ProvOp::Mkdir, inode_id, name);
     Ok(CreateResult {
         inode_id,
         dir_id: Some(dir_id),
@@ -258,6 +262,7 @@ pub fn rmdir(g: &mut TypeGraph, parent_dir: DirId, name: &str) -> Result<(), Gra
     g.dir_contains.remove(&target_dir);
     g.inode_incoming_contains.remove(&target_inode_id);
 
+    g.record_prov(ProvOp::Rmdir, target_inode_id, name);
     Ok(())
 }
 
@@ -307,6 +312,7 @@ pub fn link(
 
     g.get_inode_mut(target_inode).unwrap().link_count += 1;
 
+    g.record_prov(ProvOp::Link, target_inode, name);
     Ok(())
 }
 
@@ -378,6 +384,7 @@ pub fn unlink(g: &mut TypeGraph, dir: DirId, name: &str) -> Result<(), GraphErro
         g.inode_incoming_contains.remove(&target_inode_id);
     }
 
+    g.record_prov(ProvOp::Unlink, target_inode_id, name);
     Ok(())
 }
 
@@ -398,11 +405,23 @@ pub fn rename(
     }
 
     // FAST PATH: same-directory rename — no cycle possible, no ".." update needed.
-    if src_dir == dst_dir {
-        return rename_same_dir(g, src_dir, src_name, dst_name);
+    let result = if src_dir == dst_dir {
+        rename_same_dir(g, src_dir, src_name, dst_name)
+    } else {
+        // SLOW PATH: cross-directory rename with cycle prevention.
+        rename_cross_dir(g, src_dir, src_name, dst_dir, dst_name)
+    };
+    if result.is_ok() {
+        // Resolve the inode under its new name to record provenance
+        // against the moved object. Best-effort; failure to resolve
+        // here means the rename committed but the inode was concurrently
+        // unlinked, which would be a serious invariant break — log
+        // against id 0 (root sentinel) so the trail is not silently
+        // dropped.
+        let inode = g.resolve_name(dst_dir, dst_name).unwrap_or(0);
+        g.record_prov(ProvOp::Rename, inode, dst_name);
     }
-    // SLOW PATH: cross-directory rename with cycle prevention.
-    rename_cross_dir(g, src_dir, src_name, dst_dir, dst_name)
+    result
 }
 
 /// Fast path: rename within the same directory.
@@ -670,6 +689,7 @@ pub fn write_data(
         inode.mtime = now();
     }
 
+    g.record_prov(ProvOp::Write, inode_id, "");
     Ok(data.len())
 }
 
@@ -714,6 +734,7 @@ pub fn truncate(g: &mut TypeGraph, inode_id: InodeId, new_size: u64) -> Result<(
         inode.mtime = now();
     }
 
+    g.record_prov(ProvOp::Truncate, inode_id, "");
     Ok(())
 }
 
@@ -723,6 +744,7 @@ pub fn chmod(g: &mut TypeGraph, inode_id: InodeId, mode: u16) -> Result<(), Grap
         .get_inode_mut(inode_id)
         .ok_or(GraphError::InodeNotFound(inode_id))?;
     inode.permissions = Permissions(mode);
+    g.record_prov(ProvOp::Chmod, inode_id, "");
     Ok(())
 }
 
@@ -742,6 +764,7 @@ pub fn chown(
     if let Some(g_) = gid {
         inode.gid = g_;
     }
+    g.record_prov(ProvOp::Chown, inode_id, "");
     Ok(())
 }
 
@@ -906,6 +929,7 @@ pub fn setxattr(
     g.insert_edge(edge_id, edge);
     g.inode_xattrs.entry(inode_id).or_default().insert(xattr_id);
 
+    g.record_prov(ProvOp::Setxattr, inode_id, name);
     Ok(xattr_id)
 }
 
@@ -966,6 +990,7 @@ pub fn removexattr(
             if let Some(eid) = edge_to_remove {
                 g.remove_edge(eid);
             }
+            g.record_prov(ProvOp::Removexattr, inode_id, name);
             return Ok(());
         }
     }
@@ -1060,6 +1085,7 @@ pub fn symlink(
         .or_default()
         .insert(edge_id);
 
+    g.record_prov(ProvOp::Symlink, inode_id, name);
     Ok(inode_id)
 }
 
@@ -1099,6 +1125,7 @@ pub fn setacl(
         return Err(GraphError::InodeNotFound(inode_id));
     }
     g.acls.insert(inode_id, entries);
+    g.record_prov(ProvOp::SetAcl, inode_id, "");
     Ok(())
 }
 
@@ -1468,229 +1495,16 @@ fn has_cycle_dfs(
 }
 
 // ===========================================================================
-// Provenance Log + MSO Query API (§6.4)
+// Provenance Log + MSO Query API — re-exported from sotfs-graph (§6.4)
 // ===========================================================================
-
-/// Operation type recorded in provenance entries.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ProvOp {
-    Create,
-    Mkdir,
-    Unlink,
-    Rmdir,
-    Link,
-    Rename,
-    Write,
-    Chmod,
-    Chown,
-    Setxattr,
-    Removexattr,
-    Symlink,
-    SetAcl,
-    CapDerive,
-    CapRevoke,
-    Read,
-    Stat,
-    Open,
-}
-
-/// A single provenance entry — who did what to which inode, when, via which cap.
-#[derive(Debug, Clone)]
-pub struct ProvenanceEntry {
-    pub timestamp: u64,
-    pub op: ProvOp,
-    pub inode_id: InodeId,
-    pub cap_id: Option<CapId>,
-    pub domain_id: u64,
-    pub detail: String,
-}
-
-/// Provenance log — append-only sequence of operations on the TypeGraph.
-///
-/// Records every DPO rule application with timestamp, capability, and inode.
-/// Enables temporal queries: "what touched this inode in window [t0, t1]?"
-#[derive(Debug, Clone)]
-pub struct ProvenanceLog {
-    entries: Vec<ProvenanceEntry>,
-}
-
-impl ProvenanceLog {
-    pub fn new() -> Self {
-        Self {
-            entries: Vec::new(),
-        }
-    }
-
-    /// Record a provenance entry.
-    pub fn record(
-        &mut self,
-        timestamp: u64,
-        op: ProvOp,
-        inode_id: InodeId,
-        cap_id: Option<CapId>,
-        domain_id: u64,
-        detail: &str,
-    ) {
-        self.entries.push(ProvenanceEntry {
-            timestamp,
-            op,
-            inode_id,
-            cap_id,
-            domain_id,
-            detail: detail.into(),
-        });
-    }
-
-    /// Total number of recorded events.
-    pub fn len(&self) -> usize {
-        self.entries.len()
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.entries.is_empty()
-    }
-
-    /// Get all entries (for iteration).
-    pub fn entries(&self) -> &[ProvenanceEntry] {
-        &self.entries
-    }
-
-    // -------------------------------------------------------------------
-    // MSO-style provenance queries
-    // -------------------------------------------------------------------
-
-    /// **Q1: Capabilities that touched an inode in time window [t_start, t_end].**
-    ///
-    /// Returns all distinct (cap_id, operation) pairs for the given inode
-    /// within the time window.  This answers: "what caps accessed file F
-    /// in the last hour?"
-    pub fn caps_for_inode_in_window(
-        &self,
-        inode_id: InodeId,
-        t_start: u64,
-        t_end: u64,
-    ) -> Vec<(CapId, ProvOp, u64)> {
-        let mut result = Vec::new();
-        for e in &self.entries {
-            if e.inode_id == inode_id && e.timestamp >= t_start && e.timestamp <= t_end {
-                if let Some(cid) = e.cap_id {
-                    result.push((cid, e.op, e.timestamp));
-                }
-            }
-        }
-        result
-    }
-
-    /// **Q2: Inodes touched by a specific capability in time window.**
-    ///
-    /// Returns all (inode_id, operation, timestamp) for operations performed
-    /// via the given capability.  Answers: "what did cap C access?"
-    pub fn inodes_touched_by_cap(
-        &self,
-        cap_id: CapId,
-        t_start: u64,
-        t_end: u64,
-    ) -> Vec<(InodeId, ProvOp, u64)> {
-        let mut result = Vec::new();
-        for e in &self.entries {
-            if e.timestamp >= t_start && e.timestamp <= t_end {
-                if e.cap_id == Some(cap_id) {
-                    result.push((e.inode_id, e.op, e.timestamp));
-                }
-            }
-        }
-        result
-    }
-
-    /// **Q3: Full provenance chain for an inode.**
-    ///
-    /// Returns all operations on the given inode in chronological order.
-    /// This is the complete audit trail for a file.
-    pub fn provenance_chain(&self, inode_id: InodeId) -> Vec<&ProvenanceEntry> {
-        self.entries
-            .iter()
-            .filter(|e| e.inode_id == inode_id)
-            .collect()
-    }
-
-    /// **Q4: Operations by domain in time window.**
-    ///
-    /// Returns all operations performed by a specific domain (process/thread group).
-    /// For forensics: "what did compromised domain D do?"
-    pub fn ops_by_domain(&self, domain_id: u64, t_start: u64, t_end: u64) -> Vec<&ProvenanceEntry> {
-        self.entries
-            .iter()
-            .filter(|e| e.domain_id == domain_id && e.timestamp >= t_start && e.timestamp <= t_end)
-            .collect()
-    }
-
-    /// **Q5: Anomaly window — burst detection.**
-    ///
-    /// Returns the count of operations on an inode in sliding windows of
-    /// `window_size` seconds.  Spikes indicate potential ransomware or
-    /// mass-modification attacks.
-    pub fn burst_detect(&self, inode_id: InodeId, window_size: u64) -> Vec<(u64, usize)> {
-        let relevant: Vec<u64> = self
-            .entries
-            .iter()
-            .filter(|e| e.inode_id == inode_id)
-            .map(|e| e.timestamp)
-            .collect();
-        if relevant.is_empty() {
-            return Vec::new();
-        }
-        let t_min = relevant[0];
-        let t_max = *relevant.last().unwrap();
-        let mut windows = Vec::new();
-        let mut t = t_min;
-        while t <= t_max {
-            let count = relevant
-                .iter()
-                .filter(|&&ts| ts >= t && ts < t + window_size)
-                .count();
-            if count > 0 {
-                windows.push((t, count));
-            }
-            t += window_size;
-        }
-        windows
-    }
-
-    /// **Q6: Cross-reference — capabilities and inodes involved in a time window.**
-    ///
-    /// Returns a summary: how many distinct caps and inodes were active in [t0, t1].
-    pub fn activity_summary(&self, t_start: u64, t_end: u64) -> ProvActivitySummary {
-        let mut caps = BTreeSet::new();
-        let mut inodes = BTreeSet::new();
-        let mut op_count = 0usize;
-        for e in &self.entries {
-            if e.timestamp >= t_start && e.timestamp <= t_end {
-                op_count += 1;
-                inodes.insert(e.inode_id);
-                if let Some(cid) = e.cap_id {
-                    caps.insert(cid);
-                }
-            }
-        }
-        ProvActivitySummary {
-            distinct_caps: caps.len(),
-            distinct_inodes: inodes.len(),
-            total_ops: op_count,
-            t_start,
-            t_end,
-        }
-    }
-}
-
-/// Summary of provenance activity in a time window.
-#[derive(Debug, Clone)]
-pub struct ProvActivitySummary {
-    pub distinct_caps: usize,
-    pub distinct_inodes: usize,
-    pub total_ops: usize,
-    pub t_start: u64,
-    pub t_end: u64,
-}
+//
+// In v0.2.2 the provenance module moved to sotfs-graph so the live
+// `TypeGraph` can hold an opt-in `ProvenanceLog` field directly.
+// These re-exports preserve the pre-v0.2.2 API surface for callers
+// that imported from `sotfs_ops`.
+pub use sotfs_graph::provenance::{
+    ProvActivitySummary, ProvOp, ProvenanceEntry, ProvenanceLog,
+};
 
 #[cfg(test)]
 mod tests {

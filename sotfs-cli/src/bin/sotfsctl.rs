@@ -50,6 +50,13 @@ fn main() -> ExitCode {
             let format = args.get(3).map(String::as_str).unwrap_or("--dot");
             dump(path, format)
         }
+        "prov" => match args.get(2) {
+            Some(path) => prov(PathBuf::from(path), &args[3..]),
+            None => {
+                eprintln!("sotfsctl prov: missing <path.redb>");
+                ExitCode::from(2)
+            }
+        },
         "-h" | "--help" | "help" => {
             usage();
             ExitCode::SUCCESS
@@ -67,6 +74,75 @@ fn usage() {
     eprintln!("  sotfsctl mkfs <path.redb>                 # create empty volume");
     eprintln!("  sotfsctl check <path.redb>                # invariant check (proto-fsck)");
     eprintln!("  sotfsctl dump <path.redb> [--dot|--d3]    # graph export");
+    eprintln!("  sotfsctl prov <path.redb> [--inode N]     # tail provenance sidecar (.prov.jsonl)");
+}
+
+/// Read the provenance sidecar (`<path>.prov.jsonl`) and print entries
+/// to stdout. Optional `--inode N` filter restricts to one inode.
+fn prov(path: PathBuf, rest: &[String]) -> ExitCode {
+    let sidecar = path.with_extension("redb.prov.jsonl");
+    // Also accept the SOTFS_PROV_SIDECAR override pattern (path-without-redb-ext).
+    let sidecar = if sidecar.exists() {
+        sidecar
+    } else {
+        let mut alt = path.clone();
+        alt.set_extension("prov.jsonl");
+        alt
+    };
+    if !sidecar.exists() {
+        eprintln!(
+            "sotfsctl prov: no sidecar at {} or {} — was the FUSE daemon \
+            started with SOTFS_PROV_SIDECAR set?",
+            path.with_extension("redb.prov.jsonl").display(),
+            sidecar.display()
+        );
+        return ExitCode::from(1);
+    }
+
+    let mut filter_inode: Option<u64> = None;
+    let mut i = 0;
+    while i < rest.len() {
+        match rest[i].as_str() {
+            "--inode" => {
+                i += 1;
+                filter_inode = rest.get(i).and_then(|s| s.parse().ok());
+                if filter_inode.is_none() {
+                    eprintln!("sotfsctl prov: --inode requires a u64 argument");
+                    return ExitCode::from(2);
+                }
+            }
+            other => {
+                eprintln!("sotfsctl prov: unknown flag {other}");
+                return ExitCode::from(2);
+            }
+        }
+        i += 1;
+    }
+
+    let content = match std::fs::read_to_string(&sidecar) {
+        Ok(s) => s,
+        Err(e) => {
+            eprintln!("sotfsctl prov: read {}: {e}", sidecar.display());
+            return ExitCode::from(1);
+        }
+    };
+    let mut count = 0u64;
+    for line in content.lines() {
+        if line.is_empty() {
+            continue;
+        }
+        if let Some(inode) = filter_inode {
+            // Cheap substring match — JSONL lines have `"inode":<n>` predictably.
+            let needle = format!(r#""inode":{}"#, inode);
+            if !line.contains(&needle) {
+                continue;
+            }
+        }
+        println!("{line}");
+        count += 1;
+    }
+    eprintln!("sotfsctl prov: {count} entries", count = count);
+    ExitCode::SUCCESS
 }
 
 fn mkfs(path: PathBuf) -> ExitCode {

@@ -15,6 +15,15 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use parking_lot::RwLock;
 use sotfs_storage::RedbBackend;
 
+/// Provenance logging is on by default for the FUSE mount.
+/// Opt out with `SOTFS_FUSE_NO_PROVENANCE=1` for bench runs where the
+/// per-op `Vec::push` would skew measurements.
+fn disable_provenance() -> bool {
+    std::env::var_os("SOTFS_FUSE_NO_PROVENANCE")
+        .map(|v| !v.is_empty() && v != "0")
+        .unwrap_or(false)
+}
+
 /// FUSE entry/attr TTL. Defaults to 1 s (matches the original constant).
 /// Override via `SOTFS_FUSE_TTL_MS` so benches can disable kernel-side
 /// attr-cache amortization (set to `0`) and measure raw upcall cost.
@@ -67,9 +76,18 @@ pub struct SotFsFilesystem {
 
 impl SotFsFilesystem {
     /// In-memory ephemeral mount.
+    ///
+    /// Provenance logging is enabled by default in v0.2.2: every mutating
+    /// DPO op is recorded. Opt out with the `SOTFS_FUSE_NO_PROVENANCE=1`
+    /// env var if you need the older behaviour (e.g. for raw bench runs
+    /// where the log allocations would skew numbers).
     pub fn new() -> Self {
+        let mut g = TypeGraph::new();
+        if !disable_provenance() {
+            g.enable_prov_log();
+        }
         Self {
-            graph: RwLock::new(TypeGraph::new()),
+            graph: RwLock::new(g),
             open_files: Mutex::new(BTreeMap::new()),
             next_fh: Mutex::new(1),
             backend: None,
@@ -82,7 +100,7 @@ impl SotFsFilesystem {
     /// initial `save` happens on the first `destroy()` or `fsync()`.
     pub fn with_db(path: PathBuf) -> Result<Self, Box<dyn std::error::Error>> {
         let backend = RedbBackend::open(&path)?;
-        let graph = match backend.load()? {
+        let mut graph = match backend.load()? {
             Some(g) => {
                 println!("sotFS: loaded existing graph from {}", path.display());
                 g
@@ -92,12 +110,66 @@ impl SotFsFilesystem {
                 TypeGraph::new()
             }
         };
+        if !disable_provenance() {
+            graph.enable_prov_log();
+        }
         Ok(Self {
             graph: RwLock::new(graph),
             open_files: Mutex::new(BTreeMap::new()),
             next_fh: Mutex::new(1),
             backend: Some(Arc::new(backend)),
         })
+    }
+
+    /// Path of the provenance sidecar file (`<db>.prov.jsonl`) when the
+    /// mount is persistent, or `None` for in-memory mounts.
+    fn prov_sidecar_path(&self) -> Option<PathBuf> {
+        // We don't keep the redb path around in `Backend`; we infer it
+        // from the env var `SOTFS_PROV_SIDECAR` if set, else None.
+        // This keeps the type-graph crate free of filesystem paths.
+        std::env::var_os("SOTFS_PROV_SIDECAR").map(PathBuf::from)
+    }
+
+    /// Drain the in-memory provenance log into the sidecar JSONL file
+    /// configured via `SOTFS_PROV_SIDECAR`. No-op if the env var is
+    /// absent or the log is empty. Errors are logged but not raised
+    /// (FUSE callbacks can't surface IO errors past their replies).
+    fn persist_prov_log(&self) {
+        let Some(path) = self.prov_sidecar_path() else {
+            return;
+        };
+        let mut g = self.graph.write();
+        let entries = match g.prov_log_mut() {
+            Some(log) if !log.is_empty() => log.drain(),
+            _ => return,
+        };
+        drop(g);
+        match std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&path)
+        {
+            Ok(mut f) => {
+                use std::io::Write;
+                for e in entries {
+                    let line = format!(
+                        r#"{{"t":{},"op":{:?},"inode":{},"cap":{:?},"domain":{},"detail":{:?}}}{}"#,
+                        e.timestamp,
+                        e.op,
+                        e.inode_id,
+                        e.cap_id,
+                        e.domain_id,
+                        e.detail,
+                        '\n'
+                    );
+                    if let Err(err) = f.write_all(line.as_bytes()) {
+                        eprintln!("sotFS: prov sidecar write failed: {err}");
+                        return;
+                    }
+                }
+            }
+            Err(err) => eprintln!("sotFS: prov sidecar open failed at {}: {err}", path.display()),
+        }
     }
 
     fn alloc_fh(&self) -> u64 {
@@ -158,6 +230,7 @@ impl Filesystem for SotFsFilesystem {
     // -------------------------------------------------------------------
     fn destroy(&mut self) {
         self.persist();
+        self.persist_prov_log();
         if self.backend.is_some() {
             println!("sotFS: persisted graph on unmount");
         }
@@ -694,6 +767,7 @@ impl Filesystem for SotFsFilesystem {
     // -------------------------------------------------------------------
     fn fsync(&mut self, _req: &Request, _ino: u64, _fh: u64, _datasync: bool, reply: ReplyEmpty) {
         self.persist();
+        self.persist_prov_log();
         reply.ok();
     }
 
