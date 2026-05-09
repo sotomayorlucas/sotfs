@@ -19,7 +19,11 @@ pub mod graph;
 pub mod provenance;
 pub mod rcu;
 pub mod types;
-pub mod typestate;
+
+// `typestate` moved to the standalone `sotfs-experimental` crate in v0.2.3.
+// It was never consumed by sotfs-ops or sotfs-fuse; re-exporting it from
+// `sotfs-graph` made it look like infrastructure when it was a design
+// sketch. Importers should switch to `sotfs_experimental::*`.
 
 pub use arena::{Arena, ArenaId};
 pub use error::GraphError;

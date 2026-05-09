@@ -8,6 +8,7 @@ members = [
     "sotfs-fuse",
     "sotfs-monitor",
     "sotfs-cli",
+    "sotfs-experimental",
 ]
 
 [workspace.package]

@@ -362,7 +362,7 @@ fn invariant_corruption_duplicate_name() {
 
 #[test]
 fn capability_monotonic_attenuation() {
-    use sotfs_graph::typestate::CapHandle;
+    use sotfs_experimental::CapHandle;
 
     let root = CapHandle::root(1); // all rights: 0x1F
     assert!(root.has_read());

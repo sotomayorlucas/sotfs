@@ -10,6 +10,7 @@ sotfs-graph = { workspace = true }
 
 [dev-dependencies]
 sotfs-ops = { workspace = true }
+sotfs-experimental = { path = "../sotfs-experimental" }
 criterion = { version = "0.5", features = ["html_reports"] }
 
 [[bench]]
