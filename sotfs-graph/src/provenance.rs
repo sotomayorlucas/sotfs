@@ -175,17 +175,10 @@ impl ProvenanceLog {
     }
 
     /// **Q4: Operations by domain in time window.**
-    pub fn ops_by_domain(
-        &self,
-        domain_id: u64,
-        t_start: u64,
-        t_end: u64,
-    ) -> Vec<&ProvenanceEntry> {
+    pub fn ops_by_domain(&self, domain_id: u64, t_start: u64, t_end: u64) -> Vec<&ProvenanceEntry> {
         self.entries
             .iter()
-            .filter(|e| {
-                e.domain_id == domain_id && e.timestamp >= t_start && e.timestamp <= t_end
-            })
+            .filter(|e| e.domain_id == domain_id && e.timestamp >= t_start && e.timestamp <= t_end)
             .collect()
     }
 

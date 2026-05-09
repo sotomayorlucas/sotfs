@@ -74,7 +74,9 @@ fn usage() {
     eprintln!("  sotfsctl mkfs <path.redb>                 # create empty volume");
     eprintln!("  sotfsctl check <path.redb>                # invariant check (proto-fsck)");
     eprintln!("  sotfsctl dump <path.redb> [--dot|--d3]    # graph export");
-    eprintln!("  sotfsctl prov <path.redb> [--inode N]     # tail provenance sidecar (.prov.jsonl)");
+    eprintln!(
+        "  sotfsctl prov <path.redb> [--inode N]     # tail provenance sidecar (.prov.jsonl)"
+    );
 }
 
 /// Read the provenance sidecar (`<path>.prov.jsonl`) and print entries
