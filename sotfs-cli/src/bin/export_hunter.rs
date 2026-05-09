@@ -41,6 +41,12 @@ struct Args {
     tail: bool,
     tail_once: bool,
     poll_ms: u64,
+    /// Exit cleanly after this many events (existing + followed). When
+    /// `None`, the follower runs forever. Primarily for tests so the
+    /// process terminates on its own and the coverage profraw is
+    /// written, but also useful for batch ingestion that wants a hard
+    /// upper bound.
+    max_events: Option<usize>,
 }
 
 fn parse_args() -> Result<Args, ExitCode> {
@@ -50,6 +56,7 @@ fn parse_args() -> Result<Args, ExitCode> {
         tail: false,
         tail_once: false,
         poll_ms: DEFAULT_POLL_MS,
+        max_events: None,
     };
     let argv: Vec<String> = std::env::args().collect();
     let mut i = 1;
@@ -71,6 +78,17 @@ fn parse_args() -> Result<Args, ExitCode> {
                     eprintln!("sotfs-export-hunter: --poll-ms expects an integer");
                     ExitCode::from(2)
                 })?;
+            }
+            "--max-events" => {
+                i += 1;
+                let raw = argv.get(i).ok_or_else(|| {
+                    eprintln!("sotfs-export-hunter: --max-events requires a value");
+                    ExitCode::from(2)
+                })?;
+                a.max_events = Some(raw.parse().map_err(|_| {
+                    eprintln!("sotfs-export-hunter: --max-events expects an integer");
+                    ExitCode::from(2)
+                })?);
             }
             "-o" | "--output" => {
                 i += 1;
@@ -191,15 +209,18 @@ fn run_tail(args: Args) -> ExitCode {
             return code;
         }
         emitted += 1;
+        if args.max_events.is_some_and(|m| emitted >= m) {
+            break;
+        }
     }
     if let Err(e) = sink.flush() {
         eprintln!("sotfs-export-hunter --tail: flush: {e}");
         return ExitCode::from(1);
     }
 
-    if args.tail_once {
+    if args.tail_once || args.max_events.is_some_and(|m| emitted >= m) {
         eprintln!(
-            "sotfs-export-hunter --tail --once: emitted {emitted} event(s) from {}",
+            "sotfs-export-hunter --tail: emitted {emitted} event(s) from {}",
             path.display()
         );
         return ExitCode::SUCCESS;
@@ -236,12 +257,32 @@ fn run_tail(args: Args) -> ExitCode {
                 return ExitCode::from(1);
             }
         };
-        // Truncation: rewind to start. Common when the daemon
-        // re-creates the sidecar.
+        // Detect whether the file was truncated and rewritten. We can
+        // miss this if the rewrite happens to land at a length ≥
+        // last_pos (the simple `cur_len < last_pos` check is fooled).
+        // To catch it, peek at byte `last_pos - 1`: in a JSONL file
+        // it must always be `\n` (every line we processed ended in
+        // `\n` per the read_line loop above). If it isn't, the file
+        // was rewritten and we rewind to 0.
+        let mut rewound = false;
         if cur_len < last_pos {
             last_pos = 0;
+            rewound = true;
+        } else if last_pos > 0 {
+            if let Err(e) = f.seek(SeekFrom::Start(last_pos - 1)) {
+                eprintln!("sotfs-export-hunter --tail: seek probe: {e}");
+                return ExitCode::from(1);
+            }
+            let mut probe = [0u8; 1];
+            use std::io::Read as _;
+            if let Ok(1) = f.read(&mut probe) {
+                if probe[0] != b'\n' {
+                    last_pos = 0;
+                    rewound = true;
+                }
+            }
         }
-        if cur_len == last_pos {
+        if cur_len == last_pos && !rewound {
             continue;
         }
         if let Err(e) = f.seek(SeekFrom::Start(last_pos)) {
@@ -268,6 +309,10 @@ fn run_tail(args: Args) -> ExitCode {
             if let Err(code) = emit_line(&mut sink, &buf, &path) {
                 return code;
             }
+            emitted += 1;
+            if args.max_events.is_some_and(|m| emitted >= m) {
+                break;
+            }
         }
         last_pos = match f.stream_position() {
             Ok(p) => p,
@@ -279,6 +324,13 @@ fn run_tail(args: Args) -> ExitCode {
         if let Err(e) = sink.flush() {
             eprintln!("sotfs-export-hunter --tail: flush: {e}");
             return ExitCode::from(1);
+        }
+        if args.max_events.is_some_and(|m| emitted >= m) {
+            eprintln!(
+                "sotfs-export-hunter --tail: emitted {emitted} event(s) from {}",
+                path.display()
+            );
+            return ExitCode::SUCCESS;
         }
     }
 }
