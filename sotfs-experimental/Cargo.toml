@@ -1,0 +1,15 @@
+[package]
+name = "sotfs-experimental"
+description = "Experimental / aspirational sotFS APIs — not consumed by the core flow yet"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+readme = "../README.md"
+
+[features]
+default = ["std"]
+std = []
+
+[dependencies]

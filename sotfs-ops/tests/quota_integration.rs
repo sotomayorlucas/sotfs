@@ -108,13 +108,39 @@ fn quota_propagates_to_ancestors() {
     g.quotas.insert(rd, Quota::new(3, 0));
 
     let sub = mkdir(&mut g, rd, "sub", 0, 0, Permissions::DIR_DEFAULT).unwrap();
-    create_file(&mut g, sub.dir_id.unwrap(), "a", 0, 0, Permissions::FILE_DEFAULT).unwrap();
-    create_file(&mut g, sub.dir_id.unwrap(), "b", 0, 0, Permissions::FILE_DEFAULT).unwrap();
-    assert_eq!(g.quotas[&rd].inode_usage, 3, "root counter sees subtree usage");
+    create_file(
+        &mut g,
+        sub.dir_id.unwrap(),
+        "a",
+        0,
+        0,
+        Permissions::FILE_DEFAULT,
+    )
+    .unwrap();
+    create_file(
+        &mut g,
+        sub.dir_id.unwrap(),
+        "b",
+        0,
+        0,
+        Permissions::FILE_DEFAULT,
+    )
+    .unwrap();
+    assert_eq!(
+        g.quotas[&rd].inode_usage, 3,
+        "root counter sees subtree usage"
+    );
 
     // The 4th create from anywhere in the subtree fails because the
     // root quota is full.
-    let err = create_file(&mut g, sub.dir_id.unwrap(), "c", 0, 0, Permissions::FILE_DEFAULT);
+    let err = create_file(
+        &mut g,
+        sub.dir_id.unwrap(),
+        "c",
+        0,
+        0,
+        Permissions::FILE_DEFAULT,
+    );
     assert!(matches!(err, Err(GraphError::QuotaExceeded { .. })));
 }
 
@@ -124,7 +150,15 @@ fn ops_without_quotas_configured_unaffected() {
     let rd = g.root_dir;
     // No quotas anywhere — all creates succeed regardless of count.
     for i in 0..50 {
-        create_file(&mut g, rd, &format!("f{i}"), 0, 0, Permissions::FILE_DEFAULT).unwrap();
+        create_file(
+            &mut g,
+            rd,
+            &format!("f{i}"),
+            0,
+            0,
+            Permissions::FILE_DEFAULT,
+        )
+        .unwrap();
     }
     assert!(g.quotas.is_empty());
 }

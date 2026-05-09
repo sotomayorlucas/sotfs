@@ -1258,11 +1258,7 @@ pub fn update_quota(g: &mut TypeGraph, dir_id: DirId, delta_inodes: i64, delta_b
 /// Check that writing `additional` bytes under `dir_id`'s subtree would
 /// not exceed the byte quota of `dir_id` or any ancestor. Counterpart
 /// to the existing [`check_quota_inode`]; same walk-up shape.
-pub fn check_quota_bytes(
-    g: &TypeGraph,
-    dir_id: DirId,
-    additional: u64,
-) -> Result<(), GraphError> {
+pub fn check_quota_bytes(g: &TypeGraph, dir_id: DirId, additional: u64) -> Result<(), GraphError> {
     let mut current = Some(dir_id);
     while let Some(d) = current {
         if let Some(q) = g.quotas.get(&d) {

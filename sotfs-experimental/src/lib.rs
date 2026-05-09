@@ -1,21 +1,38 @@
-//! # Typestate Enforcement for sotFS Graph Operations
+//! # `sotfs-experimental` — typestate-enforced handles (status: aspirational)
 //!
 //! Uses Rust's type system to make illegal DPO rule applications a
 //! **compile-time error**, following the SquirrelFS approach (OSDI 2024).
 //!
-//! ## Enforced Properties
+//! ## Status (v0.2.3)
 //!
-//! - A file inode cannot be read/written until it has been created and linked
-//! - A directory cannot be rmdir'd unless it is empty
-//! - A transaction must be committed or rolled back — cannot be dropped while active
-//! - An orphaned inode (link_count=0) cannot be accessed
-//! - Capabilities can only be attenuated (never escalated)
+//! This crate compiles and exercises its own unit tests, but **no
+//! consumer in the core sotFS workspace uses these handles**.
+//! Pre-v0.2.3 the module lived in `sotfs-graph::typestate` and was
+//! re-exported as if it were infrastructure; the v0.2.2 review
+//! correctly flagged that as misleading. The module moved here so
+//! the public surface of `sotfs-graph` reflects what is actually
+//! integrated into the live FUSE / DPO flow.
+//!
+//! Adoption is on the v0.3 roadmap: wrapping each `sotfs-ops` mutator
+//! in a `*Handle<State>`-returning shape so the compiler enforces
+//! the lifecycle properties listed below. Until that lands, `sotfs-
+//! experimental` is a design sketch, not load-bearing.
+//!
+//! ## Enforced Properties (in the model)
+//!
+//! - A file inode cannot be read/written until it has been created and linked.
+//! - A directory cannot be `rmdir`'d unless it is empty.
+//! - A transaction must be committed or rolled back — cannot be dropped while active.
+//! - An orphaned inode (`link_count=0`) cannot be accessed.
+//! - Capabilities can only be attenuated (never escalated).
 //!
 //! ## Design
 //!
 //! Each resource has phantom type parameters encoding its state. State
 //! transitions are methods that consume `self` and return the new state,
 //! making it impossible to use the old state after a transition.
+
+#![cfg_attr(not(feature = "std"), no_std)]
 
 use core::marker::PhantomData;
 
