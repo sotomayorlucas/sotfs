@@ -10,7 +10,7 @@
 //! `sotfs-fuse <mountpoint> --db <path.redb>`. `repair` will land in
 //! Nivel 3 along with WAL-based recovery.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use sotfs_graph::export::{to_d3_json, to_dot, DotStyle};
@@ -174,7 +174,7 @@ fn mkfs(path: PathBuf) -> ExitCode {
     ExitCode::SUCCESS
 }
 
-fn load(path: &PathBuf) -> Result<TypeGraph, String> {
+fn load(path: &Path) -> Result<TypeGraph, String> {
     let backend = RedbBackend::open(path).map_err(|e| format!("open {}: {e}", path.display()))?;
     let mut g = backend
         .load()

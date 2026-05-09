@@ -107,8 +107,6 @@ impl WalIndex {
 // Simulated WAL (simplified, no I/O)
 // ---------------------------------------------------------------------------
 
-const WAL_MAX_ENTRIES_SIM: usize = 1024; // Larger than real WAL for benchmark scaling.
-
 struct SimWal {
     targets: Vec<u32>,
     index: WalIndex,

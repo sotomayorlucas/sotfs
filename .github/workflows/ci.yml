@@ -22,19 +22,17 @@ jobs:
       - run: cargo fmt --all -- --check
 
   clippy:
-    name: clippy (informational, not gating yet)
+    name: clippy (-D warnings)
     runs-on: ubuntu-latest
-    # The strict `-D warnings` gate is post-v0.2.1: the repo accumulated
-    # clippy debt before the extract that this informational run surfaces.
-    # The v0.2.2 cleanup pass will tighten the rule. Until then, we let
-    # the job report and continue so it does not block PRs on style.
-    continue-on-error: true
+    # Strict gate landed in v0.2.4: the v0.2.0 → v0.2.3 cleanup pass
+    # closed the accumulated clippy debt across all crates. Any new
+    # warning fails the job, the same as a test failure.
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
         with: { components: clippy }
       - uses: Swatinem/rust-cache@v2
-      - run: cargo clippy --workspace --all-targets
+      - run: cargo clippy --workspace --all-targets --release -- -D warnings
 
   test:
     name: test ${{ matrix.profile }}

@@ -212,23 +212,17 @@ fn bench_crash_consistency_overhead(c: &mut Criterion) {
 
     // Measure transaction overhead (snapshot + rollback)
     group.bench_function("transaction_commit_100", |b| {
-        b.iter_with_setup(
-            || {
-                let g = TypeGraph::new();
-                g
-            },
-            |mut g| {
-                let rd = g.root_dir;
-                // Simulate a GTXN: snapshot, apply 10 rules, check, commit
-                let _snapshot = g.clone();
-                for i in 0..10 {
-                    let name = format!("tx_f{}", i);
-                    create_file(&mut g, rd, &name, 0, 0, Permissions::FILE_DEFAULT).unwrap();
-                }
-                g.check_invariants().unwrap();
-                black_box(&g);
-            },
-        );
+        b.iter_with_setup(TypeGraph::new, |mut g| {
+            let rd = g.root_dir;
+            // Simulate a GTXN: snapshot, apply 10 rules, check, commit
+            let _snapshot = g.clone();
+            for i in 0..10 {
+                let name = format!("tx_f{}", i);
+                create_file(&mut g, rd, &name, 0, 0, Permissions::FILE_DEFAULT).unwrap();
+            }
+            g.check_invariants().unwrap();
+            black_box(&g);
+        });
     });
 
     // Measure transaction rollback cost

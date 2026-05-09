@@ -131,16 +131,14 @@ fn compute_edge_curvature(
 
     // Lin-Lu-Yau curvature approximation
     let common_frac = common as f64 / (deg_u.max(deg_v)) as f64;
-    let kappa = common_frac * (1.0 - alpha).powi(2)
+    common_frac * (1.0 - alpha).powi(2)
         + self_to_nbr
         + if u_in_nv && v_in_nu {
             alpha * alpha
         } else {
             0.0
         }
-        - (1.0 - alpha).powi(2) * (1.0 / deg_u as f64 + 1.0 / deg_v as f64) / 2.0;
-
-    kappa
+        - (1.0 - alpha).powi(2) * (1.0 / deg_u as f64 + 1.0 / deg_v as f64) / 2.0
 }
 
 /// Compute curvature for all edges in the graph.
@@ -427,10 +425,10 @@ mod tests {
         }
         let after = compute_curvatures(&g);
 
-        // Curvature should change significantly after mass creation
-        let delta = (after.mean_kappa - baseline.mean_kappa).abs();
-        // Just verify the computation runs without error and produces
-        // different results for structurally different graphs
+        // Curvature should change after mass creation; we only assert
+        // that more edges were produced — the magnitude of the change is
+        // not stable enough to gate on.
+        let _delta = (after.mean_kappa - baseline.mean_kappa).abs();
         assert!(
             after.edges.len() > baseline.edges.len(),
             "more edges after mass creation"

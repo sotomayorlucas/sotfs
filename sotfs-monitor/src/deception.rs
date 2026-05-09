@@ -170,7 +170,7 @@ fn project_redirect(graph: &TypeGraph, redirects: &BTreeMap<String, InodeId>) ->
     view.policy = "redirect".into();
 
     // Build redirect map from name-based redirects
-    for (_dir_id, entries) in &mut view.visible_entries {
+    for entries in view.visible_entries.values_mut() {
         for (name, inode_id) in entries.iter_mut() {
             if let Some(&redirect_to) = redirects.get(name.as_str()) {
                 view.redirects.insert(*inode_id, redirect_to);
@@ -541,13 +541,13 @@ pub fn check_indistinguishability(
 
     // Timing ratio: projected operations should not be measurably slower/faster
     // In this static analysis, we check that the view size is proportional
-    let size_ratio = if graph.inodes.len() > 0 {
+    let size_ratio = if !graph.inodes.is_empty() {
         view.visible_inodes.len() as f64 / graph.inodes.len() as f64
     } else {
         1.0
     };
     // Passthrough should be ~1.0, restrict should be <1.0 (faster)
-    let timing_ratio = size_ratio.max(0.5).min(2.0);
+    let timing_ratio = size_ratio.clamp(0.5, 2.0);
 
     // Estimated advantage: sum of distinguishability leaks
     let mut advantage: f64 = 0.0;
@@ -574,7 +574,7 @@ pub fn check_indistinguishability(
 /// Check if a projected view satisfies basic structural invariants.
 fn check_projected_invariants(view: &ProjectedView) -> bool {
     // Check: every entry in visible_entries points to a visible inode
-    for (_dir, entries) in &view.visible_entries {
+    for entries in view.visible_entries.values() {
         for (_name, inode_id) in entries {
             if !view.visible_inodes.contains_key(inode_id) {
                 return false; // dangling reference — G2 violated
@@ -582,7 +582,7 @@ fn check_projected_invariants(view: &ProjectedView) -> bool {
         }
     }
     // Check: unique names per directory
-    for (_dir, entries) in &view.visible_entries {
+    for entries in view.visible_entries.values() {
         let mut names = BTreeSet::new();
         for (name, _) in entries {
             if !names.insert(name.clone()) {
@@ -827,11 +827,10 @@ mod tests {
 
         // Cannot see /secret.txt (outside restricted subtree)
         assert!(
-            !view.visible_inodes.values().any(|i| {
-                view.visible_entries
-                    .values()
-                    .any(|entries| entries.iter().any(|(n, _)| n == "secret.txt"))
-            }),
+            !view
+                .visible_entries
+                .values()
+                .any(|entries| { entries.iter().any(|(n, _)| n == "secret.txt") }),
             "restricted view should not contain secret.txt"
         );
     }

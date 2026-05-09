@@ -247,17 +247,12 @@ pub fn rmdir(g: &mut TypeGraph, parent_dir: DirId, name: &str) -> Result<(), Gra
 
     // Remove edges
     for eid in &edges_to_remove {
-        if let Some(edge) = g.remove_edge(*eid) {
-            match &edge {
-                Edge::Contains { src, tgt, .. } => {
-                    if let Some(set) = g.dir_contains.get_mut(src) {
-                        set.remove(eid);
-                    }
-                    if let Some(set) = g.inode_incoming_contains.get_mut(tgt) {
-                        set.remove(eid);
-                    }
-                }
-                _ => {}
+        if let Some(Edge::Contains { src, tgt, .. }) = g.remove_edge(*eid) {
+            if let Some(set) = g.dir_contains.get_mut(&src) {
+                set.remove(eid);
+            }
+            if let Some(set) = g.inode_incoming_contains.get_mut(&tgt) {
+                set.remove(eid);
             }
         }
     }
@@ -609,10 +604,8 @@ fn rename_cross_dir(
                                 }
                             }
                             // Update edge target
-                            if let Some(edge) = g.get_edge_mut(dotdot_eid) {
-                                if let Edge::Contains { tgt, .. } = edge {
-                                    *tgt = dst_pi;
-                                }
+                            if let Some(Edge::Contains { tgt, .. }) = g.get_edge_mut(dotdot_eid) {
+                                *tgt = dst_pi;
                             }
                             g.inode_incoming_contains
                                 .entry(dst_pi)
@@ -1538,13 +1531,11 @@ pub fn fsck(g: &TypeGraph) -> FsckReport {
     let mut stack = BTreeSet::new();
     for aid in g.dirs.keys() {
         if let Some(dir) = g.dirs.get(aid) {
-            if !visited.contains(&dir.id) {
-                if has_cycle_dfs(g, dir.id, &mut visited, &mut stack) {
-                    errors.push(FsckError {
-                        invariant: "NoDirCycles",
-                        description: format!("cycle detected involving dir {}", dir.id),
-                    });
-                }
+            if !visited.contains(&dir.id) && has_cycle_dfs(g, dir.id, &mut visited, &mut stack) {
+                errors.push(FsckError {
+                    invariant: "NoDirCycles",
+                    description: format!("cycle detected involving dir {}", dir.id),
+                });
             }
         }
     }

@@ -220,6 +220,12 @@ pub struct DynamicTreewidth {
     dirty: Box<[bool; MAX_NODES]>,
 }
 
+impl Default for DynamicTreewidth {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl DynamicTreewidth {
     /// Create a new empty tracker.
     pub fn new() -> Self {
@@ -298,12 +304,7 @@ impl DynamicTreewidth {
     // --- Internal graph manipulation (no ordering update) ---
 
     fn node_index(&self, id: u64) -> Option<usize> {
-        for i in 0..self.node_count {
-            if self.nodes[i] == id {
-                return Some(i);
-            }
-        }
-        None
+        (0..self.node_count).find(|&i| self.nodes[i] == id)
     }
 
     fn has_adj_edge(&self, idx: usize, neighbor: u64) -> bool {
@@ -387,11 +388,8 @@ impl DynamicTreewidth {
             // Collect neighbors and remove edges from them
             let len = self.adj_len[idx];
             let mut nbrs = [0u64; MAX_DEGREE];
-            for j in 0..len {
-                nbrs[j] = self.adj[idx][j];
-            }
-            for j in 0..len {
-                let n = nbrs[j];
+            nbrs[..len].copy_from_slice(&self.adj[idx][..len]);
+            for &n in nbrs.iter().take(len) {
                 if let Some(ni) = self.node_index(n) {
                     let mut k = 0;
                     while k < self.adj_len[ni] {
@@ -497,9 +495,7 @@ impl DynamicTreewidth {
             self.ordering[step] = vid;
             self.step_width[step] = degree;
             self.fill_counts[step] = nbr_count;
-            for i in 0..nbr_count {
-                self.fill_edges[step][i] = nbrs[i];
-            }
+            self.fill_edges[step][..nbr_count].copy_from_slice(&nbrs[..nbr_count]);
 
             // Fill: connect all pairs of remaining neighbors
             for i in 0..nbr_count {
@@ -554,12 +550,7 @@ impl DynamicTreewidth {
     // --- Position lookup in ordering ---
 
     fn ordering_position(&self, node_id: u64) -> Option<usize> {
-        for i in 0..self.ordering_len {
-            if self.ordering[i] == node_id {
-                return Some(i);
-            }
-        }
-        None
+        (0..self.ordering_len).find(|&i| self.ordering[i] == node_id)
     }
 
     // --- Count how many nodes are dirty ---
@@ -789,9 +780,7 @@ impl DynamicTreewidth {
             new_ordering_suffix[new_suffix_len] = vid;
             new_step_width[new_suffix_len] = degree;
             new_fill_counts[new_suffix_len] = nbr_count;
-            for i in 0..nbr_count {
-                new_fill_edges[new_suffix_len][i] = nbrs[i];
-            }
+            new_fill_edges[new_suffix_len][..nbr_count].copy_from_slice(&nbrs[..nbr_count]);
             new_suffix_len += 1;
 
             // Fill
@@ -941,11 +930,9 @@ impl DynamicTreewidth {
             // Collect neighbor IDs first to avoid borrow issues
             let len = self.adj_len[idx];
             let mut nbrs = [0u64; MAX_DEGREE];
-            for j in 0..len {
-                nbrs[j] = self.adj[idx][j];
-            }
-            for j in 0..len {
-                self.mark_dirty(nbrs[j]);
+            nbrs[..len].copy_from_slice(&self.adj[idx][..len]);
+            for &n in nbrs.iter().take(len) {
+                self.mark_dirty(n);
             }
         }
     }
@@ -963,7 +950,7 @@ impl DynamicTreewidth {
 
         let dirty = self.dirty_count();
         // Fallback: if dirty set exceeds 20% of |V|, full recompute
-        let threshold = (self.node_count + 4) / 5; // ceil(node_count/5)
+        let threshold = self.node_count.div_ceil(5);
         if dirty > threshold || self.ordering_len == 0 {
             self.full_recompute();
         } else {

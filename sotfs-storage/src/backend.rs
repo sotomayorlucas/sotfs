@@ -14,6 +14,12 @@ pub struct RedbBackend {
 
 impl RedbBackend {
     /// Open or create a database at the given path.
+    ///
+    /// `redb::Error` is intentionally returned by value — it is large
+    /// (~128 bytes) but cold, and several call sites use `?` to bubble
+    /// it as `Box<dyn Error>`, which would require a manual `.map_err`
+    /// if we boxed it here.
+    #[allow(clippy::result_large_err)]
     pub fn open(path: &Path) -> Result<Self, redb::Error> {
         let db = Database::create(path)?;
         Ok(Self { db })

@@ -19,6 +19,8 @@ use core::mem::MaybeUninit;
 use alloc::boxed::Box;
 
 #[cfg(not(feature = "std"))]
+use alloc::vec;
+#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 
 /// Slot index into an Arena.

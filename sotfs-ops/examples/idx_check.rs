@@ -18,10 +18,10 @@ fn main() {
         g.check_dir_name_idx_consistency().expect("after mkdir");
     }
     // renames
-    for i in 0..200 {
+    for (i, slot) in names.iter_mut().enumerate() {
         let new = format!("r{}", i);
-        rename(&mut g, rd, &names[i], rd, &new).unwrap();
-        names[i] = new;
+        rename(&mut g, rd, slot, rd, &new).unwrap();
+        *slot = new;
         g.check_dir_name_idx_consistency().expect("after rename");
     }
     // unlinks
