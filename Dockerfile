@@ -25,6 +25,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         pkg-config \
         libfuse3-dev \
         fuse3 \
+        attr \
         ca-certificates \
         git \
         default-jdk \

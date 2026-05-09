@@ -7,6 +7,100 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1] — 2026-05-09 — honesty pass
+
+This release closes the gap between what 0.2.0's CHANGELOG/README
+*claimed* and what the code actually delivered. Almost zero new
+features; lots of small bug fixes, doc corrections, and CI hardening.
+Triggered by an external review that flagged three "white lies" and
+a handful of real defects.
+
+### Fixed — promise vs reality
+
+- **Release artifacts now ship `sotfsctl` and `sotfs-export-hunter`.**
+  The 0.2.0 `release.yml` only built and tarballed `sotfs-fuse` and
+  `sotfs-dot`, even though the CHANGELOG announced four binaries.
+  Adjusted the workflow to build and pack all four.
+- **Coverage gate now actually checks the drop-vs-baseline rule.**
+  0.2.0 promised "PRs that drop coverage > 2pp are blocked" but the
+  workflow only enforced the absolute floor (≥ 80%); a PR could go
+  from 95% to 81% and still pass. New `scripts/coverage_gate.py`
+  reads the JSON output of `cargo llvm-cov report --json` (instead
+  of the fragile column-positional summary text) and applies both
+  the absolute threshold and the delta vs `docs/coverage-baseline.json`.
+- **`sotfs-export-hunter --tail` is now documented as roadmap, not
+  shipped.** The flag was advertised in 0.2.0 but the code path
+  printed "not implemented yet" and exited 1. The README and
+  CHANGELOG were updated to describe only the snapshot mode (which
+  works); `--tail` is tracked in `docs/known-issues.md::ISSUE-QA-002`
+  and on the v0.2.2 roadmap.
+
+### Fixed — defects
+
+- **`Edge::HasXattr.tgt_node()` returned the wrong variant.** It
+  produced `NodeId::Inode(*tgt as InodeId)` from a `tgt: XAttrId`,
+  silently coercing through a `u64`. Any `match … { NodeId::Inode(id)
+  => g.get_inode(id) }` over the result either hit `None` or, in
+  the worst case after enough churn, hit a *different* live inode.
+  Added `NodeId::XAttr(XAttrId)` and propagated through
+  `check_no_dangling_edges`. There are no in-tree call sites that
+  exercise the old bug, so this is a latent fix, not a regression
+  cure — but the bomb is now defused.
+- **`MAX_READERS = 8` made the RCU read path panic-prone.** A FUSE
+  daemon on a 16-32 core host can trivially exceed 8 concurrent
+  readers and hit the explicit `panic!("RcuGraph: all 8 reader slots
+  occupied")`. Bumped to 64. A proper fix (per-CPU counters or
+  dynamic slot pool) lives on the post-v0.3 roadmap, but 64 covers
+  any commodity host through 2026 with negligible memory cost
+  (one extra `AtomicU64` per slot).
+- **`dir_name_idx` consistency check is now part of the canonical
+  invariants.** It already existed as `check_dir_name_idx_
+  consistency()` and `sotfsctl check` invoked it explicitly, but
+  third parties calling the public `TypeGraph::check_invariants()`
+  would not detect drift. Promoted into the canonical set.
+- **Stale `fuzz/Cargo.lock` removed.** Was checked in at 0.1.0 from
+  before the extract; cargo regenerates it on first `cargo +nightly
+  fuzz` so committing it added nothing but lying.
+
+### Fixed — workflow / docs
+
+- `Dockerfile` now installs `attr` so `examples/persistent_mount.sh`'s
+  xattr verification works inside the reproducible container.
+- `docs/known-issues.md` (referenced by `#[ignore]` attributes in
+  `proptest_ops.rs`) actually exists now. ISSUE-QA-001 captures the
+  pre-existing `rand_core::BlockRng` hang that gated those tests;
+  ISSUE-QA-002 captures the `--tail` deferral.
+- README's perf table now carries a "indicative, not reproducible
+  from CI bench job yet" caveat with the host where the numbers were
+  taken, and points at the v0.2.2 roadmap entry for a reproducible
+  bench harness.
+- `formal/README.md` no longer claims "no Admitted lemmas" — there
+  are five (4 in `DpoRmdir.v`, 1 in `DpoUnlink.v`), all flagged in
+  the corresponding sources. Their proof completion is on the
+  v0.2.2 list.
+
+### Deferred to v0.2.2
+
+The external review surfaced four bigger items that are correctly
+called out as unintegrated APIs. They have no code change in this
+release; they're tracked here for transparency:
+
+- **`ProvenanceLog` is wired**: today the type and its MSO queries
+  exist as a standalone module with unit tests, but no DPO op calls
+  `log.record(...)`. Plan: add the hook in `sotfs-ops` mutators and
+  give `sotfs-fuse` an option to instantiate the log.
+- **Quota counters are integrated**: `update_quota` exists but
+  is not called from `create_file` / `unlink` / etc., so the
+  configured limits are never enforced.
+- **ACL `setacl` materializes the documented edges.** The doc says
+  it synthesizes `Grants(cap_owner, …)` and `Grants(cap_uid, …)`
+  edges; the implementation only stores ACL entries in a side map.
+- **`typestate.rs` adoption**: the typestate-encoded handles
+  (`InodeHandle<Created/Linked/Orphaned>`, `TxHandle<…>`) are
+  defined, tested in isolation, and re-exported as if they were
+  infrastructure — but no consumer uses them. Either wire into
+  `sotfs-ops` and `sotfs-fuse` or move to `sotfs-experimental`.
+
 ## [0.2.0] — 2026-05-09
 
 ### Added — extraction milestone
@@ -35,8 +129,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   in `sotfs-graph::export` produces a temporal multigraph JSON consumable
   by APTHunter / PROGRAPHER / the GraphHunter component of sotX.
   Schema: [`docs/graph-hunter-schema.md`](docs/graph-hunter-schema.md).
-  New binary `sotfs-export-hunter` supports both snapshot and `--tail`
-  streaming modes.
+  New binary `sotfs-export-hunter` supports **snapshot mode** today;
+  the `--tail` streaming mode is on the roadmap (currently exits 1
+  with "not implemented yet (HNT-2 follow-up)").
 - **Standalone CI**: `.github/workflows/{ci,coverage,fuzz,release}.yml`
   with stable Rust + cargo-llvm-cov + cargo-fuzz nightly. Coverage gate
   ≥ 80% on the workspace; PRs that drop > 2% are blocked.
@@ -84,6 +179,7 @@ M3 (transactional layer with TLA+ 2PC), M4 (DPO graph + 162 unit tests),
 M5 (formal verification PASS on all six specs), and the post-Block-C
 hardening landings (`d65ce0c`, `78ba1c1`, `3723dcd`).
 
-[Unreleased]: https://github.com/sotomayorlucas/sotfs/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/sotomayorlucas/sotfs/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/sotomayorlucas/sotfs/releases/tag/v0.2.1
 [0.2.0]: https://github.com/sotomayorlucas/sotfs/releases/tag/v0.2.0
 [0.1.0]: https://github.com/sotomayorlucas/sotX

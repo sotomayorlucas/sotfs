@@ -58,6 +58,7 @@ pub enum NodeId {
     Transaction(TxnId),
     Version(VersionId),
     Block(BlockId),
+    XAttr(XAttrId),
 }
 
 // ---------------------------------------------------------------------------
@@ -397,7 +398,7 @@ impl Edge {
             Edge::DerivedFrom { tgt, .. } => NodeId::Version(*tgt),
             Edge::Supersedes { tgt, .. } => NodeId::Inode(*tgt),
             Edge::PointsTo { tgt, .. } => NodeId::Inode(*tgt),
-            Edge::HasXattr { tgt, .. } => NodeId::Inode(*tgt as InodeId),
+            Edge::HasXattr { tgt, .. } => NodeId::XAttr(*tgt),
         }
     }
 }

@@ -725,6 +725,12 @@ impl TypeGraph {
     // -----------------------------------------------------------------------
 
     /// Check all graph invariants. Returns Ok(()) or the first violation.
+    ///
+    /// Includes the secondary `dir_name_idx` consistency check: any drift
+    /// between the index and `dir_contains` is a bug surface (lookup_name
+    /// returns wrong answers and possibly a DoS vector). Promoted into the
+    /// canonical set in v0.2.1 — previously only `sotfsctl check` invoked
+    /// the oracle.
     pub fn check_invariants(&self) -> Result<(), GraphError> {
         self.check_link_count_consistency()?;
         self.check_unique_names()?;
@@ -733,6 +739,8 @@ impl TypeGraph {
         self.check_block_refcount()?;
         self.check_no_dir_cycles()?;
         self.check_cap_monotonicity()?;
+        self.check_dir_name_idx_consistency()
+            .map_err(GraphError::InvariantViolation)?;
         Ok(())
     }
 
@@ -823,6 +831,7 @@ impl TypeGraph {
                 NodeId::Transaction(id) => self.contains_txn(id),
                 NodeId::Version(id) => self.contains_version(id),
                 NodeId::Block(id) => self.contains_block(id),
+                NodeId::XAttr(id) => self.xattrs.contains_key(&id),
             };
             let tgt_exists = match edge.tgt_node() {
                 NodeId::Inode(id) => self.contains_inode(id),
@@ -831,6 +840,7 @@ impl TypeGraph {
                 NodeId::Transaction(id) => self.contains_txn(id),
                 NodeId::Version(id) => self.contains_version(id),
                 NodeId::Block(id) => self.contains_block(id),
+                NodeId::XAttr(id) => self.xattrs.contains_key(&id),
             };
             if !src_exists || !tgt_exists {
                 return Err(GraphError::InvariantViolation(format!(
