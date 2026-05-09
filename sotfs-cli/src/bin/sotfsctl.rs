@@ -71,7 +71,10 @@ fn usage() {
 
 fn mkfs(path: PathBuf) -> ExitCode {
     if path.exists() {
-        eprintln!("sotfsctl mkfs: refusing to overwrite existing file {}", path.display());
+        eprintln!(
+            "sotfsctl mkfs: refusing to overwrite existing file {}",
+            path.display()
+        );
         return ExitCode::from(1);
     }
     let backend = match RedbBackend::open(&path) {
@@ -86,7 +89,10 @@ fn mkfs(path: PathBuf) -> ExitCode {
         eprintln!("sotfsctl mkfs: failed to write initial graph: {e}");
         return ExitCode::from(1);
     }
-    println!("sotFS: created {} (root_inode=1, root_dir=1)", path.display());
+    println!(
+        "sotFS: created {} (root_inode=1, root_dir=1)",
+        path.display()
+    );
     ExitCode::SUCCESS
 }
 

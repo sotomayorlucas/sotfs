@@ -9,9 +9,9 @@
 //! The checker runs after each DPO rule application and raises an alert
 //! if the treewidth exceeds the configured bound.
 
-use std::collections::{BTreeMap, BTreeSet};
 use sotfs_graph::graph::TypeGraph;
 use sotfs_graph::types::*;
+use std::collections::{BTreeMap, BTreeSet};
 
 /// Result of a treewidth check.
 #[derive(Debug, Clone)]
@@ -319,7 +319,10 @@ impl DynamicTreewidth {
         if self.node_index(id).is_some() {
             return;
         }
-        assert!(self.node_count < MAX_NODES, "DynamicTreewidth: MAX_NODES exceeded");
+        assert!(
+            self.node_count < MAX_NODES,
+            "DynamicTreewidth: MAX_NODES exceeded"
+        );
         let idx = self.node_count;
         self.nodes[idx] = id;
         self.adj_len[idx] = 0;
@@ -422,7 +425,8 @@ impl DynamicTreewidth {
     pub fn full_recompute(&mut self) {
         // Work on a copy of the adjacency so we can add fill edges.
         // Boxed to avoid stack overflow (512KB+ per array).
-        let mut work_adj: Box<[[u64; MAX_DEGREE]; MAX_NODES]> = Box::new([[0u64; MAX_DEGREE]; MAX_NODES]);
+        let mut work_adj: Box<[[u64; MAX_DEGREE]; MAX_NODES]> =
+            Box::new([[0u64; MAX_DEGREE]; MAX_NODES]);
         let mut work_len: Box<[usize; MAX_NODES]> = Box::new([0usize; MAX_NODES]);
         // Map from work-graph index to node id
         let mut work_nodes: Box<[u64; MAX_NODES]> = Box::new([0u64; MAX_NODES]);
@@ -638,7 +642,8 @@ impl DynamicTreewidth {
         // Build work adjacency from the original graph (including fill edges
         // introduced by the ordering prefix [0..earliest_dirty]).
         // Boxed to avoid stack overflow.
-        let mut work_adj: Box<[[u64; MAX_DEGREE]; MAX_NODES]> = Box::new([[0u64; MAX_DEGREE]; MAX_NODES]);
+        let mut work_adj: Box<[[u64; MAX_DEGREE]; MAX_NODES]> =
+            Box::new([[0u64; MAX_DEGREE]; MAX_NODES]);
         let mut work_len: Box<[usize; MAX_NODES]> = Box::new([0usize; MAX_NODES]);
         let mut work_nodes: Box<[u64; MAX_NODES]> = Box::new([0u64; MAX_NODES]);
         let n = self.node_count;
@@ -700,12 +705,19 @@ impl DynamicTreewidth {
                     let mut ai = 0;
                     let mut bi = 0;
                     for k in 0..n {
-                        if work_nodes[k] == a { ai = k; }
-                        if work_nodes[k] == b { bi = k; }
+                        if work_nodes[k] == a {
+                            ai = k;
+                        }
+                        if work_nodes[k] == b {
+                            bi = k;
+                        }
                     }
                     let mut exists = false;
                     for k in 0..work_len[ai] {
-                        if work_adj[ai][k] == b { exists = true; break; }
+                        if work_adj[ai][k] == b {
+                            exists = true;
+                            break;
+                        }
                     }
                     if !exists {
                         if work_len[ai] < MAX_DEGREE {
@@ -726,7 +738,8 @@ impl DynamicTreewidth {
         let mut new_suffix_len = 0;
         let mut new_ordering_suffix: Box<[u64; MAX_NODES]> = Box::new([0u64; MAX_NODES]);
         let mut new_step_width: Box<[usize; MAX_NODES]> = Box::new([0usize; MAX_NODES]);
-        let mut new_fill_edges: Box<[[u64; MAX_DEGREE]; MAX_NODES]> = Box::new([[0u64; MAX_DEGREE]; MAX_NODES]);
+        let mut new_fill_edges: Box<[[u64; MAX_DEGREE]; MAX_NODES]> =
+            Box::new([[0u64; MAX_DEGREE]; MAX_NODES]);
         let mut new_fill_counts: Box<[usize; MAX_NODES]> = Box::new([0usize; MAX_NODES]);
 
         for _step in 0..remaining_count {
@@ -734,7 +747,9 @@ impl DynamicTreewidth {
             let mut min_deg = usize::MAX;
             let mut min_idx = 0;
             for i in 0..n {
-                if eliminated[i] { continue; }
+                if eliminated[i] {
+                    continue;
+                }
                 let mut deg = 0;
                 for j in 0..work_len[i] {
                     let nbr = work_adj[i][j];
@@ -787,12 +802,19 @@ impl DynamicTreewidth {
                     let mut ai = 0;
                     let mut bi = 0;
                     for k in 0..n {
-                        if work_nodes[k] == a { ai = k; }
-                        if work_nodes[k] == b { bi = k; }
+                        if work_nodes[k] == a {
+                            ai = k;
+                        }
+                        if work_nodes[k] == b {
+                            bi = k;
+                        }
                     }
                     let mut exists = false;
                     for k in 0..work_len[ai] {
-                        if work_adj[ai][k] == b { exists = true; break; }
+                        if work_adj[ai][k] == b {
+                            exists = true;
+                            break;
+                        }
                     }
                     if !exists {
                         if work_len[ai] < MAX_DEGREE {
@@ -969,8 +991,24 @@ mod tests {
         let mut g = TypeGraph::new();
         let rd = g.root_dir;
         let a = sotfs_ops::mkdir(&mut g, rd, "a", 0, 0, Permissions::DIR_DEFAULT).unwrap();
-        let b = sotfs_ops::mkdir(&mut g, a.dir_id.unwrap(), "b", 0, 0, Permissions::DIR_DEFAULT).unwrap();
-        sotfs_ops::mkdir(&mut g, b.dir_id.unwrap(), "c", 0, 0, Permissions::DIR_DEFAULT).unwrap();
+        let b = sotfs_ops::mkdir(
+            &mut g,
+            a.dir_id.unwrap(),
+            "b",
+            0,
+            0,
+            Permissions::DIR_DEFAULT,
+        )
+        .unwrap();
+        sotfs_ops::mkdir(
+            &mut g,
+            b.dir_id.unwrap(),
+            "c",
+            0,
+            0,
+            Permissions::DIR_DEFAULT,
+        )
+        .unwrap();
         let tw = compute_treewidth(&g);
         assert!(tw <= 2, "linear chain tw={}", tw);
     }
@@ -993,7 +1031,8 @@ mod tests {
         // File with 2 hard links from different dirs → tw may increase
         let mut g = TypeGraph::new();
         let rd = g.root_dir;
-        let fid = sotfs_ops::create_file(&mut g, rd, "shared", 0, 0, Permissions::FILE_DEFAULT).unwrap();
+        let fid =
+            sotfs_ops::create_file(&mut g, rd, "shared", 0, 0, Permissions::FILE_DEFAULT).unwrap();
         let d = sotfs_ops::mkdir(&mut g, rd, "d", 0, 0, Permissions::DIR_DEFAULT).unwrap();
         sotfs_ops::link(&mut g, d.dir_id.unwrap(), "alias", fid).unwrap();
 
@@ -1231,9 +1270,15 @@ mod tests {
             dt.on_add_node(i);
         }
         let all_edges: Vec<(u64, u64)> = vec![
-            (1, 2), (1, 3), (1, 4), (1, 5),
-            (2, 3), (2, 4), (2, 5),
-            (3, 4), (3, 5),
+            (1, 2),
+            (1, 3),
+            (1, 4),
+            (1, 5),
+            (2, 3),
+            (2, 4),
+            (2, 5),
+            (3, 4),
+            (3, 5),
             (4, 5),
         ];
         for &(u, v) in &all_edges {
@@ -1285,17 +1330,11 @@ mod tests {
         dt.on_remove_edge(1, 2);
         dt.on_remove_edge(2, 3);
         dt.on_remove_node(2);
-        assert_eq!(
-            dt.bound,
-            fresh_bound(&[1, 3, 4], &[(4, 1), (4, 3)])
-        );
+        assert_eq!(dt.bound, fresh_bound(&[1, 3, 4], &[(4, 1), (4, 3)]));
 
         // Add edge 1-3 to make a triangle
         dt.on_add_edge(1, 3);
-        assert_eq!(
-            dt.bound,
-            fresh_bound(&[1, 3, 4], &[(4, 1), (4, 3), (1, 3)])
-        );
+        assert_eq!(dt.bound, fresh_bound(&[1, 3, 4], &[(4, 1), (4, 3), (1, 3)]));
     }
 
     #[test]

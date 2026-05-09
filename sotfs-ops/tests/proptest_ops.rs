@@ -45,17 +45,56 @@ fn test_config() -> ProptestConfig {
 
 #[derive(Debug, Clone)]
 enum FsOp {
-    CreateFile { dir_idx: usize, name: String },
-    Mkdir { dir_idx: usize, name: String },
-    Rmdir { dir_idx: usize, name: String },
-    Link { dir_idx: usize, name: String, target_idx: usize },
-    Unlink { dir_idx: usize, name: String },
-    Rename { src_idx: usize, src_name: String, dst_idx: usize, dst_name: String },
-    WriteData { file_idx: usize, offset: u64, data: Vec<u8> },
-    ReadData { file_idx: usize, offset: u64, size: usize },
-    Truncate { file_idx: usize, new_size: u64 },
-    Chmod { inode_idx: usize, mode: u16 },
-    Chown { inode_idx: usize, uid: u32, gid: u32 },
+    CreateFile {
+        dir_idx: usize,
+        name: String,
+    },
+    Mkdir {
+        dir_idx: usize,
+        name: String,
+    },
+    Rmdir {
+        dir_idx: usize,
+        name: String,
+    },
+    Link {
+        dir_idx: usize,
+        name: String,
+        target_idx: usize,
+    },
+    Unlink {
+        dir_idx: usize,
+        name: String,
+    },
+    Rename {
+        src_idx: usize,
+        src_name: String,
+        dst_idx: usize,
+        dst_name: String,
+    },
+    WriteData {
+        file_idx: usize,
+        offset: u64,
+        data: Vec<u8>,
+    },
+    ReadData {
+        file_idx: usize,
+        offset: u64,
+        size: usize,
+    },
+    Truncate {
+        file_idx: usize,
+        new_size: u64,
+    },
+    Chmod {
+        inode_idx: usize,
+        mode: u16,
+    },
+    Chown {
+        inode_idx: usize,
+        uid: u32,
+        gid: u32,
+    },
 }
 
 // ---------------------------------------------------------------------------
@@ -132,74 +171,117 @@ fn apply_op(g: &mut TypeGraph, op: &FsOp) {
     match op {
         FsOp::CreateFile { dir_idx, name } => {
             let dirs = get_dirs(g);
-            if dirs.is_empty() { return; }
+            if dirs.is_empty() {
+                return;
+            }
             let dir = dirs[*dir_idx % dirs.len()];
             let _ = create_file(g, dir, name, 0, 0, Permissions::FILE_DEFAULT);
         }
         FsOp::Mkdir { dir_idx, name } => {
             let dirs = get_dirs(g);
-            if dirs.is_empty() { return; }
+            if dirs.is_empty() {
+                return;
+            }
             let dir = dirs[*dir_idx % dirs.len()];
             let _ = mkdir(g, dir, name, 0, 0, Permissions::DIR_DEFAULT);
         }
         FsOp::Rmdir { dir_idx, name } => {
             let dirs = get_dirs(g);
-            if dirs.is_empty() { return; }
+            if dirs.is_empty() {
+                return;
+            }
             let dir = dirs[*dir_idx % dirs.len()];
             let _ = rmdir(g, dir, name);
         }
-        FsOp::Link { dir_idx, name, target_idx } => {
+        FsOp::Link {
+            dir_idx,
+            name,
+            target_idx,
+        } => {
             let dirs = get_dirs(g);
             let files = get_regular_files(g);
-            if dirs.is_empty() || files.is_empty() { return; }
+            if dirs.is_empty() || files.is_empty() {
+                return;
+            }
             let dir = dirs[*dir_idx % dirs.len()];
             let target = files[*target_idx % files.len()];
             let _ = link(g, dir, name, target);
         }
         FsOp::Unlink { dir_idx, name } => {
             let dirs = get_dirs(g);
-            if dirs.is_empty() { return; }
+            if dirs.is_empty() {
+                return;
+            }
             let dir = dirs[*dir_idx % dirs.len()];
             let _ = unlink(g, dir, name);
         }
-        FsOp::Rename { src_idx, src_name, dst_idx, dst_name } => {
+        FsOp::Rename {
+            src_idx,
+            src_name,
+            dst_idx,
+            dst_name,
+        } => {
             let dirs = get_dirs(g);
-            if dirs.is_empty() { return; }
+            if dirs.is_empty() {
+                return;
+            }
             let src = dirs[*src_idx % dirs.len()];
             let dst = dirs[*dst_idx % dirs.len()];
             let _ = rename(g, src, src_name, dst, dst_name);
         }
-        FsOp::WriteData { file_idx, offset, data } => {
+        FsOp::WriteData {
+            file_idx,
+            offset,
+            data,
+        } => {
             let files = get_regular_files(g);
-            if files.is_empty() { return; }
+            if files.is_empty() {
+                return;
+            }
             let file = files[*file_idx % files.len()];
             // Cap offset to prevent OOM in tests
             let safe_offset = *offset % 8192;
             let safe_data = if data.len() > 256 { &data[..256] } else { data };
             let _ = write_data(g, file, safe_offset, safe_data);
         }
-        FsOp::ReadData { file_idx, offset, size } => {
+        FsOp::ReadData {
+            file_idx,
+            offset,
+            size,
+        } => {
             let files = get_regular_files(g);
-            if files.is_empty() { return; }
+            if files.is_empty() {
+                return;
+            }
             let file = files[*file_idx % files.len()];
             let _ = read_data(g, file, *offset, *size);
         }
         FsOp::Truncate { file_idx, new_size } => {
             let files = get_regular_files(g);
-            if files.is_empty() { return; }
+            if files.is_empty() {
+                return;
+            }
             let file = files[*file_idx % files.len()];
             let safe_size = *new_size % 8192;
             let _ = truncate(g, file, safe_size);
         }
         FsOp::Chmod { inode_idx, mode } => {
             let inodes = get_inodes(g);
-            if inodes.is_empty() { return; }
+            if inodes.is_empty() {
+                return;
+            }
             let inode = inodes[*inode_idx % inodes.len()];
             let _ = chmod(g, inode, *mode);
         }
-        FsOp::Chown { inode_idx, uid, gid } => {
+        FsOp::Chown {
+            inode_idx,
+            uid,
+            gid,
+        } => {
             let inodes = get_inodes(g);
-            if inodes.is_empty() { return; }
+            if inodes.is_empty() {
+                return;
+            }
             let inode = inodes[*inode_idx % inodes.len()];
             let _ = chown(g, inode, Some(*uid), Some(*gid));
         }

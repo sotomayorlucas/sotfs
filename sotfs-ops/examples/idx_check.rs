@@ -1,7 +1,7 @@
 //! Cargo run example: ejercita el grafo y valida el índice tras cada mutación.
 use sotfs_graph::graph::TypeGraph;
 use sotfs_graph::types::Permissions;
-use sotfs_ops::{create_file, mkdir, unlink, rename};
+use sotfs_ops::{create_file, mkdir, rename, unlink};
 
 fn main() {
     let mut g = TypeGraph::new();

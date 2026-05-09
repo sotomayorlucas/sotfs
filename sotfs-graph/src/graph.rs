@@ -654,10 +654,7 @@ impl TypeGraph {
     }
 
     /// Resolve path to parent dir + final component name.
-    pub fn resolve_parent(
-        &self,
-        path: &str,
-    ) -> Result<(DirId, String), GraphError> {
+    pub fn resolve_parent(&self, path: &str) -> Result<(DirId, String), GraphError> {
         let path = path.trim_end_matches('/');
         let (parent_path, name) = match path.rfind('/') {
             Some(pos) => {
@@ -915,8 +912,7 @@ impl TypeGraph {
     /// G4: capability monotonicity along delegation chains
     fn check_cap_monotonicity(&self) -> Result<(), GraphError> {
         for (&child_id, &parent_id) in &self.cap_parent {
-            if let (Some(child), Some(parent)) = (self.get_cap(child_id), self.get_cap(parent_id))
-            {
+            if let (Some(child), Some(parent)) = (self.get_cap(child_id), self.get_cap(parent_id)) {
                 if !child.rights.is_subset_of(&parent.rights) {
                     return Err(GraphError::InvariantViolation(format!(
                         "Capability {} rights {:?} not subset of parent {} rights {:?}",
@@ -944,9 +940,9 @@ impl Default for TypeGraph {
 
 mod arena_serde {
     use super::*;
+    use core::marker::PhantomData;
     use serde::de::{Deserializer, SeqAccess, Visitor};
     use serde::ser::{SerializeSeq, Serializer};
-    use core::marker::PhantomData;
 
     pub fn serialize<T, const N: usize, S>(
         arena: &Arena<T, N>,
@@ -963,9 +959,7 @@ mod arena_serde {
         seq.end()
     }
 
-    pub fn deserialize<'de, T, const N: usize, D>(
-        deserializer: D,
-    ) -> Result<Arena<T, N>, D::Error>
+    pub fn deserialize<'de, T, const N: usize, D>(deserializer: D) -> Result<Arena<T, N>, D::Error>
     where
         T: Deserialize<'de>,
         D: Deserializer<'de>,

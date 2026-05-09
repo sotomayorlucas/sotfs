@@ -333,11 +333,7 @@ pub enum Edge {
         rights: Rights,
     },
     /// Capability → Capability, CDT parent→child (§5.3.3).
-    Delegates {
-        id: EdgeId,
-        src: CapId,
-        tgt: CapId,
-    },
+    Delegates { id: EdgeId, src: CapId, tgt: CapId },
     /// Version → Version, snapshot lineage (§5.3.4).
     DerivedFrom {
         id: EdgeId,

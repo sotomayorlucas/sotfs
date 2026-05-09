@@ -3,7 +3,7 @@
 //! Measures per-operation latency and throughput at scale.
 //! Run: cd sotfs && cargo bench --bench dpo_bench
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use sotfs_graph::graph::TypeGraph;
 use sotfs_graph::types::*;
 use sotfs_ops::*;
@@ -105,7 +105,8 @@ fn bench_hard_links(c: &mut Criterion) {
             b.iter(|| {
                 let mut g = TypeGraph::new();
                 let rd = g.root_dir;
-                let fid = create_file(&mut g, rd, "target", 0, 0, Permissions::FILE_DEFAULT).unwrap();
+                let fid =
+                    create_file(&mut g, rd, "target", 0, 0, Permissions::FILE_DEFAULT).unwrap();
                 for i in 0..n {
                     let name = format!("link{}", i);
                     let _ = link(&mut g, rd, &name, fid);

@@ -73,10 +73,7 @@ impl RcuGraph {
     /// Create a new RCU-protected graph pair, both initialized via `TypeGraph::new()`.
     pub fn new() -> Self {
         Self {
-            graphs: UnsafeCell::new([
-                TypeGraph::new_boxed(),
-                TypeGraph::new_boxed(),
-            ]),
+            graphs: UnsafeCell::new([TypeGraph::new_boxed(), TypeGraph::new_boxed()]),
             active: AtomicUsize::new(0),
             global_epoch: AtomicU64::new(1), // start at 1; 0 is INACTIVE sentinel
             reader_epochs: core::array::from_fn(|_| AtomicU64::new(EPOCH_INACTIVE)),
@@ -131,14 +128,8 @@ impl RcuGraph {
 
         // Find a free slot (EPOCH_INACTIVE == 0).
         for i in 0..MAX_READERS {
-            if self
-                .reader_epochs[i]
-                .compare_exchange(
-                    EPOCH_INACTIVE,
-                    epoch,
-                    Ordering::AcqRel,
-                    Ordering::Relaxed,
-                )
+            if self.reader_epochs[i]
+                .compare_exchange(EPOCH_INACTIVE, epoch, Ordering::AcqRel, Ordering::Relaxed)
                 .is_ok()
             {
                 return i;
@@ -348,7 +339,9 @@ mod tests {
         for i in 0..5 {
             let name_str: String = {
                 #[cfg(feature = "std")]
-                { format!("file_{}", i) }
+                {
+                    format!("file_{}", i)
+                }
                 #[cfg(not(feature = "std"))]
                 {
                     use alloc::format;
@@ -541,8 +534,7 @@ mod tests {
                 rcu_w.write(|g| {
                     let inode_id = g.alloc_inode_id();
                     let edge_id = g.alloc_edge_id();
-                    let mut inode =
-                        Inode::new_file(inode_id, Permissions::FILE_DEFAULT, 0, 0);
+                    let mut inode = Inode::new_file(inode_id, Permissions::FILE_DEFAULT, 0, 0);
                     inode.link_count = 1;
                     g.insert_inode(inode_id, inode);
                     let edge = Edge::Contains {
@@ -641,10 +633,7 @@ mod tests {
                 name: ".".into(),
             };
             g.insert_edge(dot_edge, e2);
-            g.dir_contains
-                .entry(dir_id)
-                .or_default()
-                .insert(dot_edge);
+            g.dir_contains.entry(dir_id).or_default().insert(dot_edge);
             g.inode_incoming_contains
                 .entry(inode_id)
                 .or_default()

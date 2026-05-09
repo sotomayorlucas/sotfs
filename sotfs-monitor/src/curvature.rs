@@ -15,9 +15,9 @@
 //! - Symlink bomb → strong positive κ on target inode edges
 //! - Deep directory chain → sustained κ ≈ -1.0 (maximally tree-like)
 
-use std::collections::{BTreeMap, BTreeSet};
 use sotfs_graph::graph::TypeGraph;
 use sotfs_graph::types::*;
+use std::collections::{BTreeMap, BTreeSet};
 
 /// Curvature of a single edge.
 #[derive(Debug, Clone)]
@@ -112,8 +112,8 @@ fn compute_edge_curvature(
     let mv = 1.0 / deg_v as f64;
 
     // Mass that can be transported at cost 0: overlap nodes
-    let _free_mass = (1.0 - alpha) * (1.0 - alpha) * common as f64 * mu * mv
-        * (deg_u as f64 * deg_v as f64);
+    let _free_mass =
+        (1.0 - alpha) * (1.0 - alpha) * common as f64 * mu * mv * (deg_u as f64 * deg_v as f64);
 
     // Self-loop to neighbor: if u ∈ N(v) or v ∈ N(u)
     let u_in_nv = nbrs_v.contains(&u);
@@ -166,10 +166,7 @@ pub fn compute_all_curvatures(graph: &TypeGraph, alpha: f64) -> CurvatureReport 
         edges.iter().map(|e| e.kappa).sum::<f64>() / edges.len() as f64
     };
 
-    let min_kappa = edges
-        .iter()
-        .map(|e| e.kappa)
-        .fold(f64::INFINITY, f64::min);
+    let min_kappa = edges.iter().map(|e| e.kappa).fold(f64::INFINITY, f64::min);
     let max_kappa = edges
         .iter()
         .map(|e| e.kappa)
@@ -177,7 +174,10 @@ pub fn compute_all_curvatures(graph: &TypeGraph, alpha: f64) -> CurvatureReport 
 
     // Anomalies: edges where |κ - mean| > 2σ
     let variance = if edges.len() > 1 {
-        edges.iter().map(|e| (e.kappa - mean_kappa).powi(2)).sum::<f64>()
+        edges
+            .iter()
+            .map(|e| (e.kappa - mean_kappa).powi(2))
+            .sum::<f64>()
             / (edges.len() - 1) as f64
     } else {
         0.0
@@ -194,8 +194,16 @@ pub fn compute_all_curvatures(graph: &TypeGraph, alpha: f64) -> CurvatureReport 
     CurvatureReport {
         edges,
         mean_kappa,
-        min_kappa: if min_kappa.is_infinite() { 0.0 } else { min_kappa },
-        max_kappa: if max_kappa.is_infinite() { 0.0 } else { max_kappa },
+        min_kappa: if min_kappa.is_infinite() {
+            0.0
+        } else {
+            min_kappa
+        },
+        max_kappa: if max_kappa.is_infinite() {
+            0.0
+        } else {
+            max_kappa
+        },
         anomalies,
     }
 }
@@ -357,8 +365,16 @@ pub fn recompute_incremental_with_alpha(
     CurvatureReport {
         edges,
         mean_kappa,
-        min_kappa: if min_kappa.is_infinite() { 0.0 } else { min_kappa },
-        max_kappa: if max_kappa.is_infinite() { 0.0 } else { max_kappa },
+        min_kappa: if min_kappa.is_infinite() {
+            0.0
+        } else {
+            min_kappa
+        },
+        max_kappa: if max_kappa.is_infinite() {
+            0.0
+        } else {
+            max_kappa
+        },
         anomalies,
     }
 }
@@ -425,7 +441,8 @@ mod tests {
     fn hard_link_creates_positive_curvature() {
         let mut g = TypeGraph::new();
         let rd = g.root_dir;
-        let fid = sotfs_ops::create_file(&mut g, rd, "shared", 0, 0, Permissions::FILE_DEFAULT).unwrap();
+        let fid =
+            sotfs_ops::create_file(&mut g, rd, "shared", 0, 0, Permissions::FILE_DEFAULT).unwrap();
         let d = sotfs_ops::mkdir(&mut g, rd, "d", 0, 0, Permissions::DIR_DEFAULT).unwrap();
         sotfs_ops::link(&mut g, d.dir_id.unwrap(), "alias", fid).unwrap();
 
@@ -496,9 +513,8 @@ mod tests {
         let prev = compute_curvatures(&g);
 
         // Add one more file
-        let new_inode = sotfs_ops::create_file(
-            &mut g, rd, "f_new", 0, 0, Permissions::FILE_DEFAULT,
-        ).unwrap();
+        let new_inode =
+            sotfs_ops::create_file(&mut g, rd, "f_new", 0, 0, Permissions::FILE_DEFAULT).unwrap();
 
         let affected = sotfs_ops::affected_nodes_create(rd, new_inode);
         let incremental = recompute_incremental(&g, affected.as_slice(), &prev);
@@ -509,8 +525,10 @@ mod tests {
             "incremental and full differ after create_file\n\
              incremental edges: {}, full edges: {}\n\
              incr mean={}, full mean={}",
-            incremental.edges.len(), full.edges.len(),
-            incremental.mean_kappa, full.mean_kappa,
+            incremental.edges.len(),
+            full.edges.len(),
+            incremental.mean_kappa,
+            full.mean_kappa,
         );
     }
 
@@ -549,9 +567,7 @@ mod tests {
         let prev = compute_curvatures(&g);
 
         let result = sotfs_ops::mkdir(&mut g, rd, "sub", 0, 0, Permissions::DIR_DEFAULT).unwrap();
-        let affected = sotfs_ops::affected_nodes_mkdir(
-            rd, result.inode_id, result.dir_id.unwrap(),
-        );
+        let affected = sotfs_ops::affected_nodes_mkdir(rd, result.inode_id, result.dir_id.unwrap());
         let incremental = recompute_incremental(&g, affected.as_slice(), &prev);
         let full = compute_curvatures(&g);
 
@@ -568,9 +584,7 @@ mod tests {
 
         let sub = sotfs_ops::mkdir(&mut g, rd, "dst", 0, 0, Permissions::DIR_DEFAULT).unwrap();
         let sub_dir = sub.dir_id.unwrap();
-        let fid = sotfs_ops::create_file(
-            &mut g, rd, "f", 0, 0, Permissions::FILE_DEFAULT,
-        ).unwrap();
+        let fid = sotfs_ops::create_file(&mut g, rd, "f", 0, 0, Permissions::FILE_DEFAULT).unwrap();
         sotfs_ops::create_file(&mut g, sub_dir, "x", 0, 0, Permissions::FILE_DEFAULT).unwrap();
         let prev = compute_curvatures(&g);
 
@@ -591,9 +605,8 @@ mod tests {
         let mut g = TypeGraph::new();
         let rd = g.root_dir;
 
-        let fid = sotfs_ops::create_file(
-            &mut g, rd, "orig", 0, 0, Permissions::FILE_DEFAULT,
-        ).unwrap();
+        let fid =
+            sotfs_ops::create_file(&mut g, rd, "orig", 0, 0, Permissions::FILE_DEFAULT).unwrap();
         let sub = sotfs_ops::mkdir(&mut g, rd, "d", 0, 0, Permissions::DIR_DEFAULT).unwrap();
         let sub_dir = sub.dir_id.unwrap();
         let prev = compute_curvatures(&g);
@@ -645,9 +658,8 @@ mod tests {
         }
         let prev = compute_curvatures(&g);
 
-        let new_inode = sotfs_ops::create_file(
-            &mut g, rd, "extra", 0, 0, Permissions::FILE_DEFAULT,
-        ).unwrap();
+        let new_inode =
+            sotfs_ops::create_file(&mut g, rd, "extra", 0, 0, Permissions::FILE_DEFAULT).unwrap();
 
         let affected = sotfs_ops::affected_nodes_create(rd, new_inode);
         let incremental = recompute_incremental(&g, affected.as_slice(), &prev);
@@ -657,17 +669,20 @@ mod tests {
         assert!(
             (incremental.mean_kappa - full.mean_kappa).abs() < eps,
             "mean mismatch: incr={}, full={}",
-            incremental.mean_kappa, full.mean_kappa,
+            incremental.mean_kappa,
+            full.mean_kappa,
         );
         assert!(
             (incremental.min_kappa - full.min_kappa).abs() < eps,
             "min mismatch: incr={}, full={}",
-            incremental.min_kappa, full.min_kappa,
+            incremental.min_kappa,
+            full.min_kappa,
         );
         assert!(
             (incremental.max_kappa - full.max_kappa).abs() < eps,
             "max mismatch: incr={}, full={}",
-            incremental.max_kappa, full.max_kappa,
+            incremental.max_kappa,
+            full.max_kappa,
         );
     }
 
@@ -702,24 +717,27 @@ mod tests {
         // Op 1: create files
         for i in 0..5 {
             let name = format!("f{}", i);
-            let iid = sotfs_ops::create_file(
-                &mut g, rd, &name, 0, 0, Permissions::FILE_DEFAULT,
-            ).unwrap();
+            let iid =
+                sotfs_ops::create_file(&mut g, rd, &name, 0, 0, Permissions::FILE_DEFAULT).unwrap();
             let affected = sotfs_ops::affected_nodes_create(rd, iid);
             report = recompute_incremental(&g, affected.as_slice(), &report);
         }
 
         // Op 2: mkdir
         let sub = sotfs_ops::mkdir(&mut g, rd, "sub", 0, 0, Permissions::DIR_DEFAULT).unwrap();
-        let affected = sotfs_ops::affected_nodes_mkdir(
-            rd, sub.inode_id, sub.dir_id.unwrap(),
-        );
+        let affected = sotfs_ops::affected_nodes_mkdir(rd, sub.inode_id, sub.dir_id.unwrap());
         report = recompute_incremental(&g, affected.as_slice(), &report);
 
         // Op 3: create file in subdir
         let fid = sotfs_ops::create_file(
-            &mut g, sub.dir_id.unwrap(), "inner", 0, 0, Permissions::FILE_DEFAULT,
-        ).unwrap();
+            &mut g,
+            sub.dir_id.unwrap(),
+            "inner",
+            0,
+            0,
+            Permissions::FILE_DEFAULT,
+        )
+        .unwrap();
         let affected = sotfs_ops::affected_nodes_create(sub.dir_id.unwrap(), fid);
         report = recompute_incremental(&g, affected.as_slice(), &report);
 
@@ -736,8 +754,10 @@ mod tests {
             "chained incremental diverged from full recomputation\n\
              incr edges={}, full edges={}\n\
              incr mean={}, full mean={}",
-            report.edges.len(), full.edges.len(),
-            report.mean_kappa, full.mean_kappa,
+            report.edges.len(),
+            full.edges.len(),
+            report.mean_kappa,
+            full.mean_kappa,
         );
     }
 }
