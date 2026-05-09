@@ -1,0 +1,10 @@
+digraph sotFS {
+  rankdir=TB;
+  node [fontname="monospace", fontsize=10];
+  edge [fontname="monospace", fontsize=8];
+
+  I1 [label="I1\ndir\nlc=1", shape=box, style=filled, fillcolor=gold];
+  D1 [label="D1\nino=1", shape=folder, style=filled, fillcolor=lightyellow];
+
+  D1 -> I1 [label=".", color=black];
+}

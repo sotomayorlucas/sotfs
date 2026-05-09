@@ -99,8 +99,12 @@ impl InodeHandle<Orphaned> {
     /// Garbage-collect this inode. Consumes the handle, preventing any
     /// further access — use-after-free is a compile error.
     pub fn gc(self) {
-        // Handle is consumed, memory freed. No further operations possible.
-        drop(self);
+        // Handle is consumed by `self`, no body needed: the
+        // typestate compile-time guarantee is in the signature
+        // (the caller can no longer use the handle), not in a
+        // runtime drop. Clippy flags `drop(self)` here because
+        // `InodeHandle` does not implement Drop, so the call is
+        // a no-op past the move.
     }
 
     pub fn id(&self) -> u64 {

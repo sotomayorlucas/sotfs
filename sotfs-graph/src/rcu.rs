@@ -69,6 +69,12 @@ pub struct RcuGraph {
     write_locked: AtomicBool,
 }
 
+impl Default for RcuGraph {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl RcuGraph {
     /// Create a new RCU-protected graph pair, both initialized via `TypeGraph::new()`.
     pub fn new() -> Self {
@@ -117,7 +123,7 @@ impl RcuGraph {
         let idx = self.active.load(Ordering::Acquire);
         // SAFETY: readers only access the active copy; the write lock ensures
         // the inactive copy is never read concurrently with a writer.
-        let result = f(unsafe { &*(*self.graphs.get())[idx] });
+        let result = f(unsafe { &(*self.graphs.get())[idx] });
         self.rcu_read_unlock(slot);
         result
     }
@@ -180,7 +186,7 @@ impl RcuGraph {
         }
 
         // Mutate the inactive copy (update phase).
-        let inactive_mut: &mut TypeGraph = unsafe { &mut *(*graphs)[inactive] };
+        let inactive_mut: &mut TypeGraph = unsafe { &mut (*graphs)[inactive] };
         let result = f(inactive_mut);
 
         // Swap: make the mutated copy visible to new readers.
@@ -247,15 +253,21 @@ impl RcuGraph {
     ///
     /// Caller must ensure no concurrent readers or writers exist.
     /// Intended for single-threaded initialization only.
+    ///
+    /// Clippy: `mut_from_ref` flags the `&self -> &mut T` shape, but
+    /// that is the entire point of `UnsafeCell`-backed interior
+    /// mutability inside an RCU; the safety contract is in the
+    /// caller. Allowed with justification.
+    #[allow(clippy::mut_from_ref)]
     pub unsafe fn active_mut(&self) -> &mut TypeGraph {
         let idx = self.active.load(Ordering::Relaxed);
-        &mut *(*self.graphs.get())[idx]
+        &mut (*self.graphs.get())[idx]
     }
 
     /// Get an immutable reference to the active graph (non-RCU, for tests).
     pub fn active_ref(&self) -> &TypeGraph {
         let idx = self.active.load(Ordering::Acquire);
-        unsafe { &*(*self.graphs.get())[idx] }
+        unsafe { &(*self.graphs.get())[idx] }
     }
 }
 
@@ -565,7 +577,7 @@ mod tests {
                         // Must always see a valid graph (invariants hold)
                         g.check_invariants().unwrap();
                         // Number of inodes grows monotonically
-                        assert!(g.inodes.len() >= 1);
+                        assert!(!g.inodes.is_empty());
                     });
                 }
             }));

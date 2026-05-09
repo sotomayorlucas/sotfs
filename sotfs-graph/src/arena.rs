@@ -74,6 +74,12 @@ fn boxed_uninit_slice<T>(len: usize) -> Box<[MaybeUninit<T>]> {
     v.into_boxed_slice()
 }
 
+impl<T, const CAPACITY: usize> Default for Arena<T, CAPACITY> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<T, const CAPACITY: usize> Arena<T, CAPACITY> {
     // SAFETY INVARIANT: `data[i]` is initialized iff `state[i] == Occupied`.
 
@@ -584,8 +590,8 @@ mod tests {
         let mut ids = [ArenaId(0); 64];
 
         // Fill completely.
-        for i in 0..64 {
-            ids[i] = arena.alloc(i as u32).unwrap();
+        for (i, slot) in ids.iter_mut().enumerate() {
+            *slot = arena.alloc(i as u32).unwrap();
         }
         assert!(arena.alloc(999).is_none());
         assert_eq!(arena.len(), 64);
