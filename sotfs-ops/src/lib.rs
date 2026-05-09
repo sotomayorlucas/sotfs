@@ -57,6 +57,8 @@ pub fn create_file(
     if !g.contains_dir(parent_dir) {
         return Err(GraphError::DirNotFound(parent_dir));
     }
+    // GC-CREATE-quota: any ancestor with an inode quota at capacity blocks.
+    check_quota_inode(g, parent_dir)?;
 
     let inode_id = g.alloc_inode_id();
     let edge_id = g.alloc_edge_id();
@@ -83,6 +85,7 @@ pub fn create_file(
         .or_default()
         .insert(edge_id);
 
+    update_quota(g, parent_dir, 1, 0);
     g.record_prov(ProvOp::Create, inode_id, name);
     Ok(inode_id)
 }
@@ -111,6 +114,8 @@ pub fn mkdir(
         .get_dir(parent_dir)
         .ok_or(GraphError::DirNotFound(parent_dir))?
         .inode_id;
+    // GC-MKDIR-quota: ancestor inode quota check.
+    check_quota_inode(g, parent_dir)?;
 
     let inode_id = g.alloc_inode_id();
     let dir_id = g.alloc_dir_id();
@@ -181,6 +186,7 @@ pub fn mkdir(
         .or_default()
         .insert(dotdot_edge);
 
+    update_quota(g, parent_dir, 1, 0);
     g.record_prov(ProvOp::Mkdir, inode_id, name);
     Ok(CreateResult {
         inode_id,
@@ -262,6 +268,7 @@ pub fn rmdir(g: &mut TypeGraph, parent_dir: DirId, name: &str) -> Result<(), Gra
     g.dir_contains.remove(&target_dir);
     g.inode_incoming_contains.remove(&target_inode_id);
 
+    update_quota(g, parent_dir, -1, 0);
     g.record_prov(ProvOp::Rmdir, target_inode_id, name);
     Ok(())
 }
@@ -358,6 +365,7 @@ pub fn unlink(g: &mut TypeGraph, dir: DirId, name: &str) -> Result<(), GraphErro
 
     let inode = g.get_inode_mut(target_inode_id).unwrap();
     inode.link_count -= 1;
+    let inode_was_freed = inode.link_count == 0;
 
     // If last link, garbage-collect inode and its blocks
     if inode.link_count == 0 {
@@ -384,6 +392,12 @@ pub fn unlink(g: &mut TypeGraph, dir: DirId, name: &str) -> Result<(), GraphErro
         g.inode_incoming_contains.remove(&target_inode_id);
     }
 
+    if inode_was_freed {
+        // Only count an inode-quota release when the inode actually
+        // disappears (link_count → 0). Hard-link unlinks reduce names
+        // but not the inode count of the subtree.
+        update_quota(g, dir, -1, 0);
+    }
     g.record_prov(ProvOp::Unlink, target_inode_id, name);
     Ok(())
 }
@@ -1045,6 +1059,8 @@ pub fn symlink(
     if !g.contains_dir(parent_dir) {
         return Err(GraphError::DirNotFound(parent_dir));
     }
+    // GC-SYMLINK-quota: ancestor inode quota check.
+    check_quota_inode(g, parent_dir)?;
 
     let inode_id = g.alloc_inode_id();
     let edge_id = g.alloc_edge_id();
@@ -1085,6 +1101,7 @@ pub fn symlink(
         .or_default()
         .insert(edge_id);
 
+    update_quota(g, parent_dir, 1, 0);
     g.record_prov(ProvOp::Symlink, inode_id, name);
     Ok(inode_id)
 }
@@ -1212,6 +1229,10 @@ pub fn check_quota_inode(g: &TypeGraph, dir_id: DirId) -> Result<(), GraphError>
 /// Update quota counters after a DPO operation.
 /// delta_inodes: +1 for create/mkdir, -1 for unlink/rmdir
 /// delta_bytes: change in file data size
+///
+/// Walks the parent chain from `dir_id` up to the root and updates
+/// every ancestor's quota counter (cumulative subtree usage). Each
+/// ancestor that has no `Quota` configured is skipped silently.
 pub fn update_quota(g: &mut TypeGraph, dir_id: DirId, delta_inodes: i64, delta_bytes: i64) {
     let mut current = Some(dir_id);
     while let Some(d) = current {
@@ -1232,6 +1253,33 @@ pub fn update_quota(g: &mut TypeGraph, dir_id: DirId, delta_inodes: i64, delta_b
             break;
         }
     }
+}
+
+/// Check that writing `additional` bytes under `dir_id`'s subtree would
+/// not exceed the byte quota of `dir_id` or any ancestor. Counterpart
+/// to the existing [`check_quota_inode`]; same walk-up shape.
+pub fn check_quota_bytes(
+    g: &TypeGraph,
+    dir_id: DirId,
+    additional: u64,
+) -> Result<(), GraphError> {
+    let mut current = Some(dir_id);
+    while let Some(d) = current {
+        if let Some(q) = g.quotas.get(&d) {
+            if !q.check_bytes(additional) {
+                return Err(GraphError::QuotaExceeded {
+                    dir: d,
+                    resource: "bytes".into(),
+                });
+            }
+        }
+        let next = g.parent_dir(d);
+        if next == Some(d) {
+            break;
+        }
+        current = next;
+    }
+    Ok(())
 }
 
 // ===========================================================================
