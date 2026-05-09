@@ -178,6 +178,33 @@ pub struct Capability {
     pub epoch: u64,
 }
 
+/// Per-op cap-mediated security context.
+///
+/// Threaded through [`crate::graph::TypeGraph::cap_ctx`] so every DPO
+/// op records the cap that authorised it and the domain that owns the
+/// caller. `cap_id = None` is the "anonymous" path (no cap presented,
+/// e.g. an internal admin task); `domain_id = 0` is the privileged
+/// "kernel" domain. FUSE callbacks set this from the request's uid /
+/// gid before each DPO call.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct CapContext {
+    pub cap_id: Option<CapId>,
+    pub domain_id: u64,
+}
+
+impl CapContext {
+    pub const fn anonymous() -> Self {
+        Self {
+            cap_id: None,
+            domain_id: 0,
+        }
+    }
+
+    pub const fn new(cap_id: Option<CapId>, domain_id: u64) -> Self {
+        Self { cap_id, domain_id }
+    }
+}
+
 /// Transaction state machine (§5.2.4).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum TxState {

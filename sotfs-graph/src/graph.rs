@@ -163,6 +163,27 @@ pub struct TypeGraph {
     #[serde(skip)]
     pub prov_log: Option<ProvenanceLog>,
 
+    // --- Cap-mediated DPO context (§6.4 plumbing, v0.2.5) ---
+    /// Capability + domain attribution for every successful DPO op.
+    ///
+    /// Pre-v0.2.5 every `record_prov` call hard-coded `cap_id=None,
+    /// domain_id=0`, defeating MSO queries Q1 (caps_for_inode_in_window),
+    /// Q2 (inodes_touched_by_cap), Q4 (ops_by_domain), and Q6
+    /// (activity_summary distinct_caps). The cap-graph existed —
+    /// `setacl` builds `Capability` nodes and `Grants` edges as of
+    /// v0.2.3 — but the live cap-context at op time was discarded.
+    ///
+    /// v0.2.5 plumbs it through: callers (FUSE, SOT services, tests)
+    /// set the active context via [`set_cap_ctx`] before the DPO op,
+    /// `record_prov` reads it, and the entry lands in the log with
+    /// real attribution. Default `(None, 0)` preserves the v0.2.4 wire
+    /// format for callers that haven't migrated yet.
+    ///
+    /// `#[serde(skip)]` because the context is per-op live state, not
+    /// a graph property to persist.
+    #[serde(skip)]
+    pub cap_ctx: CapContext,
+
     // --- ID allocators ---
     next_inode: u64,
     next_dir: u64,
@@ -237,6 +258,7 @@ impl TypeGraph {
             acls: BTreeMap::new(),
             quotas: BTreeMap::new(),
             prov_log: None,
+            cap_ctx: CapContext::default(),
             next_inode: 2,
             next_dir: 2,
             next_cap: 1,
@@ -589,21 +611,30 @@ impl TypeGraph {
     /// Cheap no-op otherwise — every DPO op in `sotfs-ops` calls this
     /// after a successful mutation, with the inode it touched.
     ///
-    /// `cap_id` and `domain_id` default to `None` / `0` for the
-    /// uninstrumented FUSE path; v0.2.3 will plumb real values through
-    /// once the cap-secured DPO entry points land. Today the gradient
-    /// is "logging is on or off"; cap/domain attribution is best-effort.
+    /// `cap_id` and `domain_id` come from [`Self::cap_ctx`], which the
+    /// caller sets via [`set_cap_ctx`] before the DPO op. Without an
+    /// explicit set, the context is `(None, 0)` ("anonymous" /
+    /// "kernel"), matching the pre-v0.2.5 wire format.
     #[inline]
     pub fn record_prov(&mut self, op: ProvOp, inode_id: InodeId, detail: &str) {
+        let ctx = self.cap_ctx;
         if let Some(log) = &mut self.prov_log {
-            log.record(crate::types::now(), op, inode_id, None, 0, detail);
+            log.record(
+                crate::types::now(),
+                op,
+                inode_id,
+                ctx.cap_id,
+                ctx.domain_id,
+                detail,
+            );
         }
     }
 
     /// Like [`record_prov`] but lets the caller supply `cap_id` and
-    /// `domain_id` explicitly. Used by paths that already know the
-    /// security context (e.g. cap-mediated SOT operations); plain
-    /// FUSE callbacks use [`record_prov`].
+    /// `domain_id` explicitly, ignoring [`Self::cap_ctx`]. Used by
+    /// tests and a handful of internal paths that need to override the
+    /// thread-local default; ordinary callers should set the context
+    /// once via [`set_cap_ctx`] and let `record_prov` read it.
     #[inline]
     pub fn record_prov_full(
         &mut self,
@@ -616,6 +647,27 @@ impl TypeGraph {
         if let Some(log) = &mut self.prov_log {
             log.record(crate::types::now(), op, inode_id, cap_id, domain_id, detail);
         }
+    }
+
+    /// Set the active cap-mediated context that subsequent
+    /// [`record_prov`] calls will attribute their entries to. FUSE
+    /// callbacks call this once at the top of each callback with the
+    /// cap and domain derived from the request's uid / gid.
+    #[inline]
+    pub fn set_cap_ctx(&mut self, ctx: CapContext) {
+        self.cap_ctx = ctx;
+    }
+
+    /// Reset the active cap-mediated context to `(None, 0)`.
+    #[inline]
+    pub fn clear_cap_ctx(&mut self) {
+        self.cap_ctx = CapContext::default();
+    }
+
+    /// Read the current cap-mediated context.
+    #[inline]
+    pub fn cap_ctx(&self) -> CapContext {
+        self.cap_ctx
     }
 
     /// Rebuild `dir_name_idx` from the current edge set. Call after

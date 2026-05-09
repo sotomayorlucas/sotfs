@@ -120,3 +120,48 @@ fn provenance_chain_query_works_after_real_ops() {
     assert_eq!(chain[1].op, ProvOp::Write);
     assert_eq!(chain[2].op, ProvOp::Chmod);
 }
+
+#[test]
+fn dpo_ops_record_with_active_cap_ctx() {
+    // v0.2.5: record_prov reads from TypeGraph::cap_ctx instead of
+    // hard-coding (None, 0). Run a sequence of DPO ops, switch the
+    // ctx between them, and check the log captures the right cap /
+    // domain on each entry. This is the contract that powers MSO
+    // queries Q1/Q2/Q4/Q6 once FUSE plumbs real values.
+    use sotfs_graph::types::CapContext;
+    let mut g = fresh();
+    let rd = g.root_dir;
+
+    g.set_cap_ctx(CapContext::new(Some(7), 1000));
+    let id_a = create_file(&mut g, rd, "a", 0, 0, Permissions::FILE_DEFAULT).unwrap();
+
+    g.set_cap_ctx(CapContext::new(Some(8), 1001));
+    let id_b = create_file(&mut g, rd, "b", 0, 0, Permissions::FILE_DEFAULT).unwrap();
+    write_data(&mut g, id_b, 0, b"x").unwrap();
+
+    g.clear_cap_ctx();
+    chmod(&mut g, id_a, 0o600).unwrap();
+
+    let log = g.prov_log().unwrap();
+    let entries = log.entries();
+    assert_eq!(entries[0].cap_id, Some(7));
+    assert_eq!(entries[0].domain_id, 1000);
+    assert_eq!(entries[1].cap_id, Some(8));
+    assert_eq!(entries[1].domain_id, 1001);
+    assert_eq!(entries[2].cap_id, Some(8));
+    assert_eq!(entries[2].domain_id, 1001);
+    assert!(entries[3].cap_id.is_none());
+    assert_eq!(entries[3].domain_id, 0);
+
+    // MSO Q4 (ops_by_domain): only the two ops at domain 1001 should
+    // be reported, regardless of inode.
+    let dom_1001 = log.ops_by_domain(1001, 0, u64::MAX);
+    assert_eq!(dom_1001.len(), 2);
+    assert!(dom_1001.iter().all(|e| e.domain_id == 1001));
+
+    // MSO Q1 (caps_for_inode_in_window): inode b should report cap 8
+    // for both create and write.
+    let caps = log.caps_for_inode_in_window(id_b, 0, u64::MAX);
+    assert_eq!(caps.len(), 2);
+    assert!(caps.iter().all(|(cid, _, _)| *cid == 8));
+}
