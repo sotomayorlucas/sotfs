@@ -1025,7 +1025,7 @@ checksum = "67b1b7a3b5fe4f1376887184045fcf45c69e92af734b7aaddc05fb777b6fbd03"
 
 [[package]]
 name = "sotfs-cli"
-version = "0.2.3"
+version = "0.2.4"
 dependencies = [
  "serde_json",
  "sotfs-graph",
@@ -1035,11 +1035,11 @@ dependencies = [
 
 [[package]]
 name = "sotfs-experimental"
-version = "0.2.3"
+version = "0.2.4"
 
 [[package]]
 name = "sotfs-fuse"
-version = "0.2.3"
+version = "0.2.4"
 dependencies = [
  "env_logger",
  "fuser",
@@ -1056,7 +1056,7 @@ dependencies = [
 
 [[package]]
 name = "sotfs-graph"
-version = "0.2.3"
+version = "0.2.4"
 dependencies = [
  "serde",
  "serde_json",
@@ -1065,7 +1065,7 @@ dependencies = [
 
 [[package]]
 name = "sotfs-monitor"
-version = "0.2.3"
+version = "0.2.4"
 dependencies = [
  "criterion",
  "sotfs-experimental",
@@ -1075,7 +1075,7 @@ dependencies = [
 
 [[package]]
 name = "sotfs-ops"
-version = "0.2.3"
+version = "0.2.4"
 dependencies = [
  "criterion",
  "proptest",
@@ -1085,7 +1085,7 @@ dependencies = [
 
 [[package]]
 name = "sotfs-storage"
-version = "0.2.3"
+version = "0.2.4"
 dependencies = [
  "redb",
  "serde",
@@ -1098,7 +1098,7 @@ dependencies = [
 
 [[package]]
 name = "sotfs-tx"
-version = "0.2.3"
+version = "0.2.4"
 dependencies = [
  "loom",
  "sotfs-graph",
