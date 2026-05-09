@@ -654,10 +654,7 @@ impl TypeGraph {
     }
 
     /// Resolve path to parent dir + final component name.
-    pub fn resolve_parent(
-        &self,
-        path: &str,
-    ) -> Result<(DirId, String), GraphError> {
+    pub fn resolve_parent(&self, path: &str) -> Result<(DirId, String), GraphError> {
         let path = path.trim_end_matches('/');
         let (parent_path, name) = match path.rfind('/') {
             Some(pos) => {
@@ -725,6 +722,12 @@ impl TypeGraph {
     // -----------------------------------------------------------------------
 
     /// Check all graph invariants. Returns Ok(()) or the first violation.
+    ///
+    /// Includes the secondary `dir_name_idx` consistency check: any drift
+    /// between the index and `dir_contains` is a bug surface (lookup_name
+    /// returns wrong answers and possibly a DoS vector). Promoted into the
+    /// canonical set in v0.2.1 — previously only `sotfsctl check` invoked
+    /// the oracle.
     pub fn check_invariants(&self) -> Result<(), GraphError> {
         self.check_link_count_consistency()?;
         self.check_unique_names()?;
@@ -733,6 +736,8 @@ impl TypeGraph {
         self.check_block_refcount()?;
         self.check_no_dir_cycles()?;
         self.check_cap_monotonicity()?;
+        self.check_dir_name_idx_consistency()
+            .map_err(GraphError::InvariantViolation)?;
         Ok(())
     }
 
@@ -823,6 +828,7 @@ impl TypeGraph {
                 NodeId::Transaction(id) => self.contains_txn(id),
                 NodeId::Version(id) => self.contains_version(id),
                 NodeId::Block(id) => self.contains_block(id),
+                NodeId::XAttr(id) => self.xattrs.contains_key(&id),
             };
             let tgt_exists = match edge.tgt_node() {
                 NodeId::Inode(id) => self.contains_inode(id),
@@ -831,6 +837,7 @@ impl TypeGraph {
                 NodeId::Transaction(id) => self.contains_txn(id),
                 NodeId::Version(id) => self.contains_version(id),
                 NodeId::Block(id) => self.contains_block(id),
+                NodeId::XAttr(id) => self.xattrs.contains_key(&id),
             };
             if !src_exists || !tgt_exists {
                 return Err(GraphError::InvariantViolation(format!(
@@ -905,8 +912,7 @@ impl TypeGraph {
     /// G4: capability monotonicity along delegation chains
     fn check_cap_monotonicity(&self) -> Result<(), GraphError> {
         for (&child_id, &parent_id) in &self.cap_parent {
-            if let (Some(child), Some(parent)) = (self.get_cap(child_id), self.get_cap(parent_id))
-            {
+            if let (Some(child), Some(parent)) = (self.get_cap(child_id), self.get_cap(parent_id)) {
                 if !child.rights.is_subset_of(&parent.rights) {
                     return Err(GraphError::InvariantViolation(format!(
                         "Capability {} rights {:?} not subset of parent {} rights {:?}",
@@ -934,9 +940,9 @@ impl Default for TypeGraph {
 
 mod arena_serde {
     use super::*;
+    use core::marker::PhantomData;
     use serde::de::{Deserializer, SeqAccess, Visitor};
     use serde::ser::{SerializeSeq, Serializer};
-    use core::marker::PhantomData;
 
     pub fn serialize<T, const N: usize, S>(
         arena: &Arena<T, N>,
@@ -953,9 +959,7 @@ mod arena_serde {
         seq.end()
     }
 
-    pub fn deserialize<'de, T, const N: usize, D>(
-        deserializer: D,
-    ) -> Result<Arena<T, N>, D::Error>
+    pub fn deserialize<'de, T, const N: usize, D>(deserializer: D) -> Result<Arena<T, N>, D::Error>
     where
         T: Deserialize<'de>,
         D: Deserializer<'de>,

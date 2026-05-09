@@ -24,7 +24,7 @@
 //!   2. Invariant checking overhead
 //!   3. Crash recovery time (WAL replay)
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use sotfs_graph::graph::TypeGraph;
 use sotfs_graph::types::*;
 use sotfs_ops::*;
@@ -36,43 +36,35 @@ fn bench_metadata_microbench(c: &mut Criterion) {
 
     // Create: N files in a directory
     for &n in &[100, 1000, 10_000] {
-        group.bench_with_input(
-            BenchmarkId::new("create_batch", n),
-            &n,
-            |b, &n| {
-                b.iter(|| {
-                    let mut g = TypeGraph::new();
-                    let rd = g.root_dir;
-                    for i in 0..n {
-                        let name = format!("f{}", i);
-                        create_file(&mut g, rd, &name, 0, 0, Permissions::FILE_DEFAULT).unwrap();
-                    }
-                    black_box(&g);
-                });
-            },
-        );
-
-        // Single create (amortized) — comparable to SquirrelFS's per-op number
-        group.bench_with_input(
-            BenchmarkId::new("create_single", n),
-            &n,
-            |b, &n| {
+        group.bench_with_input(BenchmarkId::new("create_batch", n), &n, |b, &n| {
+            b.iter(|| {
                 let mut g = TypeGraph::new();
                 let rd = g.root_dir;
-                // Pre-populate (n already destructured -> usize)
                 for i in 0..n {
-                    let name = format!("pre{}", i);
+                    let name = format!("f{}", i);
                     create_file(&mut g, rd, &name, 0, 0, Permissions::FILE_DEFAULT).unwrap();
                 }
-                b.iter_with_setup(
-                    || g.clone(),
-                    |mut g| {
-                        let rd = g.root_dir;
-                        create_file(&mut g, rd, "bench_new", 0, 0, Permissions::FILE_DEFAULT).unwrap();
-                    },
-                );
-            },
-        );
+                black_box(&g);
+            });
+        });
+
+        // Single create (amortized) — comparable to SquirrelFS's per-op number
+        group.bench_with_input(BenchmarkId::new("create_single", n), &n, |b, &n| {
+            let mut g = TypeGraph::new();
+            let rd = g.root_dir;
+            // Pre-populate (n already destructured -> usize)
+            for i in 0..n {
+                let name = format!("pre{}", i);
+                create_file(&mut g, rd, &name, 0, 0, Permissions::FILE_DEFAULT).unwrap();
+            }
+            b.iter_with_setup(
+                || g.clone(),
+                |mut g| {
+                    let rd = g.root_dir;
+                    create_file(&mut g, rd, "bench_new", 0, 0, Permissions::FILE_DEFAULT).unwrap();
+                },
+            );
+        });
     }
 
     // Mkdir
@@ -157,47 +149,34 @@ fn bench_metadata_microbench(c: &mut Criterion) {
 fn bench_data_io(c: &mut Criterion) {
     let mut group = c.benchmark_group("comparison_data_io");
 
-    let sizes: &[(usize, &str)] = &[
-        (64, "64B"),
-        (4096, "4K"),
-        (65536, "64K"),
-        (1048576, "1M"),
-    ];
+    let sizes: &[(usize, &str)] = &[(64, "64B"), (4096, "4K"), (65536, "64K"), (1048576, "1M")];
 
     for &(size, label) in sizes {
         let data = vec![0xABu8; size];
 
-        group.bench_with_input(
-            BenchmarkId::new("write", label),
-            &data,
-            |b, data| {
-                b.iter_with_setup(
-                    || {
-                        let mut g = TypeGraph::new();
-                        let rd = g.root_dir;
-                        let id = create_file(&mut g, rd, "f", 0, 0, Permissions::FILE_DEFAULT).unwrap();
-                        (g, id)
-                    },
-                    |(mut g, id)| {
-                        write_data(&mut g, id, 0, data).unwrap();
-                    },
-                );
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("write", label), &data, |b, data| {
+            b.iter_with_setup(
+                || {
+                    let mut g = TypeGraph::new();
+                    let rd = g.root_dir;
+                    let id = create_file(&mut g, rd, "f", 0, 0, Permissions::FILE_DEFAULT).unwrap();
+                    (g, id)
+                },
+                |(mut g, id)| {
+                    write_data(&mut g, id, 0, data).unwrap();
+                },
+            );
+        });
 
-        group.bench_with_input(
-            BenchmarkId::new("read", label),
-            &size,
-            |b, &sz| {
-                let mut g = TypeGraph::new();
-                let rd = g.root_dir;
-                let id = create_file(&mut g, rd, "f", 0, 0, Permissions::FILE_DEFAULT).unwrap();
-                write_data(&mut g, id, 0, &vec![0xABu8; sz]).unwrap();
-                b.iter(|| {
-                    let _ = read_data(black_box(&g), id, 0, sz);
-                });
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("read", label), &size, |b, &sz| {
+            let mut g = TypeGraph::new();
+            let rd = g.root_dir;
+            let id = create_file(&mut g, rd, "f", 0, 0, Permissions::FILE_DEFAULT).unwrap();
+            write_data(&mut g, id, 0, &vec![0xABu8; sz]).unwrap();
+            b.iter(|| {
+                let _ = read_data(black_box(&g), id, 0, sz);
+            });
+        });
     }
 
     group.finish();
@@ -210,7 +189,11 @@ fn bench_crash_consistency_overhead(c: &mut Criterion) {
     let mut group = c.benchmark_group("comparison_crash_consistency");
 
     // Measure invariant checking overhead (the cost of correctness)
-    for &(name, n) in &[("100_files", 100), ("1K_files", 1000), ("10K_files", 10_000)] {
+    for &(name, n) in &[
+        ("100_files", 100),
+        ("1K_files", 1000),
+        ("10K_files", 10_000),
+    ] {
         let mut g = TypeGraph::new();
         let rd = g.root_dir;
         for i in 0..n {
@@ -218,17 +201,13 @@ fn bench_crash_consistency_overhead(c: &mut Criterion) {
             create_file(&mut g, rd, &fname, 0, 0, Permissions::FILE_DEFAULT).unwrap();
         }
 
-        group.bench_with_input(
-            BenchmarkId::new("check_invariants", name),
-            &g,
-            |b, g| b.iter(|| g.check_invariants().unwrap()),
-        );
+        group.bench_with_input(BenchmarkId::new("check_invariants", name), &g, |b, g| {
+            b.iter(|| g.check_invariants().unwrap())
+        });
 
-        group.bench_with_input(
-            BenchmarkId::new("fsck", name),
-            &g,
-            |b, g| b.iter(|| fsck(black_box(g))),
-        );
+        group.bench_with_input(BenchmarkId::new("fsck", name), &g, |b, g| {
+            b.iter(|| fsck(black_box(g)))
+        });
     }
 
     // Measure transaction overhead (snapshot + rollback)
@@ -305,7 +284,15 @@ fn bench_verification_overhead(c: &mut Criterion) {
         let sub = mkdir(&mut g, rd, &name, 0, 0, Permissions::DIR_DEFAULT).unwrap();
         for j in 0..25 {
             let fname = format!("f{}_{}", i, j);
-            create_file(&mut g, sub.dir_id.unwrap(), &fname, 0, 0, Permissions::FILE_DEFAULT).unwrap();
+            create_file(
+                &mut g,
+                sub.dir_id.unwrap(),
+                &fname,
+                0,
+                0,
+                Permissions::FILE_DEFAULT,
+            )
+            .unwrap();
         }
     }
 
@@ -325,9 +312,14 @@ fn bench_verification_overhead(c: &mut Criterion) {
     // gets a home; the 3-arg version was renamed during a refactor.
     let affected = affected_nodes_create(rd, 999);
     group.bench_function("curvature_incremental", |b| {
-        b.iter(|| curvature::recompute_incremental_with_alpha(
-            black_box(&g), black_box(affected.as_slice()), black_box(&baseline), 0.5,
-        ));
+        b.iter(|| {
+            curvature::recompute_incremental_with_alpha(
+                black_box(&g),
+                black_box(affected.as_slice()),
+                black_box(&baseline),
+                0.5,
+            )
+        });
     });
 
     // Cost of deception projection

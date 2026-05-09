@@ -30,7 +30,10 @@ fn help_exits_with_code_2() {
 
 #[test]
 fn unknown_flag_rejected() {
-    let out = bin().args(["/tmp/nope", "--banana"]).output().expect("spawn");
+    let out = bin()
+        .args(["/tmp/nope", "--banana"])
+        .output()
+        .expect("spawn");
     assert!(!out.status.success());
     let stderr = String::from_utf8_lossy(&out.stderr);
     assert!(stderr.contains("unknown flag"), "stderr: {stderr}");

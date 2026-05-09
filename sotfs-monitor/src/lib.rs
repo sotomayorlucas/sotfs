@@ -11,6 +11,6 @@
 //! - **Deceptive projections** (§10): Capability-gated graph projections.
 //!   Different domains see different subgraphs (D_FS functor).
 
-pub mod treewidth;
 pub mod curvature;
 pub mod deception;
+pub mod treewidth;

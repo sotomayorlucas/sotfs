@@ -5,10 +5,10 @@
 
 use sotfs_graph::graph::TypeGraph;
 use sotfs_graph::types::*;
-use sotfs_ops::*;
-use sotfs_monitor::treewidth;
 use sotfs_monitor::curvature;
 use sotfs_monitor::deception::{self, Policy, SyntheticEntry};
+use sotfs_monitor::treewidth;
+use sotfs_ops::*;
 use std::collections::BTreeMap;
 
 // -----------------------------------------------------------------------
@@ -76,7 +76,11 @@ fn hardlink_bomb_treewidth_spike() {
 
     // Treewidth should be elevated due to hardlinks
     // (pure tree = tw ≤ 2, hardlinks increase it)
-    assert!(tw >= 2, "Hardlink bomb should increase treewidth, got tw={}", tw);
+    assert!(
+        tw >= 2,
+        "Hardlink bomb should increase treewidth, got tw={}",
+        tw
+    );
 
     // Curvature should show anomaly on the target file's edges
     let report = curvature::compute_curvatures(&g);
@@ -161,7 +165,8 @@ fn restrict_projection_hides_secrets() {
         0,
         0,
         Permissions::FILE_DEFAULT,
-    ).unwrap();
+    )
+    .unwrap();
     write_data(&mut g, key, 0, b"PRIVATE_KEY_MATERIAL").unwrap();
 
     // Create /public/readme.txt
@@ -173,7 +178,8 @@ fn restrict_projection_hides_secrets() {
         0,
         0,
         Permissions::FILE_DEFAULT,
-    ).unwrap();
+    )
+    .unwrap();
     write_data(&mut g, readme, 0, b"Welcome").unwrap();
 
     // Project: restrict to /public only
@@ -200,8 +206,14 @@ fn restrict_projection_hides_secrets() {
     // Verify: no way to discover "secret" by enumerating all entries
     for entries in view.visible_entries.values() {
         for (name, _) in entries {
-            assert_ne!(name, "secret", "secret should not appear in any dir listing");
-            assert_ne!(name, "key.txt", "key.txt should not appear in any dir listing");
+            assert_ne!(
+                name, "secret",
+                "secret should not appear in any dir listing"
+            );
+            assert_ne!(
+                name, "key.txt",
+                "key.txt should not appear in any dir listing"
+            );
         }
     }
 }
@@ -314,7 +326,11 @@ fn invariant_corruption_link_count_mismatch() {
     let result = g.check_invariants();
     assert!(result.is_err(), "Should detect link_count corruption");
     let msg = format!("{}", result.unwrap_err());
-    assert!(msg.contains("link_count"), "Error should mention link_count: {}", msg);
+    assert!(
+        msg.contains("link_count"),
+        "Error should mention link_count: {}",
+        msg
+    );
 }
 
 #[test]
@@ -327,7 +343,12 @@ fn invariant_corruption_duplicate_name() {
     let eid = g.alloc_edge_id();
     let iid = g.alloc_inode_id();
     g.insert_inode(iid, Inode::new_file(iid, Permissions::FILE_DEFAULT, 0, 0));
-    let edge = Edge::Contains { id: eid, src: rd, tgt: iid, name: "dup".into() };
+    let edge = Edge::Contains {
+        id: eid,
+        src: rd,
+        tgt: iid,
+        name: "dup".into(),
+    };
     g.insert_edge(eid, edge);
     g.dir_contains.entry(rd).or_default().insert(eid);
 
@@ -355,7 +376,7 @@ fn capability_monotonic_attenuation() {
 
     // Attempt to escalate: ask for read+write from read-only parent
     let grandchild = child.attenuate(3, 0x03).unwrap(); // asks r+w
-    // AND prevents escalation: 0x01 & 0x03 = 0x01
+                                                        // AND prevents escalation: 0x01 & 0x03 = 0x01
     assert!(grandchild.has_read());
     assert!(!grandchild.has_write(), "Should NOT escalate to write");
 }

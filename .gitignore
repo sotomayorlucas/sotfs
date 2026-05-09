@@ -11,3 +11,4 @@ target/
 .cargo/registry/
 .idea/
 .vscode/
+after.dot before.dot

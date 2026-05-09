@@ -13,11 +13,11 @@
 extern crate alloc;
 
 pub mod arena;
-pub mod types;
-pub mod graph;
 pub mod error;
 pub mod export;
+pub mod graph;
 pub mod rcu;
+pub mod types;
 pub mod typestate;
 
 pub use arena::{Arena, ArenaId};

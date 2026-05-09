@@ -95,11 +95,17 @@ component of sotX).
 Schema and example output: [docs/graph-hunter-schema.md](docs/graph-hunter-schema.md).
 
 ```sh
-sotfs-export-hunter /tmp/test.redb -o hunter.json     # snapshot
-sotfs-export-hunter --tail /tmp/test.redb             # streaming events
+sotfs-export-hunter /tmp/test.redb -o hunter.json     # snapshot mode (works today)
+# sotfs-export-hunter --tail /tmp/test.redb           # streaming mode — roadmap, not implemented
 ```
 
 ## Performance
+
+These numbers are **indicative, not reproducible from a CI bench job
+yet**. Source: `examples/persistent_mount.sh` re-instrumented with
+`fio --rw=randread --numjobs=4` on a Fedora 44 host (AMD Ryzen 5 PRO
+5650U, kernel 6.x, NVMe SSD, FUSE 3, ext4 host filesystem). A
+reproducible bench harness lands in v0.2.2.
 
 | Operation              | TTL=0 (raw)     | TTL=1s (cached) |
 |------------------------|-----------------|-----------------|
@@ -108,9 +114,16 @@ sotfs-export-hunter --tail /tmp/test.redb             # streaming events
 | `create+write`         | ~28 k/s         | ~35 k/s         |
 | Sequential read 1 MiB  | 2.8 GiB/s       | (cached)        |
 
-`stat` is **flat in directory size** post-`v0.2.0`: a secondary `BTreeMap` index
-over `(DirId, name) → EdgeId` made `lookup_name` O(log N) and removed a hostile-
-fill DoS surface against shared directories.
+What is reproducible from CI today: the `dir_name_idx` invariant
+(`fuzz/fuzz_targets/fuzz_dir_name_idx.rs`) and the cycle-freedom
+proptest, which together establish that `lookup_name` is **O(log N)
+in practice and stays correct under random op sequences**. The
+absolute-µs claims above are still load-and-host dependent.
+
+`stat` being flat in directory size is the structural property: a
+secondary `BTreeMap` over `(DirId, name) → EdgeId` makes
+`lookup_name` O(log N) and removes a hostile-fill DoS surface against
+shared directories. Pre-`v0.2.0` it was a linear scan.
 
 ## Testing
 

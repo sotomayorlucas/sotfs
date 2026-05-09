@@ -9,9 +9,9 @@
 //! - **Fabricate:** Synthetic nodes/edges added to the projected view.
 //! - **Redirect:** Certain paths resolve to different inodes (honeypots).
 
-use std::collections::{BTreeMap, BTreeSet};
 use sotfs_graph::graph::TypeGraph;
 use sotfs_graph::types::*;
+use std::collections::{BTreeMap, BTreeSet};
 
 /// Interposition policy for a domain's projection.
 #[derive(Debug, Clone)]
@@ -23,7 +23,9 @@ pub enum Policy {
     /// See the real graph plus fabricated entries.
     Fabricate { synthetic: Vec<SyntheticEntry> },
     /// Certain paths resolve to different inodes.
-    Redirect { redirects: BTreeMap<String, InodeId> },
+    Redirect {
+        redirects: BTreeMap<String, InodeId>,
+    },
 }
 
 /// A fabricated directory entry that doesn't exist in the real graph.
@@ -74,7 +76,11 @@ fn project_passthrough(graph: &TypeGraph) -> ProjectedView {
     }
 
     ProjectedView {
-        visible_inodes: graph.inodes.iter().map(|(aid, v)| (aid.0 as u64, v.clone())).collect(),
+        visible_inodes: graph
+            .inodes
+            .iter()
+            .map(|(aid, v)| (aid.0 as u64, v.clone()))
+            .collect(),
         visible_entries: entries,
         fabricated_data: BTreeMap::new(),
         redirects: BTreeMap::new(),
@@ -139,7 +145,8 @@ fn project_fabricate(graph: &TypeGraph, synthetic: &[SyntheticEntry]) -> Project
 
     for entry in synthetic {
         // Add synthetic inode
-        view.visible_inodes.insert(entry.inode.id, entry.inode.clone());
+        view.visible_inodes
+            .insert(entry.inode.id, entry.inode.clone());
 
         // Add synthetic directory entry
         view.visible_entries
@@ -149,7 +156,8 @@ fn project_fabricate(graph: &TypeGraph, synthetic: &[SyntheticEntry]) -> Project
 
         // Add fabricated data
         if !entry.data.is_empty() {
-            view.fabricated_data.insert(entry.inode.id, entry.data.clone());
+            view.fabricated_data
+                .insert(entry.inode.id, entry.data.clone());
         }
     }
 
@@ -200,15 +208,34 @@ pub fn profile_ubuntu_web(root_dir: DirId) -> DeceptionProfile {
         description: "Ubuntu 22.04 LTS with Apache/MySQL/PHP stack".into(),
         policies: vec![Policy::Passthrough],
         honeypots: vec![
-            synthetic_file(root_dir, ".bash_history", 800001, now,
-                b"sudo apt update\nmysql -u root -p\ncat /etc/shadow\n"),
-            synthetic_file(root_dir, ".ssh/authorized_keys", 800002, now,
-                b"ssh-rsa AAAAB3Nza...fake...== admin@webserver\n"),
-            synthetic_file(root_dir, "/var/www/html/.env", 800003, now,
-                b"DB_HOST=localhost\nDB_USER=admin\nDB_PASS=Sup3rS3cret!\n"),
+            synthetic_file(
+                root_dir,
+                ".bash_history",
+                800001,
+                now,
+                b"sudo apt update\nmysql -u root -p\ncat /etc/shadow\n",
+            ),
+            synthetic_file(
+                root_dir,
+                ".ssh/authorized_keys",
+                800002,
+                now,
+                b"ssh-rsa AAAAB3Nza...fake...== admin@webserver\n",
+            ),
+            synthetic_file(
+                root_dir,
+                "/var/www/html/.env",
+                800003,
+                now,
+                b"DB_HOST=localhost\nDB_USER=admin\nDB_PASS=Sup3rS3cret!\n",
+            ),
         ],
         tripwire_dirs: vec!["/root/.ssh".into(), "/etc/shadow".into()],
-        tripwire_files: vec![".bash_history".into(), ".env".into(), "authorized_keys".into()],
+        tripwire_files: vec![
+            ".bash_history".into(),
+            ".env".into(),
+            "authorized_keys".into(),
+        ],
     }
 }
 
@@ -220,12 +247,27 @@ pub fn profile_centos_db(root_dir: DirId) -> DeceptionProfile {
         description: "CentOS 8 with PostgreSQL 15 + Redis".into(),
         policies: vec![Policy::Passthrough],
         honeypots: vec![
-            synthetic_file(root_dir, "/var/lib/pgsql/15/data/pg_hba.conf", 800010, now,
-                b"local all all trust\nhost all all 0.0.0.0/0 md5\n"),
-            synthetic_file(root_dir, "/etc/redis/redis.conf", 800011, now,
-                b"requirepass R3disP@ss!\nbind 0.0.0.0\n"),
-            synthetic_file(root_dir, "/root/.pgpass", 800012, now,
-                b"*:5432:*:postgres:dbadmin123\n"),
+            synthetic_file(
+                root_dir,
+                "/var/lib/pgsql/15/data/pg_hba.conf",
+                800010,
+                now,
+                b"local all all trust\nhost all all 0.0.0.0/0 md5\n",
+            ),
+            synthetic_file(
+                root_dir,
+                "/etc/redis/redis.conf",
+                800011,
+                now,
+                b"requirepass R3disP@ss!\nbind 0.0.0.0\n",
+            ),
+            synthetic_file(
+                root_dir,
+                "/root/.pgpass",
+                800012,
+                now,
+                b"*:5432:*:postgres:dbadmin123\n",
+            ),
         ],
         tripwire_dirs: vec!["/var/lib/pgsql".into(), "/etc/redis".into()],
         tripwire_files: vec!["pg_hba.conf".into(), ".pgpass".into(), "redis.conf".into()],
@@ -258,12 +300,27 @@ pub fn profile_windows_smb(root_dir: DirId) -> DeceptionProfile {
         description: "Windows Server 2022 with SMB shares".into(),
         policies: vec![Policy::Passthrough],
         honeypots: vec![
-            synthetic_file(root_dir, "C$/Users/Administrator/Desktop/passwords.xlsx", 800030, now,
-                b"PK\x03\x04fake-xlsx-honeypot-content"),
-            synthetic_file(root_dir, "SYSVOL/domain/Policies/GPO.ini", 800031, now,
-                b"[General]\nVersion=65537\n"),
-            synthetic_file(root_dir, "IT_Share/vpn-credentials.txt", 800032, now,
-                b"VPN: vpn.corp.local\nUser: svc_vpn\nPass: Vpn@ccess2024!\n"),
+            synthetic_file(
+                root_dir,
+                "C$/Users/Administrator/Desktop/passwords.xlsx",
+                800030,
+                now,
+                b"PK\x03\x04fake-xlsx-honeypot-content",
+            ),
+            synthetic_file(
+                root_dir,
+                "SYSVOL/domain/Policies/GPO.ini",
+                800031,
+                now,
+                b"[General]\nVersion=65537\n",
+            ),
+            synthetic_file(
+                root_dir,
+                "IT_Share/vpn-credentials.txt",
+                800032,
+                now,
+                b"VPN: vpn.corp.local\nUser: svc_vpn\nPass: Vpn@ccess2024!\n",
+            ),
         ],
         tripwire_dirs: vec!["C$/Users/Administrator".into(), "SYSVOL".into()],
         tripwire_files: vec!["passwords.xlsx".into(), "vpn-credentials.txt".into()],
@@ -334,16 +391,41 @@ pub fn profile_active_directory(root_dir: DirId) -> DeceptionProfile {
         description: "Windows Server 2022 Active Directory Domain Controller".into(),
         policies: vec![Policy::Passthrough],
         honeypots: vec![
-            synthetic_file(root_dir, "C$/Windows/NTDS/ntds.dit", 800060, now,
-                b"NTDS.DIT-honeypot-marker-do-not-extract"),
-            synthetic_file(root_dir, "C$/Windows/System32/config/SAM", 800061, now,
-                b"SAM-registry-honeypot-marker"),
-            synthetic_file(root_dir, "SYSVOL/corp.local/scripts/logon.bat", 800062, now,
-                b"@echo off\nnet use Z: \\\\fileserver\\share /user:corp\\svc_backup P@ssw0rd!\n"),
-            synthetic_file(root_dir, "C$/Users/Administrator/krbtgt_hash.txt", 800063, now,
-                b"krbtgt:502:aad3b435b51404ee:fake-ntlm-hash-for-golden-ticket:::\n"),
-            synthetic_file(root_dir, "NETLOGON/GroupPolicy/GPT.INI", 800064, now,
-                b"[General]\nVersion=65538\ndisplayName=Default Domain Policy\n"),
+            synthetic_file(
+                root_dir,
+                "C$/Windows/NTDS/ntds.dit",
+                800060,
+                now,
+                b"NTDS.DIT-honeypot-marker-do-not-extract",
+            ),
+            synthetic_file(
+                root_dir,
+                "C$/Windows/System32/config/SAM",
+                800061,
+                now,
+                b"SAM-registry-honeypot-marker",
+            ),
+            synthetic_file(
+                root_dir,
+                "SYSVOL/corp.local/scripts/logon.bat",
+                800062,
+                now,
+                b"@echo off\nnet use Z: \\\\fileserver\\share /user:corp\\svc_backup P@ssw0rd!\n",
+            ),
+            synthetic_file(
+                root_dir,
+                "C$/Users/Administrator/krbtgt_hash.txt",
+                800063,
+                now,
+                b"krbtgt:502:aad3b435b51404ee:fake-ntlm-hash-for-golden-ticket:::\n",
+            ),
+            synthetic_file(
+                root_dir,
+                "NETLOGON/GroupPolicy/GPT.INI",
+                800064,
+                now,
+                b"[General]\nVersion=65538\ndisplayName=Default Domain Policy\n",
+            ),
         ],
         tripwire_dirs: vec![
             "C$/Windows/NTDS".into(),
@@ -351,7 +433,10 @@ pub fn profile_active_directory(root_dir: DirId) -> DeceptionProfile {
             "NETLOGON".into(),
         ],
         tripwire_files: vec![
-            "ntds.dit".into(), "SAM".into(), "krbtgt_hash.txt".into(), "logon.bat".into(),
+            "ntds.dit".into(),
+            "SAM".into(),
+            "krbtgt_hash.txt".into(),
+            "logon.bat".into(),
         ],
     }
 }
@@ -445,7 +530,11 @@ pub fn check_indistinguishability(
     // Curvature deviation: compare edge count ratios as proxy
     let real_edges = graph.edges.len() as f64;
     let visible_edges: usize = view.visible_entries.values().map(|v| v.len()).sum();
-    let edge_ratio = if real_edges > 0.0 { visible_edges as f64 / real_edges } else { 1.0 };
+    let edge_ratio = if real_edges > 0.0 {
+        visible_edges as f64 / real_edges
+    } else {
+        1.0
+    };
     // Synthetic entries shift the curvature baseline
     let synthetic_count = view.fabricated_data.len() as f64;
     let max_curvature_deviation = (1.0 - edge_ratio).abs() + synthetic_count * 0.01;
@@ -462,9 +551,15 @@ pub fn check_indistinguishability(
 
     // Estimated advantage: sum of distinguishability leaks
     let mut advantage: f64 = 0.0;
-    if !invariants_preserved { advantage += 0.5; } // structural distinguisher
-    if max_curvature_deviation > curvature_threshold { advantage += 0.2; } // curvature distinguisher
-    if (timing_ratio - 1.0).abs() > 0.3 { advantage += 0.1; } // timing distinguisher
+    if !invariants_preserved {
+        advantage += 0.5;
+    } // structural distinguisher
+    if max_curvature_deviation > curvature_threshold {
+        advantage += 0.2;
+    } // curvature distinguisher
+    if (timing_ratio - 1.0).abs() > 0.3 {
+        advantage += 0.1;
+    } // timing distinguisher
     advantage = advantage.min(1.0);
 
     IndistinguishabilityResult {
@@ -542,11 +637,20 @@ pub fn check_honeypot_access(
     timestamp: u64,
 ) -> Option<HoneypotAlert> {
     // Check tripwire files
-    let is_tripwire_file = profile.tripwire_files.iter().any(|f| accessed_name.contains(f.as_str()));
+    let is_tripwire_file = profile
+        .tripwire_files
+        .iter()
+        .any(|f| accessed_name.contains(f.as_str()));
     // Check tripwire dirs
-    let is_tripwire_dir = profile.tripwire_dirs.iter().any(|d| accessed_name.contains(d.as_str()));
+    let is_tripwire_dir = profile
+        .tripwire_dirs
+        .iter()
+        .any(|d| accessed_name.contains(d.as_str()));
     // Check honeypot inode
-    let is_honeypot = profile.honeypots.iter().any(|h| h.inode.id == accessed_inode);
+    let is_honeypot = profile
+        .honeypots
+        .iter()
+        .any(|h| h.inode.id == accessed_inode);
 
     if !is_tripwire_file && !is_tripwire_dir && !is_honeypot {
         return None;
@@ -600,10 +704,14 @@ pub fn calibrate_timing(
     // Model: lookup is O(fan-out), readdir is O(entries), stat is O(1)
     let node_ratio = if real_node_count > 0 {
         projected_node_count as f64 / real_node_count as f64
-    } else { 1.0 };
+    } else {
+        1.0
+    };
     let edge_ratio = if real_edge_count > 0 {
         projected_edge_count as f64 / real_edge_count as f64
-    } else { 1.0 };
+    } else {
+        1.0
+    };
 
     // Restrict projections are faster (smaller graph) — detectable
     // Fabricate projections may be slower (extra entries) — also detectable
@@ -611,8 +719,7 @@ pub fn calibrate_timing(
     let readdir_ratio = edge_ratio;
     let stat_ratio = 1.0; // stat is O(1), always same speed
 
-    let max_deviation = (lookup_ratio - 1.0).abs()
-        .max((readdir_ratio - 1.0).abs());
+    let max_deviation = (lookup_ratio - 1.0).abs().max((readdir_ratio - 1.0).abs());
 
     // If deviation > 10%, inject calibrated delays
     let needs_delay = max_deviation > 0.1;
@@ -660,14 +767,11 @@ pub fn projected_read(
     let actual_id = view.redirects.get(&inode_id).copied().unwrap_or(inode_id);
 
     // Read from real graph
-    graph
-        .file_data
-        .get(&actual_id)
-        .map(|data| {
-            let start = (offset as usize).min(data.len());
-            let end = (start + len).min(data.len());
-            data[start..end].to_vec()
-        })
+    graph.file_data.get(&actual_id).map(|data| {
+        let start = (offset as usize).min(data.len());
+        let end = (start + len).min(data.len());
+        data[start..end].to_vec()
+    })
 }
 
 #[cfg(test)]
@@ -678,10 +782,19 @@ mod tests {
     fn build_test_graph() -> TypeGraph {
         let mut g = TypeGraph::new();
         let rd = g.root_dir;
-        let f = sotfs_ops::create_file(&mut g, rd, "secret.txt", 0, 0, Permissions::FILE_DEFAULT).unwrap();
+        let f = sotfs_ops::create_file(&mut g, rd, "secret.txt", 0, 0, Permissions::FILE_DEFAULT)
+            .unwrap();
         sotfs_ops::write_data(&mut g, f, 0, b"TOP SECRET DATA").unwrap();
         let d = sotfs_ops::mkdir(&mut g, rd, "public", 0, 0, Permissions::DIR_DEFAULT).unwrap();
-        let p = sotfs_ops::create_file(&mut g, d.dir_id.unwrap(), "readme.txt", 0, 0, Permissions::FILE_DEFAULT).unwrap();
+        let p = sotfs_ops::create_file(
+            &mut g,
+            d.dir_id.unwrap(),
+            "readme.txt",
+            0,
+            0,
+            Permissions::FILE_DEFAULT,
+        )
+        .unwrap();
         sotfs_ops::write_data(&mut g, p, 0, b"Hello World").unwrap();
         g
     }
@@ -698,11 +811,16 @@ mod tests {
     #[test]
     fn restrict_hides_sibling_subtrees() {
         let g = build_test_graph();
-        let public_dir = g.dir_for_inode(
-            g.resolve_name(g.root_dir, "public").unwrap()
-        ).unwrap();
+        let public_dir = g
+            .dir_for_inode(g.resolve_name(g.root_dir, "public").unwrap())
+            .unwrap();
 
-        let view = project(&g, &Policy::Restrict { root_dir: public_dir });
+        let view = project(
+            &g,
+            &Policy::Restrict {
+                root_dir: public_dir,
+            },
+        );
 
         // Can see readme.txt in /public
         assert!(projected_lookup(&view, public_dir, "readme.txt").is_some());
@@ -751,7 +869,8 @@ mod tests {
         let rd = g.root_dir;
 
         // Create a decoy file with fake data
-        let decoy = sotfs_ops::create_file(&mut g, rd, "decoy", 0, 0, Permissions::FILE_DEFAULT).unwrap();
+        let decoy =
+            sotfs_ops::create_file(&mut g, rd, "decoy", 0, 0, Permissions::FILE_DEFAULT).unwrap();
         sotfs_ops::write_data(&mut g, decoy, 0, b"NOTHING TO SEE HERE").unwrap();
 
         // Redirect "secret.txt" → decoy inode
@@ -796,8 +915,14 @@ mod tests {
         let g = build_test_graph();
         let profile = profile_cicd_runner(g.root_dir);
         assert_eq!(profile.name, "cicd-runner");
-        assert!(profile.honeypots.iter().any(|h| h.name.contains("credentials")));
-        assert!(profile.honeypots.iter().any(|h| h.name.contains("hosts.yml")));
+        assert!(profile
+            .honeypots
+            .iter()
+            .any(|h| h.name.contains("credentials")));
+        assert!(profile
+            .honeypots
+            .iter()
+            .any(|h| h.name.contains("hosts.yml")));
     }
 
     #[test]
@@ -805,7 +930,10 @@ mod tests {
         let g = build_test_graph();
         let profile = profile_active_directory(g.root_dir);
         assert_eq!(profile.name, "ad-dc");
-        assert!(profile.honeypots.iter().any(|h| h.name.contains("ntds.dit")));
+        assert!(profile
+            .honeypots
+            .iter()
+            .any(|h| h.name.contains("ntds.dit")));
         assert!(profile.honeypots.iter().any(|h| h.name.contains("krbtgt")));
         assert!(profile.tripwire_dirs.iter().any(|d| d.contains("NTDS")));
     }
@@ -837,7 +965,12 @@ mod tests {
     fn fabricate_preserves_invariants() {
         let g = build_test_graph();
         let profile = profile_ubuntu_web(g.root_dir);
-        let view = project(&g, &Policy::Fabricate { synthetic: profile.honeypots });
+        let view = project(
+            &g,
+            &Policy::Fabricate {
+                synthetic: profile.honeypots,
+            },
+        );
         let result = check_indistinguishability(&g, &view, 0.5);
         assert!(result.invariants_preserved);
         // Advantage from curvature + timing (fabricated adds nodes/edges)
@@ -853,7 +986,13 @@ mod tests {
 
         // Accessing "admin.conf" should trigger
         let alert = check_honeypot_access(
-            &profile, "admin.conf", 800040, "read", Some(1), 42, 1713000100,
+            &profile,
+            "admin.conf",
+            800040,
+            "read",
+            Some(1),
+            42,
+            1713000100,
         );
         assert!(alert.is_some());
         let a = alert.unwrap();
@@ -867,9 +1006,8 @@ mod tests {
         let g = build_test_graph();
         let profile = profile_kubernetes_node(g.root_dir);
 
-        let alert = check_honeypot_access(
-            &profile, "readme.txt", 999, "read", Some(1), 42, 1713000100,
-        );
+        let alert =
+            check_honeypot_access(&profile, "readme.txt", 999, "read", Some(1), 42, 1713000100);
         assert!(alert.is_none());
     }
 
@@ -879,7 +1017,13 @@ mod tests {
         let profile = profile_active_directory(g.root_dir);
 
         let alert = check_honeypot_access(
-            &profile, "ntds.dit", 800060, "write", Some(1), 99, 1713000200,
+            &profile,
+            "ntds.dit",
+            800060,
+            "write",
+            Some(1),
+            99,
+            1713000200,
         );
         assert!(alert.is_some());
         assert_eq!(alert.unwrap().severity, AlertSeverity::Critical);

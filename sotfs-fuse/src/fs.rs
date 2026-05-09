@@ -30,9 +30,8 @@ fn ttl() -> Duration {
 }
 
 use fuser::{
-    FileAttr, FileType, Filesystem, MountOption, ReplyAttr, ReplyCreate, ReplyData,
-    ReplyDirectory, ReplyEmpty, ReplyEntry, ReplyOpen, ReplyStatfs, ReplyWrite, ReplyXattr,
-    Request,
+    FileAttr, FileType, Filesystem, MountOption, ReplyAttr, ReplyCreate, ReplyData, ReplyDirectory,
+    ReplyEmpty, ReplyEntry, ReplyOpen, ReplyStatfs, ReplyWrite, ReplyXattr, Request,
 };
 
 use sotfs_graph::graph::TypeGraph;
@@ -319,7 +318,9 @@ impl Filesystem for SotFsFilesystem {
         let perms = Permissions((mode & 0o7777) as u16);
         match sotfs_ops::mkdir(&mut g, parent_dir, name_str, req.uid(), req.gid(), perms) {
             Ok(result) => {
-                let inode = g.get_inode(result.inode_id).expect("mkdir returned unknown inode");
+                let inode = g
+                    .get_inode(result.inode_id)
+                    .expect("mkdir returned unknown inode");
                 reply.entry(&ttl(), &inode_to_attr(inode), 0);
             }
             Err(_) => reply.error(libc::EEXIST),
@@ -378,7 +379,9 @@ impl Filesystem for SotFsFilesystem {
             Ok(inode_id) => {
                 let fh = self.alloc_fh();
                 self.open_files.lock().unwrap().insert(fh, inode_id);
-                let inode = g.get_inode(inode_id).expect("create returned unknown inode");
+                let inode = g
+                    .get_inode(inode_id)
+                    .expect("create returned unknown inode");
                 reply.created(&ttl(), &inode_to_attr(inode), 0, fh, 0);
             }
             Err(_) => reply.error(libc::EEXIST),
@@ -592,9 +595,18 @@ impl Filesystem for SotFsFilesystem {
                 return;
             }
         };
-        match sotfs_ops::symlink(&mut g, parent_dir, name_str, target_str, req.uid(), req.gid()) {
+        match sotfs_ops::symlink(
+            &mut g,
+            parent_dir,
+            name_str,
+            target_str,
+            req.uid(),
+            req.gid(),
+        ) {
             Ok(inode_id) => {
-                let inode = g.get_inode(inode_id).expect("symlink returned unknown inode");
+                let inode = g
+                    .get_inode(inode_id)
+                    .expect("symlink returned unknown inode");
                 reply.entry(&ttl(), &inode_to_attr(inode), 0);
             }
             Err(sotfs_graph::GraphError::NameExists { .. }) => reply.error(libc::EEXIST),
@@ -627,14 +639,14 @@ impl Filesystem for SotFsFilesystem {
         let total: u64 = 1 << 30; // 1 G blocks
         let free = total.saturating_sub(used);
         reply.statfs(
-            total,                // blocks
-            free,                 // blocks_free
-            free,                 // blocks_avail
-            used,                 // files (used inodes)
-            free,                 // files_free
-            BLOCK_SIZE,           // bsize (block size)
-            255,                  // namelen
-            BLOCK_SIZE,           // frsize (fundamental block size)
+            total,      // blocks
+            free,       // blocks_free
+            free,       // blocks_avail
+            used,       // files (used inodes)
+            free,       // files_free
+            BLOCK_SIZE, // bsize (block size)
+            255,        // namelen
+            BLOCK_SIZE, // frsize (fundamental block size)
         );
     }
 
@@ -680,14 +692,7 @@ impl Filesystem for SotFsFilesystem {
     // -------------------------------------------------------------------
     // fsync: flush the graph to the persistent backend (if configured).
     // -------------------------------------------------------------------
-    fn fsync(
-        &mut self,
-        _req: &Request,
-        _ino: u64,
-        _fh: u64,
-        _datasync: bool,
-        reply: ReplyEmpty,
-    ) {
+    fn fsync(&mut self, _req: &Request, _ino: u64, _fh: u64, _datasync: bool, reply: ReplyEmpty) {
         self.persist();
         reply.ok();
     }
@@ -696,14 +701,7 @@ impl Filesystem for SotFsFilesystem {
     // flush: POSIX semantics allow this to be a noop. We don't have
     // per-fd buffered data; data is committed on write/setattr already.
     // -------------------------------------------------------------------
-    fn flush(
-        &mut self,
-        _req: &Request,
-        _ino: u64,
-        _fh: u64,
-        _lock_owner: u64,
-        reply: ReplyEmpty,
-    ) {
+    fn flush(&mut self, _req: &Request, _ino: u64, _fh: u64, _lock_owner: u64, reply: ReplyEmpty) {
         reply.ok();
     }
 
@@ -887,10 +885,7 @@ pub fn run() {
         None => SotFsFilesystem::new(),
     };
 
-    let mut options = vec![
-        MountOption::RW,
-        MountOption::FSName("sotfs".to_string()),
-    ];
+    let mut options = vec![MountOption::RW, MountOption::FSName("sotfs".to_string())];
     // AllowOther/AutoUnmount are opt-in. AllowOther exposes the mount to all
     // local UIDs (collides with POSIX per-user isolation). AutoUnmount in
     // libfuse implicitly enables AllowOther, so it must be opt-in for the

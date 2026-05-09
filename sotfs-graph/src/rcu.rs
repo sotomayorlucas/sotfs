@@ -27,7 +27,16 @@ use core::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 use crate::graph::TypeGraph;
 
 /// Maximum concurrent readers. Fixed at compile time for no_alloc.
-pub const MAX_READERS: usize = 8;
+///
+/// Bumped from 8 to 64 for v0.2.1: a FUSE daemon on a 16-32 core host
+/// can trivially exceed 8 concurrent readers under random-read load,
+/// and the read path panics ("all 8 reader slots occupied") in that
+/// case. 64 covers any commodity host through 2026; the per-slot cost
+/// is one `AtomicU64` (8 bytes) so the memory bump is negligible.
+/// A proper fix (per-CPU counters or a dynamic slot pool) is on the
+/// post-v0.3 roadmap; for now, 64 makes the panic path practically
+/// unreachable.
+pub const MAX_READERS: usize = 64;
 
 /// Sentinel value indicating a reader slot is not active.
 const EPOCH_INACTIVE: u64 = 0;
@@ -64,22 +73,10 @@ impl RcuGraph {
     /// Create a new RCU-protected graph pair, both initialized via `TypeGraph::new()`.
     pub fn new() -> Self {
         Self {
-            graphs: UnsafeCell::new([
-                TypeGraph::new_boxed(),
-                TypeGraph::new_boxed(),
-            ]),
+            graphs: UnsafeCell::new([TypeGraph::new_boxed(), TypeGraph::new_boxed()]),
             active: AtomicUsize::new(0),
             global_epoch: AtomicU64::new(1), // start at 1; 0 is INACTIVE sentinel
-            reader_epochs: [
-                AtomicU64::new(EPOCH_INACTIVE),
-                AtomicU64::new(EPOCH_INACTIVE),
-                AtomicU64::new(EPOCH_INACTIVE),
-                AtomicU64::new(EPOCH_INACTIVE),
-                AtomicU64::new(EPOCH_INACTIVE),
-                AtomicU64::new(EPOCH_INACTIVE),
-                AtomicU64::new(EPOCH_INACTIVE),
-                AtomicU64::new(EPOCH_INACTIVE),
-            ],
+            reader_epochs: core::array::from_fn(|_| AtomicU64::new(EPOCH_INACTIVE)),
             write_locked: AtomicBool::new(false),
         }
     }
@@ -93,16 +90,7 @@ impl RcuGraph {
             graphs: UnsafeCell::new([g, g2]),
             active: AtomicUsize::new(0),
             global_epoch: AtomicU64::new(1),
-            reader_epochs: [
-                AtomicU64::new(EPOCH_INACTIVE),
-                AtomicU64::new(EPOCH_INACTIVE),
-                AtomicU64::new(EPOCH_INACTIVE),
-                AtomicU64::new(EPOCH_INACTIVE),
-                AtomicU64::new(EPOCH_INACTIVE),
-                AtomicU64::new(EPOCH_INACTIVE),
-                AtomicU64::new(EPOCH_INACTIVE),
-                AtomicU64::new(EPOCH_INACTIVE),
-            ],
+            reader_epochs: core::array::from_fn(|_| AtomicU64::new(EPOCH_INACTIVE)),
             write_locked: AtomicBool::new(false),
         }
     }
@@ -140,14 +128,8 @@ impl RcuGraph {
 
         // Find a free slot (EPOCH_INACTIVE == 0).
         for i in 0..MAX_READERS {
-            if self
-                .reader_epochs[i]
-                .compare_exchange(
-                    EPOCH_INACTIVE,
-                    epoch,
-                    Ordering::AcqRel,
-                    Ordering::Relaxed,
-                )
+            if self.reader_epochs[i]
+                .compare_exchange(EPOCH_INACTIVE, epoch, Ordering::AcqRel, Ordering::Relaxed)
                 .is_ok()
             {
                 return i;
@@ -357,7 +339,9 @@ mod tests {
         for i in 0..5 {
             let name_str: String = {
                 #[cfg(feature = "std")]
-                { format!("file_{}", i) }
+                {
+                    format!("file_{}", i)
+                }
                 #[cfg(not(feature = "std"))]
                 {
                     use alloc::format;
@@ -550,8 +534,7 @@ mod tests {
                 rcu_w.write(|g| {
                     let inode_id = g.alloc_inode_id();
                     let edge_id = g.alloc_edge_id();
-                    let mut inode =
-                        Inode::new_file(inode_id, Permissions::FILE_DEFAULT, 0, 0);
+                    let mut inode = Inode::new_file(inode_id, Permissions::FILE_DEFAULT, 0, 0);
                     inode.link_count = 1;
                     g.insert_inode(inode_id, inode);
                     let edge = Edge::Contains {
@@ -650,10 +633,7 @@ mod tests {
                 name: ".".into(),
             };
             g.insert_edge(dot_edge, e2);
-            g.dir_contains
-                .entry(dir_id)
-                .or_default()
-                .insert(dot_edge);
+            g.dir_contains.entry(dir_id).or_default().insert(dot_edge);
             g.inode_incoming_contains
                 .entry(inode_id)
                 .or_default()

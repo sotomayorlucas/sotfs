@@ -58,6 +58,7 @@ pub enum NodeId {
     Transaction(TxnId),
     Version(VersionId),
     Block(BlockId),
+    XAttr(XAttrId),
 }
 
 // ---------------------------------------------------------------------------
@@ -332,11 +333,7 @@ pub enum Edge {
         rights: Rights,
     },
     /// Capability → Capability, CDT parent→child (§5.3.3).
-    Delegates {
-        id: EdgeId,
-        src: CapId,
-        tgt: CapId,
-    },
+    Delegates { id: EdgeId, src: CapId, tgt: CapId },
     /// Version → Version, snapshot lineage (§5.3.4).
     DerivedFrom {
         id: EdgeId,
@@ -397,7 +394,7 @@ impl Edge {
             Edge::DerivedFrom { tgt, .. } => NodeId::Version(*tgt),
             Edge::Supersedes { tgt, .. } => NodeId::Inode(*tgt),
             Edge::PointsTo { tgt, .. } => NodeId::Inode(*tgt),
-            Edge::HasXattr { tgt, .. } => NodeId::Inode(*tgt as InodeId),
+            Edge::HasXattr { tgt, .. } => NodeId::XAttr(*tgt),
         }
     }
 }

@@ -6,7 +6,7 @@
 //!
 //! Run: cd sotfs && cargo bench --bench wal_bench
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 
 // ---------------------------------------------------------------------------
 // FNV-1a hash (mirror of sotos-objstore/src/wal.rs)
@@ -56,7 +56,11 @@ impl WalIndex {
     }
 
     fn insert(&mut self, key_hash: u64, offset: u32) {
-        let h = if key_hash == EMPTY_HASH { key_hash.wrapping_add(1) } else { key_hash };
+        let h = if key_hash == EMPTY_HASH {
+            key_hash.wrapping_add(1)
+        } else {
+            key_hash
+        };
         let start = (h as usize) & (WAL_INDEX_CAPACITY - 1);
         let mut idx = start;
         loop {
@@ -70,19 +74,31 @@ impl WalIndex {
                 return;
             }
             idx = (idx + 1) & (WAL_INDEX_CAPACITY - 1);
-            if idx == start { return; }
+            if idx == start {
+                return;
+            }
         }
     }
 
     fn lookup(&self, key_hash: u64) -> Option<u32> {
-        let h = if key_hash == EMPTY_HASH { key_hash.wrapping_add(1) } else { key_hash };
+        let h = if key_hash == EMPTY_HASH {
+            key_hash.wrapping_add(1)
+        } else {
+            key_hash
+        };
         let start = (h as usize) & (WAL_INDEX_CAPACITY - 1);
         let mut idx = start;
         loop {
-            if self.buckets[idx].0 == EMPTY_HASH { return None; }
-            if self.buckets[idx].0 == h { return Some(self.buckets[idx].1); }
+            if self.buckets[idx].0 == EMPTY_HASH {
+                return None;
+            }
+            if self.buckets[idx].0 == h {
+                return Some(self.buckets[idx].1);
+            }
             idx = (idx + 1) & (WAL_INDEX_CAPACITY - 1);
-            if idx == start { return None; }
+            if idx == start {
+                return None;
+            }
         }
     }
 }

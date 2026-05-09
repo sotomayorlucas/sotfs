@@ -200,8 +200,14 @@ fn main() {
     let mut g = TypeGraph::new();
     let rd = g.root_dir;
     let file_id = sotfs_ops::create_file(
-        &mut g, rd, "example.txt", 1000, 1000, Permissions::FILE_DEFAULT,
-    ).unwrap();
+        &mut g,
+        rd,
+        "example.txt",
+        1000,
+        1000,
+        Permissions::FILE_DEFAULT,
+    )
+    .unwrap();
     sotfs_ops::write_data(&mut g, file_id, 0, b"Hello, DPO!").unwrap();
 
     println!("Created file (inode {})", file_id);

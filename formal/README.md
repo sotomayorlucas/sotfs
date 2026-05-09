@@ -65,5 +65,11 @@ cd formal/coq && coq_makefile -f _CoqProject -o Makefile && make
 
 - TLC: 14/14 PASS at `small` and `medium` sizes (per `docs/state.md`).
   `large` configs may TIMEOUT depending on host RAM; gating is `medium`.
-- Coq: 6 DPO files + the graph model compile and discharge their proofs;
-  no `Admitted` lemmas.
+- Coq: 6 DPO files (3,034 lines total) + `SotfsGraph.v` model compile.
+  **Five `Admitted` lemmas remain**, all in `DpoRmdir.v` (4) and
+  `DpoUnlink.v` (1). The corresponding doc-comments in those files
+  flag the gap explicitly ("stated with Admitted for transparency").
+  They are tracked for v0.2.2 closure; the unblocking lemma for the
+  unlink case lives in `SotfsGraph.v::478` and the rmdir cycle case
+  in `SotfsGraph.v::523`. Their proofs are partial, not absent —
+  do not cite them as machine-checked yet.

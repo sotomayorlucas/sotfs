@@ -12,7 +12,7 @@ env:
 
 jobs:
   coverage:
-    name: cargo-llvm-cov + threshold
+    name: cargo-llvm-cov + threshold + delta
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -25,20 +25,22 @@ jobs:
         with:
           shared-key: coverage
       - name: Install fuse3
-        run: sudo apt-get update && sudo apt-get install -y fuse3
+        run: sudo apt-get update && sudo apt-get install -y fuse3 attr
 
       - name: Run cargo-llvm-cov on the workspace
         run: |
           cargo llvm-cov --workspace --lcov --output-path /tmp/lcov.info
+          cargo llvm-cov report --json --output-path /tmp/cov.json
           cargo llvm-cov report --summary-only | tee /tmp/cov.summary
 
-      - name: Threshold gate
+      - name: Threshold gate (absolute floor 80% + max drop 2pp vs baseline)
         run: |
-          set -e
-          line_pct=$(awk '/^TOTAL/{print $(NF-3)}' /tmp/cov.summary | tr -d '%')
-          echo "[coverage] workspace line coverage = $line_pct%"
-          awk -v p="$line_pct" 'BEGIN{exit !(p+0 >= 80)}' \
-            || { echo "FAIL: coverage $line_pct% below 80%"; exit 1; }
+          python scripts/coverage_gate.py \
+            --cov-json /tmp/cov.json \
+            --baseline docs/coverage-baseline.json \
+            --layer workspace \
+            --threshold-min 80 \
+            --threshold-drop 2
 
       - name: Upload artifact
         if: always()
@@ -49,4 +51,5 @@ jobs:
           name: ${{ env.ART_NAME }}
           path: |
             /tmp/lcov.info
+            /tmp/cov.json
             /tmp/cov.summary

@@ -119,7 +119,10 @@ pub fn to_dot(g: &TypeGraph, style: &DotStyle) -> String {
     for (_aid, block) in g.blocks.iter() {
         let mut label = format!("B{}\\nrc={}", block.id, block.refcount);
         if style.show_blocks {
-            label.push_str(&format!("\\nsec {}+{}", block.sector_start, block.sector_count));
+            label.push_str(&format!(
+                "\\nsec {}+{}",
+                block.sector_start, block.sector_count
+            ));
         }
         out.push_str(&format!(
             "  B{} [label=\"{}\", shape=cylinder, style=filled, fillcolor=lightcoral];\n",
@@ -147,7 +150,9 @@ pub fn to_dot(g: &TypeGraph, style: &DotStyle) -> String {
                     src, tgt, escaped
                 ));
             }
-            Edge::Grants { src, tgt, rights, .. } => {
+            Edge::Grants {
+                src, tgt, rights, ..
+            } => {
                 let label = if style.show_rights {
                     format_rights(*rights)
                 } else {
@@ -176,7 +181,9 @@ pub fn to_dot(g: &TypeGraph, style: &DotStyle) -> String {
                     src, tgt
                 ));
             }
-            Edge::PointsTo { src, tgt, offset, .. } => {
+            Edge::PointsTo {
+                src, tgt, offset, ..
+            } => {
                 out.push_str(&format!(
                     "  I{} -> B{} [label=\"@{}\", color=gray50];\n",
                     src, tgt, offset
@@ -197,12 +204,24 @@ pub fn to_dot(g: &TypeGraph, style: &DotStyle) -> String {
 
 fn format_rights(r: Rights) -> String {
     let mut s = String::new();
-    if r.contains(Rights::READ) { s.push('r'); }
-    if r.contains(Rights::WRITE) { s.push('w'); }
-    if r.contains(Rights::EXECUTE) { s.push('x'); }
-    if r.contains(Rights::GRANT) { s.push('g'); }
-    if r.contains(Rights::REVOKE) { s.push('v'); }
-    if s.is_empty() { s.push_str("none"); }
+    if r.contains(Rights::READ) {
+        s.push('r');
+    }
+    if r.contains(Rights::WRITE) {
+        s.push('w');
+    }
+    if r.contains(Rights::EXECUTE) {
+        s.push('x');
+    }
+    if r.contains(Rights::GRANT) {
+        s.push('g');
+    }
+    if r.contains(Rights::REVOKE) {
+        s.push('v');
+    }
+    if s.is_empty() {
+        s.push_str("none");
+    }
     s
 }
 
@@ -295,7 +314,10 @@ pub fn to_d3_json(g: &TypeGraph) -> String {
 
     let nodes_str = nodes.join(",\n    ");
     let links_str = links.join(",\n    ");
-    format!("{{\n  \"nodes\": [\n    {}\n  ],\n  \"links\": [\n    {}\n  ]\n}}", nodes_str, links_str)
+    format!(
+        "{{\n  \"nodes\": [\n    {}\n  ],\n  \"links\": [\n    {}\n  ]\n}}",
+        nodes_str, links_str
+    )
 }
 
 fn json_str(s: &str) -> String {
@@ -317,8 +339,18 @@ pub struct TemporalEvent {
 /// Types of temporal events.
 #[derive(Debug, Clone)]
 pub enum EventType {
-    NodeAdd { id: String, node_type: String, attrs: String },
-    EdgeAdd { id: u64, src: String, tgt: String, edge_type: String, attrs: String },
+    NodeAdd {
+        id: String,
+        node_type: String,
+        attrs: String,
+    },
+    EdgeAdd {
+        id: u64,
+        src: String,
+        tgt: String,
+        edge_type: String,
+        attrs: String,
+    },
 }
 
 /// Export the TypeGraph as a Graph Hunter temporal multigraph JSON.
@@ -354,9 +386,7 @@ pub fn to_graph_hunter(g: &TypeGraph) -> String {
 
     // Directory nodes (use paired inode's ctime)
     for (_aid, dir) in g.dirs.iter() {
-        let ts = g.get_inode(dir.inode_id)
-            .map(|i| i.ctime)
-            .unwrap_or(0);
+        let ts = g.get_inode(dir.inode_id).map(|i| i.ctime).unwrap_or(0);
         let event = format!(
             "{{\"t\":{},\"op\":\"add_node\",\"id\":\"D{}\",\"type\":\"directory\",\"inode_id\":{}}}",
             ts, dir.id, dir.inode_id
@@ -487,7 +517,9 @@ pub fn stats(g: &TypeGraph) -> GraphStats {
                 file_count += 1;
                 total_file_bytes += inode.size;
             }
-            VnodeType::Symlink => { symlink_count += 1; }
+            VnodeType::Symlink => {
+                symlink_count += 1;
+            }
             _ => {}
         }
         if inode.link_count > max_link_count {
@@ -495,10 +527,7 @@ pub fn stats(g: &TypeGraph) -> GraphStats {
         }
     }
 
-    let max_dir_entries = g.dir_contains.values()
-        .map(|s| s.len())
-        .max()
-        .unwrap_or(0);
+    let max_dir_entries = g.dir_contains.values().map(|s| s.len()).max().unwrap_or(0);
 
     // Estimate depth via longest path from root
     let depth_estimate = estimate_depth(g);
@@ -540,7 +569,9 @@ fn estimate_depth(g: &TypeGraph) -> usize {
         if let Some(edge_ids) = g.dir_contains.get(&dir) {
             for &eid in edge_ids {
                 if let Some(Edge::Contains { tgt, name, .. }) = g.get_edge(eid) {
-                    if name == "." || name == ".." { continue; }
+                    if name == "." || name == ".." {
+                        continue;
+                    }
                     if let Some(inode) = g.get_inode(*tgt) {
                         if inode.vtype == VnodeType::Directory {
                             if let Some(child_dir) = g.dir_for_inode(*tgt) {

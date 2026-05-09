@@ -155,10 +155,7 @@ pub fn mkdir(
         name: ".".into(),
     };
     g.insert_edge(dot_edge, e2);
-    g.dir_contains
-        .entry(dir_id)
-        .or_default()
-        .insert(dot_edge);
+    g.dir_contains.entry(dir_id).or_default().insert(dot_edge);
     g.inode_incoming_contains
         .entry(inode_id)
         .or_default()
@@ -574,9 +571,7 @@ fn rename_cross_dir(
                             };
                             // Remove old ".." incoming count
                             if let Some(old) = old_tgt {
-                                if let Some(set) =
-                                    g.inode_incoming_contains.get_mut(&old)
-                                {
+                                if let Some(set) = g.inode_incoming_contains.get_mut(&old) {
                                     set.remove(&dotdot_eid);
                                 }
                             }
@@ -703,11 +698,7 @@ pub fn read_data(
 }
 
 /// Truncate a file to the given length.
-pub fn truncate(
-    g: &mut TypeGraph,
-    inode_id: InodeId,
-    new_size: u64,
-) -> Result<(), GraphError> {
+pub fn truncate(g: &mut TypeGraph, inode_id: InodeId, new_size: u64) -> Result<(), GraphError> {
     let inode = g
         .get_inode(inode_id)
         .ok_or(GraphError::InodeNotFound(inode_id))?;
@@ -727,11 +718,7 @@ pub fn truncate(
 }
 
 /// Set permissions on an inode.
-pub fn chmod(
-    g: &mut TypeGraph,
-    inode_id: InodeId,
-    mode: u16,
-) -> Result<(), GraphError> {
+pub fn chmod(g: &mut TypeGraph, inode_id: InodeId, mode: u16) -> Result<(), GraphError> {
     let inode = g
         .get_inode_mut(inode_id)
         .ok_or(GraphError::InodeNotFound(inode_id))?;
@@ -823,7 +810,11 @@ pub fn affected_nodes_mkdir(parent_dir: DirId, inode: InodeId, new_dir: DirId) -
 }
 
 /// Affected nodes after rmdir: parent dir + removed inode + removed dir node.
-pub fn affected_nodes_rmdir(parent_dir: DirId, inode: InodeId, removed_dir: DirId) -> AffectedNodes {
+pub fn affected_nodes_rmdir(
+    parent_dir: DirId,
+    inode: InodeId,
+    removed_dir: DirId,
+) -> AffectedNodes {
     let mut a = AffectedNodes::empty();
     a.push(NodeId::Directory(parent_dir));
     a.push(NodeId::Inode(inode));
@@ -913,10 +904,7 @@ pub fn setxattr(
         tgt: xattr_id,
     };
     g.insert_edge(edge_id, edge);
-    g.inode_xattrs
-        .entry(inode_id)
-        .or_default()
-        .insert(xattr_id);
+    g.inode_xattrs.entry(inode_id).or_default().insert(xattr_id);
 
     Ok(xattr_id)
 }
@@ -953,11 +941,7 @@ pub fn removexattr(
     if !g.contains_inode(inode_id) {
         return Err(GraphError::InodeNotFound(inode_id));
     }
-    let xattr_ids = g
-        .inode_xattrs
-        .get(&inode_id)
-        .cloned()
-        .unwrap_or_default();
+    let xattr_ids = g.inode_xattrs.get(&inode_id).cloned().unwrap_or_default();
     for xid in &xattr_ids {
         let matches = g
             .xattrs
@@ -1080,10 +1064,7 @@ pub fn symlink(
 }
 
 /// Read the target of a symbolic link.
-pub fn readlink(
-    g: &TypeGraph,
-    inode_id: InodeId,
-) -> Result<String, GraphError> {
+pub fn readlink(g: &TypeGraph, inode_id: InodeId) -> Result<String, GraphError> {
     let inode = g
         .get_inode(inode_id)
         .ok_or(GraphError::InodeNotFound(inode_id))?;
@@ -1123,10 +1104,7 @@ pub fn setacl(
 
 /// Get the ACL for an inode. Returns the minimal ACL derived from
 /// permission bits if no explicit ACL is set.
-pub fn getacl(
-    g: &TypeGraph,
-    inode_id: InodeId,
-) -> Result<Vec<AclEntry>, GraphError> {
+pub fn getacl(g: &TypeGraph, inode_id: InodeId) -> Result<Vec<AclEntry>, GraphError> {
     let inode = g
         .get_inode(inode_id)
         .ok_or(GraphError::InodeNotFound(inode_id))?;
@@ -1175,10 +1153,7 @@ pub fn set_quota(
 }
 
 /// Get the quota for a directory (if set).
-pub fn get_quota(
-    g: &TypeGraph,
-    dir_id: DirId,
-) -> Result<Option<&Quota>, GraphError> {
+pub fn get_quota(g: &TypeGraph, dir_id: DirId) -> Result<Option<&Quota>, GraphError> {
     if !g.contains_dir(dir_id) {
         return Err(GraphError::DirNotFound(dir_id));
     }
@@ -1210,12 +1185,7 @@ pub fn check_quota_inode(g: &TypeGraph, dir_id: DirId) -> Result<(), GraphError>
 /// Update quota counters after a DPO operation.
 /// delta_inodes: +1 for create/mkdir, -1 for unlink/rmdir
 /// delta_bytes: change in file data size
-pub fn update_quota(
-    g: &mut TypeGraph,
-    dir_id: DirId,
-    delta_inodes: i64,
-    delta_bytes: i64,
-) {
+pub fn update_quota(g: &mut TypeGraph, dir_id: DirId, delta_inodes: i64, delta_bytes: i64) {
     let mut current = Some(dir_id);
     while let Some(d) = current {
         if let Some(q) = g.quotas.get_mut(&d) {
@@ -1290,7 +1260,8 @@ pub fn fsck(g: &TypeGraph) -> FsckReport {
                             invariant: "NoDanglingEdges",
                             description: format!(
                                 "Contains edge {} references nonexistent dir {}",
-                                edge.id(), src
+                                edge.id(),
+                                src
                             ),
                         });
                     }
@@ -1299,7 +1270,8 @@ pub fn fsck(g: &TypeGraph) -> FsckReport {
                             invariant: "NoDanglingEdges",
                             description: format!(
                                 "Contains edge {} references nonexistent inode {}",
-                                edge.id(), tgt
+                                edge.id(),
+                                tgt
                             ),
                         });
                     }
@@ -1310,7 +1282,8 @@ pub fn fsck(g: &TypeGraph) -> FsckReport {
                             invariant: "NoDanglingEdges",
                             description: format!(
                                 "PointsTo edge {} references nonexistent inode {}",
-                                edge.id(), src
+                                edge.id(),
+                                src
                             ),
                         });
                     }
@@ -1319,7 +1292,8 @@ pub fn fsck(g: &TypeGraph) -> FsckReport {
                             invariant: "NoDanglingEdges",
                             description: format!(
                                 "PointsTo edge {} references nonexistent block {}",
-                                edge.id(), tgt
+                                edge.id(),
+                                tgt
                             ),
                         });
                     }
@@ -1366,10 +1340,7 @@ pub fn fsck(g: &TypeGraph) -> FsckReport {
                 if names.contains(&name.as_str()) {
                     errors.push(FsckError {
                         invariant: "UniqueNamesPerDir",
-                        description: format!(
-                            "dir {}: duplicate name '{}'",
-                            dir_id, name
-                        ),
+                        description: format!("dir {}: duplicate name '{}'", dir_id, name),
                     });
                 }
                 names.push(name.as_str());
@@ -1434,20 +1405,14 @@ pub fn fsck(g: &TypeGraph) -> FsckReport {
         if !g.contains_inode(inode_id) {
             errors.push(FsckError {
                 invariant: "XattrIntegrity",
-                description: format!(
-                    "xattr index references nonexistent inode {}",
-                    inode_id
-                ),
+                description: format!("xattr index references nonexistent inode {}", inode_id),
             });
         }
         for &xid in xattr_ids {
             if !g.xattrs.contains_key(&xid) {
                 errors.push(FsckError {
                     invariant: "XattrIntegrity",
-                    description: format!(
-                        "inode {} references nonexistent xattr {}",
-                        inode_id, xid
-                    ),
+                    description: format!("inode {} references nonexistent xattr {}", inode_id, xid),
                 });
             }
         }
@@ -1551,7 +1516,9 @@ pub struct ProvenanceLog {
 
 impl ProvenanceLog {
     pub fn new() -> Self {
-        Self { entries: Vec::new() }
+        Self {
+            entries: Vec::new(),
+        }
     }
 
     /// Record a provenance entry.
@@ -1605,10 +1572,7 @@ impl ProvenanceLog {
     ) -> Vec<(CapId, ProvOp, u64)> {
         let mut result = Vec::new();
         for e in &self.entries {
-            if e.inode_id == inode_id
-                && e.timestamp >= t_start
-                && e.timestamp <= t_end
-            {
+            if e.inode_id == inode_id && e.timestamp >= t_start && e.timestamp <= t_end {
                 if let Some(cid) = e.cap_id {
                     result.push((cid, e.op, e.timestamp));
                 }
@@ -1653,19 +1617,10 @@ impl ProvenanceLog {
     ///
     /// Returns all operations performed by a specific domain (process/thread group).
     /// For forensics: "what did compromised domain D do?"
-    pub fn ops_by_domain(
-        &self,
-        domain_id: u64,
-        t_start: u64,
-        t_end: u64,
-    ) -> Vec<&ProvenanceEntry> {
+    pub fn ops_by_domain(&self, domain_id: u64, t_start: u64, t_end: u64) -> Vec<&ProvenanceEntry> {
         self.entries
             .iter()
-            .filter(|e| {
-                e.domain_id == domain_id
-                    && e.timestamp >= t_start
-                    && e.timestamp <= t_end
-            })
+            .filter(|e| e.domain_id == domain_id && e.timestamp >= t_start && e.timestamp <= t_end)
             .collect()
     }
 
@@ -1674,12 +1629,9 @@ impl ProvenanceLog {
     /// Returns the count of operations on an inode in sliding windows of
     /// `window_size` seconds.  Spikes indicate potential ransomware or
     /// mass-modification attacks.
-    pub fn burst_detect(
-        &self,
-        inode_id: InodeId,
-        window_size: u64,
-    ) -> Vec<(u64, usize)> {
-        let relevant: Vec<u64> = self.entries
+    pub fn burst_detect(&self, inode_id: InodeId, window_size: u64) -> Vec<(u64, usize)> {
+        let relevant: Vec<u64> = self
+            .entries
             .iter()
             .filter(|e| e.inode_id == inode_id)
             .map(|e| e.timestamp)
@@ -1692,7 +1644,10 @@ impl ProvenanceLog {
         let mut windows = Vec::new();
         let mut t = t_min;
         while t <= t_max {
-            let count = relevant.iter().filter(|&&ts| ts >= t && ts < t + window_size).count();
+            let count = relevant
+                .iter()
+                .filter(|&&ts| ts >= t && ts < t + window_size)
+                .count();
             if count > 0 {
                 windows.push((t, count));
             }
@@ -1704,11 +1659,7 @@ impl ProvenanceLog {
     /// **Q6: Cross-reference — capabilities and inodes involved in a time window.**
     ///
     /// Returns a summary: how many distinct caps and inodes were active in [t0, t1].
-    pub fn activity_summary(
-        &self,
-        t_start: u64,
-        t_end: u64,
-    ) -> ProvActivitySummary {
+    pub fn activity_summary(&self, t_start: u64, t_end: u64) -> ProvActivitySummary {
         let mut caps = BTreeSet::new();
         let mut inodes = BTreeSet::new();
         let mut op_count = 0usize;
@@ -1762,7 +1713,10 @@ mod tests {
         let result = mkdir(&mut g, rd, "subdir", 0, 0, Permissions::DIR_DEFAULT).unwrap();
         g.check_invariants().unwrap();
         assert!(result.dir_id.is_some());
-        assert_eq!(g.get_inode(result.inode_id).unwrap().vtype, VnodeType::Directory);
+        assert_eq!(
+            g.get_inode(result.inode_id).unwrap().vtype,
+            VnodeType::Directory
+        );
         assert_eq!(g.get_inode(result.inode_id).unwrap().link_count, 2);
     }
 
@@ -1820,7 +1774,15 @@ mod tests {
         let mut g = TypeGraph::new();
         let rd = g.root_dir;
         let sub = mkdir(&mut g, rd, "full", 0, 0, Permissions::DIR_DEFAULT).unwrap();
-        create_file(&mut g, sub.dir_id.unwrap(), "file", 0, 0, Permissions::FILE_DEFAULT).unwrap();
+        create_file(
+            &mut g,
+            sub.dir_id.unwrap(),
+            "file",
+            0,
+            0,
+            Permissions::FILE_DEFAULT,
+        )
+        .unwrap();
         let err = rmdir(&mut g, rd, "full");
         assert!(matches!(err, Err(GraphError::DirNotEmpty(_))));
     }
@@ -1876,7 +1838,15 @@ mod tests {
         let sub = mkdir(&mut g, rd, "olddir", 0, 0, Permissions::DIR_DEFAULT).unwrap();
         let sub_dir = sub.dir_id.unwrap();
         // Add a file inside the subdirectory
-        create_file(&mut g, sub_dir, "inner.txt", 0, 0, Permissions::FILE_DEFAULT).unwrap();
+        create_file(
+            &mut g,
+            sub_dir,
+            "inner.txt",
+            0,
+            0,
+            Permissions::FILE_DEFAULT,
+        )
+        .unwrap();
         rename(&mut g, rd, "olddir", rd, "newdir").unwrap();
         g.check_invariants().unwrap();
         assert!(g.resolve_name(rd, "olddir").is_none());
@@ -1970,7 +1940,7 @@ mod tests {
         create_file(&mut g, d3d, "libc.so", 0, 0, Permissions::FILE_DEFAULT).unwrap();
         g.check_invariants().unwrap();
         assert_eq!(g.inodes.len(), 7); // root + usr + bin + lib + ls + cat + libc
-        assert_eq!(g.dirs.len(), 4);   // root + usr + bin + lib
+        assert_eq!(g.dirs.len(), 4); // root + usr + bin + lib
     }
 
     #[test]
@@ -2092,10 +2062,26 @@ mod tests {
         let rd = g.root_dir;
         let id = create_file(&mut g, rd, "f", 0, 0, Permissions::FILE_DEFAULT).unwrap();
         let acl = vec![
-            AclEntry { tag: AclTag::UserObj, qualifier: 0, permissions: Permissions(7) },
-            AclEntry { tag: AclTag::GroupObj, qualifier: 0, permissions: Permissions(5) },
-            AclEntry { tag: AclTag::Other, qualifier: 0, permissions: Permissions(4) },
-            AclEntry { tag: AclTag::User, qualifier: 1000, permissions: Permissions(6) },
+            AclEntry {
+                tag: AclTag::UserObj,
+                qualifier: 0,
+                permissions: Permissions(7),
+            },
+            AclEntry {
+                tag: AclTag::GroupObj,
+                qualifier: 0,
+                permissions: Permissions(5),
+            },
+            AclEntry {
+                tag: AclTag::Other,
+                qualifier: 0,
+                permissions: Permissions(4),
+            },
+            AclEntry {
+                tag: AclTag::User,
+                qualifier: 1000,
+                permissions: Permissions(6),
+            },
         ];
         setacl(&mut g, id, acl.clone()).unwrap();
         let got = getacl(&g, id).unwrap();
@@ -2158,7 +2144,8 @@ mod tests {
         let id = create_file(&mut g, rd, "f", 0, 0, Permissions::FILE_DEFAULT).unwrap();
         // Manually break the graph: remove all incoming edges for this inode
         // to create an orphan
-        let edges_to_remove: Vec<_> = g.inode_incoming_contains
+        let edges_to_remove: Vec<_> = g
+            .inode_incoming_contains
             .get(&id)
             .cloned()
             .unwrap_or_default()
@@ -2291,12 +2278,20 @@ mod tests {
         create_file(&mut g, rd, "a", 0, 0, Permissions::FILE_DEFAULT).unwrap();
         create_file(&mut g, rd, "b", 0, 0, Permissions::FILE_DEFAULT).unwrap();
         let sub = mkdir(&mut g, rd, "d", 0, 0, Permissions::DIR_DEFAULT).unwrap();
-        create_file(&mut g, sub.dir_id.unwrap(), "c", 0, 0, Permissions::FILE_DEFAULT).unwrap();
+        create_file(
+            &mut g,
+            sub.dir_id.unwrap(),
+            "c",
+            0,
+            0,
+            Permissions::FILE_DEFAULT,
+        )
+        .unwrap();
 
         let s = stats(&g);
         assert_eq!(s.inode_count, 5); // root + a + b + d + c
-        assert_eq!(s.dir_count, 2);   // root + d
-        assert_eq!(s.file_count, 3);  // a + b + c
+        assert_eq!(s.dir_count, 2); // root + d
+        assert_eq!(s.file_count, 3); // a + b + c
         assert_eq!(s.depth_estimate, 1); // root -> d (depth 1)
     }
 }

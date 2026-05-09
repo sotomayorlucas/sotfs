@@ -5,12 +5,12 @@
 //!
 //! Run: cd sotfs && cargo bench --bench monitor_bench
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use sotfs_graph::graph::TypeGraph;
 use sotfs_graph::types::*;
-use sotfs_ops::*;
-use sotfs_monitor::{treewidth, curvature};
+use sotfs_monitor::{curvature, treewidth};
 use sotfs_ops::affected_nodes_create;
+use sotfs_ops::*;
 
 /// Build a graph with N files in root (star topology).
 fn build_star(n: usize) -> TypeGraph {
@@ -150,8 +150,8 @@ fn bench_incremental_curvature(c: &mut Criterion) {
         let prev_report = curvature::compute_curvatures(&g);
 
         // Add the extra file
-        let new_inode = create_file(&mut g, rd, "f_extra", 0, 0, Permissions::FILE_DEFAULT)
-            .unwrap();
+        let new_inode =
+            create_file(&mut g, rd, "f_extra", 0, 0, Permissions::FILE_DEFAULT).unwrap();
         let affected = affected_nodes_create(rd, new_inode);
 
         // Clone graph for fair benchmarking (both closures need it)
@@ -161,22 +161,16 @@ fn bench_incremental_curvature(c: &mut Criterion) {
         let affected_slice: Vec<_> = affected.as_slice().to_vec();
 
         // Benchmark: full recomputation
-        group.bench_with_input(
-            BenchmarkId::new("full", n),
-            &g_full,
-            |b, g| {
-                b.iter(|| black_box(curvature::compute_curvatures(g)));
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("full", n), &g_full, |b, g| {
+            b.iter(|| black_box(curvature::compute_curvatures(g)));
+        });
 
         // Benchmark: incremental recomputation
         group.bench_with_input(
             BenchmarkId::new("incremental", n),
             &(g_incr, prev_clone, affected_slice),
             |b, (g, prev, affected)| {
-                b.iter(|| {
-                    black_box(curvature::recompute_incremental(g, affected, prev))
-                });
+                b.iter(|| black_box(curvature::recompute_incremental(g, affected, prev)));
             },
         );
     }
@@ -202,8 +196,8 @@ fn bench_incremental_chain(c: &mut Criterion) {
         let prev_report = curvature::compute_curvatures(&g);
 
         // Add a file to the deepest directory
-        let new_inode = create_file(&mut g, current, "leaf", 0, 0, Permissions::FILE_DEFAULT)
-            .unwrap();
+        let new_inode =
+            create_file(&mut g, current, "leaf", 0, 0, Permissions::FILE_DEFAULT).unwrap();
         let affected = affected_nodes_create(current, new_inode);
 
         let g_full = g.clone();
@@ -211,21 +205,15 @@ fn bench_incremental_chain(c: &mut Criterion) {
         let prev_clone = prev_report.clone();
         let affected_slice: Vec<_> = affected.as_slice().to_vec();
 
-        group.bench_with_input(
-            BenchmarkId::new("full", n),
-            &g_full,
-            |b, g| {
-                b.iter(|| black_box(curvature::compute_curvatures(g)));
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("full", n), &g_full, |b, g| {
+            b.iter(|| black_box(curvature::compute_curvatures(g)));
+        });
 
         group.bench_with_input(
             BenchmarkId::new("incremental", n),
             &(g_incr, prev_clone, affected_slice),
             |b, (g, prev, affected)| {
-                b.iter(|| {
-                    black_box(curvature::recompute_incremental(g, affected, prev))
-                });
+                b.iter(|| black_box(curvature::recompute_incremental(g, affected, prev)));
             },
         );
     }
