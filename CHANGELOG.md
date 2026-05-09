@@ -5,7 +5,111 @@ All notable changes to sotFS will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased] — v0.2.2-dev
+## [0.2.3] — 2026-05-09 — close the v0.2.2-review loop
+
+Three of the four "deferred" items from the v0.2.2 review are now
+done. The fourth (cap-mediated DPO paths with real `cap_id` /
+`domain_id` plumbing through `sotfs-ops`) remains deferred — it is
+substantially more invasive than the other three and benefits from
+landing on top of the now-consolidated provenance/quota/ACL surface.
+
+### Added — quotas actually enforced
+
+`update_quota` was a public API since 0.2.0 and *increment-only*: it
+recorded usage but never gated allocation. v0.2.3 adds a
+pre-allocation check at every relevant DPO op:
+
+- `create_file`, `mkdir`, `symlink` — check inode-count quota for the
+  parent directory's quota domain before adding the inode; on success
+  call `update_quota(+1 inode, 0 bytes)`.
+- `write` — check byte quota for the file's quota domain *delta*
+  (new_size - old_size) before mutating storage; on success call
+  `update_quota(0 inodes, delta_bytes)`.
+- `truncate` — symmetric: byte delta can be negative (release) or
+  positive (extension); enforced on extension only.
+- `unlink`, `rmdir` — release on success: `update_quota(-1 inode,
+  -byte_size)`.
+
+When a quota would be exceeded the DPO op returns `OpError::Quota`
+*before* any graph mutation. No partial state. Counters reflect
+ground truth after every successful op; tested under randomized
+churn.
+
+New tests (`sotfs-ops/tests/quota_integration.rs`, 9 cases): create
+fills inode-count to limit and the next create rejects; write fills
+byte limit and the next write rejects; release on unlink restores
+budget; rename across domains transfers usage; subtree quota
+inherits to grandchildren; concurrent writes that would *jointly*
+exceed the limit are serialized correctly through the existing
+RwLock without racing past the gate.
+
+### Added — ACL `setacl` emits Grants edges
+
+Pre-0.2.3 `setacl` stored POSIX.1e ACL entries in a side map and the
+docstring claimed it materialized `Capability` and `Grants(...)`
+edges in the cap subgraph. It did not. v0.2.3 makes the docstring
+true:
+
+- For each ACL entry with `tag = User(uid)` or `Group(gid)`,
+  `setacl` synthesizes (or reuses) a `Capability` node addressed by
+  `(inode_id, principal, mode_bits)` and a `Grants` edge from the
+  principal's domain node to that capability.
+- POSIX permission bits map to capability rights via a new
+  `perms_to_rights(Permissions) -> Rights` helper: `r/w/x` → `READ
+  | WRITE | EXECUTE`. Sticky/setuid bits are out of scope (no
+  capability semantics defined yet).
+- `removexattr` of the `system.posix_acl_access` xattr deletes the
+  synthesized capabilities and edges atomically with the ACL
+  removal — no orphan caps.
+
+This closes the documentation lie and makes the cap-graph
+inspectable for SOC review (e.g., "which principals have WRITE on
+this inode" is now an edge query, not an ACL parse).
+
+New tests (`sotfs-ops/tests/acl_cap_edges.rs`, 6 cases): setacl on
+new file creates expected Grants edges; setacl twice deduplicates;
+removing the access ACL removes the cap subgraph; rights bitmask
+matches the POSIX bits; user vs group tags produce distinct caps;
+rename of the inode updates the cap targets in lockstep.
+
+### Refactor — typestate moved to `sotfs-experimental`
+
+The reviewer flagged that `sotfs-graph::typestate` (372 lines:
+`InodeHandle<Created/Linked/Orphaned>`,
+`TxHandle<TxActive/TxPrepared/TxCommitted/TxAborted>`,
+`DirHandle<DirEmpty/DirNonEmpty>`, `CapHandle` with attenuation
+checks) was re-exported as if it were infrastructure but had zero
+consumers in `sotfs-ops` or `sotfs-fuse`. Adoption in the live FUSE
+path is on the v0.3 roadmap; surfacing it in the core crate now
+misled readers about which APIs are load-bearing.
+
+- New crate `sotfs-experimental` (workspace member). `Cargo.toml`
+  matches `sotfs-graph`'s `std`/`no_std` feature split.
+- `sotfs-graph/src/typestate.rs` deleted; `pub mod typestate` and
+  the re-exports removed from `sotfs-graph/src/lib.rs`. A short
+  comment in `lib.rs` points readers at `sotfs-experimental`.
+- The single in-tree consumer (`sotfs-monitor/tests/adversarial.rs`,
+  importing `CapHandle` to test attenuation monotonicity) was
+  migrated to `sotfs_experimental::CapHandle` and a
+  `sotfs-experimental` dev-dependency.
+
+No public-API change in `sotfs-graph` other than the removal — the
+type was a re-export and nothing outside `sotfs-monitor`'s test
+imported it. External consumers that did rely on the path can
+either depend on `sotfs-experimental` directly or copy the module:
+the contract is "experimental, expect movement."
+
+### Carried over to v0.2.4
+
+- Cap-mediated DPO paths with real `cap_id` / `domain_id` plumbing
+  through `sotfs-ops` (the fourth v0.2.2-review item).
+- `sotfs-export-hunter --tail` streaming mode.
+- Strict clippy gate (`-D warnings` workspace-wide) — currently
+  informational on `sotfs-graph` and gating elsewhere.
+- Coverage floor 70% → 80%.
+- Five `Admitted` lemmas in `DpoRmdir.v` / `DpoUnlink.v`.
+
+## [0.2.2] — 2026-05-09 — provenance wired end-to-end
 
 ### Added — provenance log wired end-to-end
 
