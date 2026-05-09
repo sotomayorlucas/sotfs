@@ -95,9 +95,15 @@ component of sotX).
 Schema and example output: [docs/graph-hunter-schema.md](docs/graph-hunter-schema.md).
 
 ```sh
-sotfs-export-hunter /tmp/test.redb -o hunter.json     # snapshot mode (works today)
-# sotfs-export-hunter --tail /tmp/test.redb           # streaming mode — roadmap, not implemented
+sotfs-export-hunter /tmp/test.redb -o hunter.json         # snapshot mode
+sotfs-export-hunter --tail /tmp/test.prov.jsonl           # streaming NDJSON from FUSE prov sidecar
+sotfs-export-hunter --tail /tmp/test.prov.jsonl --once    # one-shot read (batch ingest / tests)
 ```
+
+The streaming mode tails the JSONL sidecar that `sotfs-fuse` writes
+when started with `SOTFS_PROV_SIDECAR=<path>`. Each provenance entry
+becomes one NDJSON event on stdout (`{"t":…, "kind":"prov", "op":…,
+"inode":…, "cap":…, "domain":…, "detail":…}`).
 
 ## Performance
 

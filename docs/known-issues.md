@@ -68,40 +68,13 @@ with regular `#[test]` cases.
    CI when the upstream fix is delayed.
 3. File upstream once we have a minimal reproducer not tied to sotFS.
 
-## ISSUE-QA-002 — `sotfs-fuse --tail` and the streaming Graph Hunter export
+## ISSUE-QA-002 — closed in v0.2.4
 
-**Affected binary**
-
-`sotfs-export-hunter --tail <path.redb>` exits 1 today with:
-
-```
-sotfs-export-hunter --tail: not implemented yet (HNT-2 follow-up).
-```
-
-**Status**
-
-Snapshot mode (`sotfs-export-hunter <path.redb> -o <out.json>`) works
-and is covered by the `tests/graph_hunter_export.rs` integration test.
-The streaming variant requires a delta-events emitter on top of the
-existing snapshot encoder; it is on the v0.2.2 roadmap.
-
-**Mitigation**
-
-Use snapshot mode plus an external poll loop:
-
-```sh
-while true; do
-  sotfs-export-hunter /var/lib/sotfs/data.redb -o /tmp/snap.json
-  diff -q /tmp/snap.json /tmp/snap.prev.json && sleep 5 && continue
-  mv /tmp/snap.json /tmp/snap.prev.json
-  # process new events...
-done
-```
-
-**Exit plan**
-
-`sotfs-graph::export::to_graph_hunter_stream` (planned) emits
-`add_node`/`remove_node`/`add_edge`/`remove_edge` events as the graph
-mutates. Wiring into `sotfs-fuse` requires a hook in `insert_edge` /
-`remove_edge` so events fire from the live graph, not from snapshot
-diffing.
+`sotfs-export-hunter --tail` now ships and consumes the FUSE
+provenance JSONL sidecar (`SOTFS_PROV_SIDECAR=<path>`), emitting one
+NDJSON event per provenance entry on stdout (`{"t":…, "kind":"prov",
+"op":…, "inode":…, "cap":…, "domain":…, "detail":…}`). The earlier
+"not implemented" exit message has been replaced with the actual
+follower; `--once` switches to single-shot drain for batch ingestion
+and tests, `--poll-ms <N>` tunes the follow interval. See
+`sotfs-cli/tests/dot_and_export.rs` for the contract.

@@ -157,13 +157,23 @@ impl SotFsFilesystem {
             Ok(mut f) => {
                 use std::io::Write;
                 for e in entries {
-                    let line = format!(
-                        r#"{{"t":{},"op":{:?},"inode":{},"cap":{:?},"domain":{},"detail":{:?}}}{}"#,
-                        e.timestamp, e.op, e.inode_id, e.cap_id, e.domain_id, e.detail, '\n'
-                    );
-                    if let Err(err) = f.write_all(line.as_bytes()) {
-                        eprintln!("sotFS: prov sidecar write failed: {err}");
-                        return;
+                    // serde_json gives us spec-compliant JSONL; the
+                    // pre-v0.2.4 hand-formatted line had bare `op`
+                    // identifiers (e.g. `"op":Create`) and `Some(7)`
+                    // capability values, which no off-the-shelf JSON
+                    // parser would accept.
+                    match serde_json::to_string(&e) {
+                        Ok(mut line) => {
+                            line.push('\n');
+                            if let Err(err) = f.write_all(line.as_bytes()) {
+                                eprintln!("sotFS: prov sidecar write failed: {err}");
+                                return;
+                            }
+                        }
+                        Err(err) => {
+                            eprintln!("sotFS: prov entry encode failed: {err}");
+                            return;
+                        }
                     }
                 }
             }

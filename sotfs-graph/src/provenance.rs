@@ -23,10 +23,12 @@ use alloc::{collections::BTreeSet, string::String, vec::Vec};
 #[cfg(feature = "std")]
 use std::collections::BTreeSet;
 
+use serde::{Deserialize, Serialize};
+
 use crate::types::{CapId, InodeId};
 
 /// Operation type recorded in provenance entries.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ProvOp {
     Create,
     Mkdir,
@@ -50,12 +52,20 @@ pub enum ProvOp {
 }
 
 /// A single provenance entry — who did what to which inode, when, via which cap.
-#[derive(Debug, Clone)]
+///
+/// Field names map to the JSONL sidecar schema:
+/// `{"t":<u64>, "op":<ProvOp>, "inode":<u64>, "cap":<u64|null>,
+///   "domain":<u64>, "detail":<string>}`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProvenanceEntry {
+    #[serde(rename = "t")]
     pub timestamp: u64,
     pub op: ProvOp,
+    #[serde(rename = "inode")]
     pub inode_id: InodeId,
+    #[serde(rename = "cap")]
     pub cap_id: Option<CapId>,
+    #[serde(rename = "domain")]
     pub domain_id: u64,
     pub detail: String,
 }

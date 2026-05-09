@@ -1046,6 +1046,7 @@ dependencies = [
  "libc",
  "log",
  "parking_lot",
+ "serde_json",
  "sotfs-graph",
  "sotfs-ops",
  "sotfs-storage",
