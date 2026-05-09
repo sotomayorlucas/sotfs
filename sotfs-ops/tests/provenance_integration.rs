@@ -48,8 +48,15 @@ fn full_lifecycle_records_each_op() {
     let rd = g.root_dir;
 
     let dir = mkdir(&mut g, rd, "d", 0, 0, Permissions::DIR_DEFAULT).unwrap();
-    let file_id = create_file(&mut g, dir.dir_id.unwrap(), "f", 0, 0, Permissions::FILE_DEFAULT)
-        .unwrap();
+    let file_id = create_file(
+        &mut g,
+        dir.dir_id.unwrap(),
+        "f",
+        0,
+        0,
+        Permissions::FILE_DEFAULT,
+    )
+    .unwrap();
     write_data(&mut g, file_id, 0, b"hello").unwrap();
     truncate(&mut g, file_id, 3).unwrap();
     chmod(&mut g, file_id, 0o644).unwrap();

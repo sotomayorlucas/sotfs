@@ -1502,9 +1502,7 @@ fn has_cycle_dfs(
 // `TypeGraph` can hold an opt-in `ProvenanceLog` field directly.
 // These re-exports preserve the pre-v0.2.2 API surface for callers
 // that imported from `sotfs_ops`.
-pub use sotfs_graph::provenance::{
-    ProvActivitySummary, ProvOp, ProvenanceEntry, ProvenanceLog,
-};
+pub use sotfs_graph::provenance::{ProvActivitySummary, ProvOp, ProvenanceEntry, ProvenanceLog};
 
 #[cfg(test)]
 mod tests {

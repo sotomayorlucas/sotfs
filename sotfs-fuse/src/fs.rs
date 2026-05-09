@@ -154,13 +154,7 @@ impl SotFsFilesystem {
                 for e in entries {
                     let line = format!(
                         r#"{{"t":{},"op":{:?},"inode":{},"cap":{:?},"domain":{},"detail":{:?}}}{}"#,
-                        e.timestamp,
-                        e.op,
-                        e.inode_id,
-                        e.cap_id,
-                        e.domain_id,
-                        e.detail,
-                        '\n'
+                        e.timestamp, e.op, e.inode_id, e.cap_id, e.domain_id, e.detail, '\n'
                     );
                     if let Err(err) = f.write_all(line.as_bytes()) {
                         eprintln!("sotFS: prov sidecar write failed: {err}");
@@ -168,7 +162,10 @@ impl SotFsFilesystem {
                     }
                 }
             }
-            Err(err) => eprintln!("sotFS: prov sidecar open failed at {}: {err}", path.display()),
+            Err(err) => eprintln!(
+                "sotFS: prov sidecar open failed at {}: {err}",
+                path.display()
+            ),
         }
     }
 
