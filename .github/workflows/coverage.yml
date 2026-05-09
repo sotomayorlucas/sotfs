@@ -33,19 +33,22 @@ jobs:
           cargo llvm-cov report --json --output-path /tmp/cov.json
           cargo llvm-cov report --summary-only | tee /tmp/cov.summary
 
-      - name: Threshold gate (absolute floor 80% + max drop 2pp vs baseline)
-        # Floor tightened from 70% → 80% in v0.2.4. The cleanup added
-        # integration coverage for the three CLI binaries (sotfsctl,
-        # sotfs-dot, sotfs-export-hunter), the GraphError Display impl,
-        # the small accessor/lookup APIs on TypeGraph, and the
-        # to_dot/to_d3_json/to_graph_hunter formatters with non-empty
-        # graphs. Measured workspace coverage at the bump: 80.20%.
+      - name: Threshold gate (absolute floor 85% + max drop 2pp vs baseline)
+        # Floor tightened from 80% → 85% in v0.2.5. The bump came
+        # from the FUSE mount integration tests
+        # (sotfs-fuse/tests/mount_integration.rs) which exercise the
+        # actual FUSE callbacks against a live `/dev/fuse` mount —
+        # `sotfs-fuse/src/fs.rs` went from 5% to ~79% line coverage,
+        # carrying the workspace average from 80.10% to ~86%. The
+        # mount tests are gated on `/dev/fuse` + `fusermount3` being
+        # available on the runner; the CI job already installs
+        # `fuse3` as part of the test step.
         run: |
           python scripts/coverage_gate.py \
             --cov-json /tmp/cov.json \
             --baseline docs/coverage-baseline.json \
             --layer workspace \
-            --threshold-min 80 \
+            --threshold-min 85 \
             --threshold-drop 2
 
       - name: Upload artifact
