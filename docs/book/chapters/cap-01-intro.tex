@@ -1,0 +1,211 @@
+\chapter{Introducción: por qué un FS basado en grafos}
+\label{cap:intro}
+
+Este libro es la presentación pedagógica del sistema sotFS: un
+filesystem cuya estructura interna no es un árbol de inodes, como en
+\texttt{ext4} o \texttt{XFS}, sino un \emph{grafo dirigido tipado} sobre
+el que cada operación POSIX se ejecuta como una reescritura algebraica.
+Antes de entrar en formalismos, conviene ver por qué la elección
+estructural importa.
+
+\section{Filesystems como árbol vs.\ como grafo}
+
+\paragraph{El árbol POSIX clásico.} \texttt{ext4} y compañía modelan los
+datos como un árbol jerárquico: directorios contienen inodes, inodes
+apuntan a bloques. Es una decisión simple, eficiente y bien entendida.
+Tres consecuencias se derivan de esa simplicidad:
+
+\begin{itemize}
+  \item Los \emph{hard links} no son una propiedad del modelo; son un
+    bolt-on. Dos paths que apuntan al mismo inode existen, pero el modelo
+    subyacente no los refleja como ``misma cosa con dos nombres''.
+  \item La \emph{deduplicación} post-escritura es cara: hay que rescanear
+    bloques iguales y reemplazar referencias.
+  \item Los \emph{snapshots} se hacen vía copy-on-write o
+    \emph{shadow paging}; son técnicas de implementación, no propiedades
+    del modelo.
+\end{itemize}
+
+\paragraph{El grafo tipado.} sotFS usa una estructura distinta: un
+\emph{grafo dirigido tipado} (TypeGraph) con seis tipos de nodo y siete
+tipos de arista. Lo que en el árbol son convenciones aparece como
+relaciones formales:
+
+\begin{itemize}
+  \item \textbf{Sharing entre dominios.} Un mismo bloque referenciado
+    desde dos archivos sin bolt-on; emerge naturalmente del modelo.
+  \item \textbf{Snapshots gratis.} Un snapshot es un puntero a un nodo
+    raíz en cierto momento; nada se copia.
+  \item \textbf{Capabilities first-class.} Una capability es un nodo del
+    grafo, no una entrada en una tabla paralela.
+  \item \textbf{Operaciones como reescritura.} Cada \opcreate, \opmkdir,
+    \opunlink, etc.\ es una regla DPO sobre el grafo.
+\end{itemize}
+
+\paragraph{El precio.} Mayor complejidad teórica. Un grafo tipado tiene
+invariantes que un árbol no necesita; las operaciones tienen
+\emph{gluing conditions} formales; los chequeos son menos triviales. El
+libro es básicamente la presentación ordenada de ese costo y de las
+herramientas (TLA\textsuperscript{+}, Coq, fuzzers) para mantenerlo bajo
+control.
+
+\section{Lo que sotFS es y lo que no}
+
+\paragraph{Lo que es.}
+\begin{itemize}
+  \item Un filesystem POSIX-compatible que monta en Linux vía \fuse{}.
+  \item Un substrato algebraico (\TGraph) sobre el que se prueba la
+    preservación de invariantes en TLA\textsuperscript{+} y Coq.
+  \item Un workspace Rust de ocho crates (cap.~\ref{cap:implementacion}
+    los recorre).
+  \item Una herramienta de seguridad ofensiva-defensiva: provenance
+    log con cap-mediated context, métricas estructurales (treewidth,
+    curvatura), y functor de decepción $D_{\mathrm{FS}}$
+    (caps.~\ref{cap:topologia} y \ref{cap:decepcion}).
+\end{itemize}
+
+\paragraph{Lo que no es (todavía).}
+\begin{itemize}
+  \item Un filesystem listo para producción a gran escala. La versión
+    cubierta es \texttt{v0.2.5}; el roadmap planea Tier-2 (multi-host
+    2PC), \texttt{sotfsctl repair}, y suite \texttt{xfstests/LTP}.
+  \item Un sistema con prueba formal mecanizada \emph{end-to-end}. Hay
+    cinco lemmas \texttt{Admitted} en Coq que el cap.~\ref{cap:coq}
+    documenta uno por uno. La correspondencia DPO matemático $\to$ Rust
+    es por inspección, no por extracción certificada.
+  \item Un reemplazo del crate \texttt{sotfs-experimental}: ese crate
+    es código aspiracional, no integrado al runtime estable, y queda
+    \emph{fuera} de este libro.
+\end{itemize}
+
+\section{Mapa de capítulos}
+
+La Tabla~\ref{tab:mapa} resume el contenido y las dependencias.
+
+\begin{table}[h]
+\centering
+\renewcommand{\arraystretch}{1.15}
+\begin{tabularx}{\linewidth}{c X l}
+  \toprule
+  \textbf{Cap.} & \textbf{Contenido} & \textbf{Depende de} \\
+  \midrule
+  \ref{cap:intro} & Introducción y motivación. & --- \\
+  \ref{cap:prelim} & Preliminares: grafos tipados, pushouts, hashing. & 1 \\
+  \ref{cap:typegraph} & El TypeGraph, los seis nodos y siete aristas, los siete invariantes. & 2 \\
+  \ref{cap:hashing} & Hashing de contenido (\blake) y direccionamiento. & 3 \\
+  \ref{cap:dpo} & Reescritura DPO de las operaciones POSIX. & 3, 4 \\
+  \ref{cap:implementacion} & Implementación Rust: arenas, \rcu{}, motor de reglas. & 5 \\
+  \ref{cap:persistencia} & Persistencia con \redb{} e índices secundarios. & 6 \\
+  \ref{cap:capabilities} & Capabilities y delegación. & 3, 7 \\
+  \ref{cap:transacciones} & GTXN y crash refinement. & 6, 7 \\
+  \ref{cap:tla} & Verificación con TLA\textsuperscript{+}. & 5, 9 \\
+  \ref{cap:coq} & Verificación con Coq, deuda Admitted explícita. & 5, 10 \\
+  \ref{cap:topologia} & Treewidth y curvatura Ollivier-Ricci. & 3 \\
+  \ref{cap:decepcion} & El functor de decepción $D_{\mathrm{FS}}$. & 3, 8 \\
+  \ref{cap:fuse} & Adaptador \fuse{} y observabilidad. & 6, 8, 9 \\
+  \bottomrule
+\end{tabularx}
+\caption{Mapa de capítulos y dependencias estrictas para una lectura
+lineal. Los apéndices son lookup, no lectura lineal.}
+\label{tab:mapa}
+\end{table}
+
+\section{Convenciones del libro}
+
+\paragraph{Cajas tipadas.}
+\begin{itemize}
+  \item \emph{Definición} (violeta): introduce un objeto formal.
+  \item \emph{Teorema}, \emph{Lema} (verde, teal): resultado central /
+    auxiliar.
+  \item \emph{Invariante} (azul): propiedad que el sistema mantiene
+    siempre, a veces probada en TLA\textsuperscript{+} o Coq.
+  \item \emph{Trampa} (rojo): error histórico del proyecto, con su
+    \emph{lección} explícita; muchas enlazan a un commit (\citaCommit{<sha>}).
+  \item \emph{Observación} (gris): nota lateral, no crítica.
+  \item \emph{Ejercicio} (ámbar): propuesta al lector, graduada
+    \dificultad{$\star$} / \dificultad{$\star\star$} / \dificultad{$\star\star\star$}.
+\end{itemize}
+
+\paragraph{Algoritmos.} En pseudocódigo estilo CLRS con
+\texttt{algorithm2e}, numerados por capítulo. Cada algoritmo en el
+libro tiene su contrapartida en código Rust real, citada por archivo y
+línea: \citaLine{sotfs-graph/src/graph.rs}{571}.
+
+\paragraph{Citas al repositorio.} Las macros \citaTLA{spec.tla} (specs
+TLA\textsuperscript{+}), \citaCoq{archivo.v} (pruebas Coq),
+\citaCrate{nombre} (crates Rust del workspace) y \citaCommit{sha}
+(commits) puntúan referencias al código fuente. Las citas académicas
+siguen el estilo numérico estándar y aparecen en la bibliografía al
+final del volumen.
+
+\section{Cómo leer este libro}
+
+\paragraph{Lectura lineal.} Para alguien que quiere entender el sistema
+de cero, leer en orden 1 a 14 es lo correcto. Cada capítulo descansa
+sobre el anterior y los caps.~\ref{cap:typegraph} y \ref{cap:dpo} son
+los más densos: si en algún momento te perdés en un capítulo posterior,
+volvé a esos.
+
+\paragraph{Lectura selectiva.}
+\begin{description}
+  \item[Implementadores en Rust:] caps.~\ref{cap:typegraph},
+    \ref{cap:dpo}, \ref{cap:implementacion}, \ref{cap:persistencia} y
+    los apéndices~\ref{ap:invariantes} (catálogo de invariantes) y
+    \ref{ap:setup} (setup reproducible).
+  \item[Verificacionistas:] caps.~\ref{cap:dpo}, \ref{cap:tla},
+    \ref{cap:coq} y los apéndices~\ref{ap:dpo-tablas} (tablas DPO) y
+    \ref{ap:tlc-results} (resultados TLC).
+  \item[Practitioners de seguridad:] caps.~\ref{cap:capabilities},
+    \ref{cap:topologia}, \ref{cap:decepcion}, \ref{cap:fuse}.
+  \item[Educadores:] cualquier capítulo, con los ejercicios
+    \dificultad{$\star$} y \dificultad{$\star\star$}; el
+    apéndice~\ref{ap:soluciones} cubre las soluciones.
+\end{description}
+
+\section*{Resumen del capítulo}
+
+\begin{itemize}
+  \item sotFS abandona el árbol POSIX y modela su metadata como un
+    grafo tipado con seis nodos y siete aristas.
+  \item La elección habilita sharing, snapshots y capabilities como
+    propiedades del modelo, no como bolt-ons.
+  \item El precio se paga en complejidad teórica: invariantes,
+    reescritura DPO, verificación.
+  \item El libro recorre las catorce capas de ese costo, en orden
+    pedagógico, con ejercicios graduados y apéndices de lookup.
+\end{itemize}
+
+\section*{Ejercicios}
+
+\begin{ejercicio}[\dificultad{$\star$}]
+\label{ej:intro-1}
+Liste los seis tipos de nodo del TypeGraph mencionados en este capítulo.
+(El cap.~\ref{cap:typegraph} los desarrolla.)
+\end{ejercicio}
+
+\begin{ejercicio}[\dificultad{$\star$}]
+\label{ej:intro-2}
+Tres consecuencias del modelo de árbol POSIX se mencionan como ``costos''.
+Listelas en una línea cada una.
+\end{ejercicio}
+
+\begin{ejercicio}[\dificultad{$\star\star$}]
+\label{ej:intro-3}
+En el árbol POSIX, ¿cómo se implementan las hard links? ¿Cómo cambia el
+mecanismo en sotFS según lo que adelanta este capítulo?
+\end{ejercicio}
+
+\begin{ejercicio}[\dificultad{$\star\star$}]
+\label{ej:intro-4}
+Dé un ejemplo concreto donde el sharing intrínseco de un Merkle DAG
+ahorraría espacio respecto de \texttt{ext4}. ¿Cuántos bloques se
+ahorrarían si dos archivos de 1\,MiB tienen 80\% de contenido en común?
+\end{ejercicio}
+
+\begin{ejercicio}[\dificultad{$\star\star\star$}]
+\label{ej:intro-5}
+Liste tres propiedades formales que sotFS apunta a probar y que
+\texttt{ext4} \emph{no} prueba. Para cada una, anticipá qué herramienta
+(TLA\textsuperscript{+}, Coq, o test/fuzz) sería la natural para
+verificarla. (El cap.~\ref{cap:tla} y \ref{cap:coq} desarrollan esto.)
+\end{ejercicio}

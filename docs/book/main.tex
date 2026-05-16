@@ -1,0 +1,49 @@
+\documentclass{sotfsbook}
+
+\addbibresource{refs.bib}
+
+\title{sotFS: un filesystem como grafo}
+\author{Lucas Sotomayor}
+\date{\today}
+
+\begin{document}
+
+% ── Frontmatter ─────────────────────────────────────────────────────────
+\frontmatter
+\input{frontmatter/titlepage}
+\input{frontmatter/copyright}
+\input{frontmatter/prefacio}
+\input{frontmatter/notacion}
+\input{frontmatter/toc}
+
+% ── Mainmatter ──────────────────────────────────────────────────────────
+\mainmatter
+
+\input{chapters/cap-01-intro}
+\input{chapters/cap-02-prelim}
+\input{chapters/cap-03-typegraph}
+\input{chapters/cap-04-hashing}
+\input{chapters/cap-05-dpo}
+\input{chapters/cap-06-implementacion}
+\input{chapters/cap-07-persistencia}
+\input{chapters/cap-08-capabilities}
+\input{chapters/cap-09-transacciones}
+\input{chapters/cap-10-tla}
+\input{chapters/cap-11-coq}
+\input{chapters/cap-12-topologia}
+\input{chapters/cap-13-decepcion}
+\input{chapters/cap-14-fuse}
+
+% ── Apéndices ───────────────────────────────────────────────────────────
+\appendix
+\input{appendices/ap-A-invariantes}
+\input{appendices/ap-B-dpo-tablas}
+\input{appendices/ap-C-tlc-results}
+\input{appendices/ap-D-setup}
+\input{appendices/ap-E-soluciones}
+
+% ── Backmatter ──────────────────────────────────────────────────────────
+\backmatter
+\printbibliography[heading=bibintoc, title={Bibliografía}]
+
+\end{document}

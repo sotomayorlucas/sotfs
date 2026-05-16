@@ -1,0 +1,1006 @@
+DIGEST 982db9081b34227fb39dbf005bcd694d
+FSotFS.SotfsGraph
+R856:870 Stdlib.Arith.Arith <> <> lib
+R888:901 Stdlib.Lists.List <> <> lib
+R919:931 Stdlib.Bool.Bool <> <> lib
+R949:951 Stdlib.micromega.Lia <> <> lib
+R961:973 Stdlib.Lists.List ListNotations <> mod
+def 1219:1225 <> InodeId
+R1230:1232 Corelib.Init.Datatypes <> nat ind
+def 1246:1250 <> DirId
+R1255:1257 Corelib.Init.Datatypes <> nat ind
+def 1271:1274 <> Name
+R1279:1281 Corelib.Init.Datatypes <> nat ind
+ind 1581:1589 <> VnodeType
+constr 1605:1611 <> Regular
+constr 1617:1629 <> DirectoryType
+scheme 1581:1589 <> VnodeType_rect
+scheme 1581:1589 <> VnodeType_ind
+scheme 1581:1589 <> VnodeType_rec
+scheme 1581:1589 <> VnodeType_sind
+def 1644:1652 <> vtype_eqb
+R1661:1669 SotFS.SotfsGraph <> VnodeType ind
+binder 1655:1655 <> a:3
+binder 1657:1657 <> b:4
+R1674:1677 Corelib.Init.Datatypes <> bool ind
+R1693:1693 SotFS.SotfsGraph <> b:4 var
+R1690:1690 SotFS.SotfsGraph <> a:3 var
+R1704:1710 SotFS.SotfsGraph <> Regular constr
+R1713:1719 SotFS.SotfsGraph <> Regular constr
+R1724:1727 Corelib.Init.Datatypes <> true constr
+R1733:1745 SotFS.SotfsGraph <> DirectoryType constr
+R1748:1760 SotFS.SotfsGraph <> DirectoryType constr
+R1765:1768 Corelib.Init.Datatypes <> true constr
+R1782:1786 Corelib.Init.Datatypes <> false constr
+prf 1802:1815 <> vtype_eqb_refl
+binder 1826:1826 <> v:7
+R1842:1844 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R1829:1837 SotFS.SotfsGraph <> vtype_eqb def
+R1839:1839 SotFS.SotfsGraph <> v:7 var
+R1841:1841 SotFS.SotfsGraph <> v:7 var
+R1845:1848 Corelib.Init.Datatypes <> true constr
+prf 1895:1906 <> vtype_eqb_eq
+binder 1917:1917 <> a:8
+binder 1919:1919 <> b:9
+R1942:1946 Corelib.Init.Logic <> ::type_scope:x_'<->'_x not
+R1935:1937 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R1922:1930 SotFS.SotfsGraph <> vtype_eqb def
+R1932:1932 SotFS.SotfsGraph <> a:8 var
+R1934:1934 SotFS.SotfsGraph <> b:9 var
+R1938:1941 Corelib.Init.Datatypes <> true constr
+R1948:1950 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R1947:1947 SotFS.SotfsGraph <> a:8 var
+R1951:1951 SotFS.SotfsGraph <> b:9 var
+rec 2364:2375 <> ContainsEdge
+proj 2402:2407 <> ce_dir
+proj 2421:2426 <> ce_ino
+proj 2442:2448 <> ce_name
+R2412:2416 SotFS.SotfsGraph <> DirId def
+R2431:2437 SotFS.SotfsGraph <> InodeId def
+R2452:2455 SotFS.SotfsGraph <> Name def
+def 2473:2478 <> ce_eqb
+R2489:2500 SotFS.SotfsGraph <> ContainsEdge rec
+binder 2481:2482 <> e1:14
+binder 2484:2485 <> e2:15
+R2505:2508 Corelib.Init.Datatypes <> bool ind
+R2583:2588 Corelib.Init.Datatypes <> ::bool_scope:x_'&&'_x not
+R2546:2551 Corelib.Init.Datatypes <> ::bool_scope:x_'&&'_x not
+R2515:2521 Stdlib.Arith.PeanoNat Nat eqb def
+R2524:2529 SotFS.SotfsGraph <> ce_dir proj
+R2531:2532 SotFS.SotfsGraph <> e1:14 var
+R2536:2541 SotFS.SotfsGraph <> ce_dir proj
+R2543:2544 SotFS.SotfsGraph <> e2:15 var
+R2552:2558 Stdlib.Arith.PeanoNat Nat eqb def
+R2561:2566 SotFS.SotfsGraph <> ce_ino proj
+R2568:2569 SotFS.SotfsGraph <> e1:14 var
+R2573:2578 SotFS.SotfsGraph <> ce_ino proj
+R2580:2581 SotFS.SotfsGraph <> e2:15 var
+R2589:2595 Stdlib.Arith.PeanoNat Nat eqb def
+R2598:2604 SotFS.SotfsGraph <> ce_name proj
+R2606:2607 SotFS.SotfsGraph <> e1:14 var
+R2611:2617 SotFS.SotfsGraph <> ce_name proj
+R2619:2620 SotFS.SotfsGraph <> e2:15 var
+prf 2631:2639 <> ce_eqb_eq
+binder 2650:2651 <> e1:16
+binder 2653:2654 <> e2:17
+R2676:2680 Corelib.Init.Logic <> ::type_scope:x_'<->'_x not
+R2669:2671 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R2657:2662 SotFS.SotfsGraph <> ce_eqb def
+R2664:2665 SotFS.SotfsGraph <> e1:16 var
+R2667:2668 SotFS.SotfsGraph <> e2:17 var
+R2672:2675 Corelib.Init.Datatypes <> true constr
+R2683:2685 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R2681:2682 SotFS.SotfsGraph <> e1:16 var
+R2686:2687 SotFS.SotfsGraph <> e2:17 var
+R2736:2741 SotFS.SotfsGraph <> ce_eqb def
+R2761:2778 Stdlib.Bool.Bool <> andb_true_iff thm
+R2791:2808 Stdlib.Bool.Bool <> andb_true_iff thm
+R2828:2837 Stdlib.Arith.PeanoNat Nat eqb_eq thm
+prf 2938:2948 <> ce_eqb_refl
+binder 2959:2959 <> e:18
+R2972:2974 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R2962:2967 SotFS.SotfsGraph <> ce_eqb def
+R2969:2969 SotFS.SotfsGraph <> e:18 var
+R2971:2971 SotFS.SotfsGraph <> e:18 var
+R2975:2978 Corelib.Init.Datatypes <> true constr
+R3013:3018 SotFS.SotfsGraph <> ce_eqb def
+R3045:3056 Stdlib.Arith.PeanoNat Nat eqb_refl thm
+def 3089:3097 <> ce_eq_dec
+R3117:3128 SotFS.SotfsGraph <> ContainsEdge rec
+binder 3109:3110 <> e1:19
+binder 3112:3113 <> e2:20
+R3132:3132 Corelib.Init.Specif <> ::type_scope:'{'_x_'}'_'+'_'{'_x_'}' not
+R3140:3144 Corelib.Init.Specif <> ::type_scope:'{'_x_'}'_'+'_'{'_x_'}' not
+R3153:3153 Corelib.Init.Specif <> ::type_scope:'{'_x_'}'_'+'_'{'_x_'}' not
+R3135:3137 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R3133:3134 SotFS.SotfsGraph <> e1:19 var
+R3138:3139 SotFS.SotfsGraph <> e2:20 var
+R3147:3150 Corelib.Init.Logic <> ::type_scope:x_'<>'_x not
+R3145:3146 SotFS.SotfsGraph <> e1:19 var
+R3151:3152 SotFS.SotfsGraph <> e2:20 var
+R3207:3216 Stdlib.Arith.PeanoNat Nat eq_dec thm
+R3236:3245 Stdlib.Arith.PeanoNat Nat eq_dec thm
+R3267:3276 Stdlib.Arith.PeanoNat Nat eq_dec thm
+rec 3612:3619 <> InodeRec
+proj 3643:3647 <> ir_id
+proj 3670:3677 <> ir_vtype
+proj 3699:3711 <> ir_link_count
+R3659:3665 SotFS.SotfsGraph <> InodeId def
+R3686:3694 SotFS.SotfsGraph <> VnodeType ind
+R3715:3717 Corelib.Init.Datatypes <> nat ind
+rec 4036:4041 <> DirRec
+proj 4063:4067 <> dr_id
+proj 4086:4096 <> dr_inode_id
+R4077:4081 SotFS.SotfsGraph <> DirId def
+R4100:4106 SotFS.SotfsGraph <> InodeId def
+def 4428:4435 <> dot_name
+R4441:4444 SotFS.SotfsGraph <> Name def
+def 4463:4473 <> dotdot_name
+R4477:4480 SotFS.SotfsGraph <> Name def
+def 4500:4511 <> is_user_name
+R4518:4521 SotFS.SotfsGraph <> Name def
+binder 4514:4514 <> n:28
+R4535:4538 Corelib.Init.Peano <> ::nat_scope:x_'>='_x not
+R4534:4534 SotFS.SotfsGraph <> n:28 var
+def 4553:4566 <> is_user_name_b
+R4573:4576 SotFS.SotfsGraph <> Name def
+binder 4569:4569 <> n:29
+R4581:4584 Corelib.Init.Datatypes <> bool ind
+R4590:4594 Stdlib.Arith.PeanoNat <> ::nat_scope:x_'<=?'_x not
+R4595:4595 SotFS.SotfsGraph <> n:29 var
+prf 4605:4623 <> is_user_name_b_spec
+binder 4634:4634 <> n:30
+R4660:4664 Corelib.Init.Logic <> ::type_scope:x_'<->'_x not
+R4653:4655 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R4637:4650 SotFS.SotfsGraph <> is_user_name_b def
+R4652:4652 SotFS.SotfsGraph <> n:30 var
+R4656:4659 Corelib.Init.Datatypes <> true constr
+R4665:4676 SotFS.SotfsGraph <> is_user_name def
+R4678:4678 SotFS.SotfsGraph <> n:30 var
+R4706:4719 SotFS.SotfsGraph <> is_user_name_b def
+R4722:4733 SotFS.SotfsGraph <> is_user_name def
+R4746:4755 Stdlib.Arith.PeanoNat Nat leb_le thm
+prf 4775:4794 <> user_name_not_dotdot
+binder 4805:4805 <> n:31
+R4822:4825 Corelib.Init.Notations <> ::type_scope:x_'->'_x not
+R4808:4819 SotFS.SotfsGraph <> is_user_name def
+R4821:4821 SotFS.SotfsGraph <> n:31 var
+R4827:4830 Corelib.Init.Logic <> ::type_scope:x_'<>'_x not
+R4826:4826 SotFS.SotfsGraph <> n:31 var
+R4831:4841 SotFS.SotfsGraph <> dotdot_name def
+R4858:4869 SotFS.SotfsGraph <> is_user_name def
+R4872:4882 SotFS.SotfsGraph <> dotdot_name def
+prf 4902:4918 <> user_name_not_dot
+binder 4929:4929 <> n:32
+R4946:4949 Corelib.Init.Notations <> ::type_scope:x_'->'_x not
+R4932:4943 SotFS.SotfsGraph <> is_user_name def
+R4945:4945 SotFS.SotfsGraph <> n:32 var
+R4951:4954 Corelib.Init.Logic <> ::type_scope:x_'<>'_x not
+R4950:4950 SotFS.SotfsGraph <> n:32 var
+R4955:4962 SotFS.SotfsGraph <> dot_name def
+R4979:4990 SotFS.SotfsGraph <> is_user_name def
+R4993:5000 SotFS.SotfsGraph <> dot_name def
+rec 5477:5481 <> Graph
+proj 5505:5512 <> g_inodes
+proj 5533:5538 <> g_dirs
+proj 5559:5565 <> g_edges
+R5516:5519 Corelib.Init.Datatypes <> list ind
+R5521:5528 SotFS.SotfsGraph <> InodeRec rec
+R5544:5547 Corelib.Init.Datatypes <> list ind
+R5549:5554 SotFS.SotfsGraph <> DirRec rec
+R5570:5573 Corelib.Init.Datatypes <> list ind
+R5575:5586 SotFS.SotfsGraph <> ContainsEdge rec
+def 5833:5841 <> inode_ids
+R5848:5852 SotFS.SotfsGraph <> Graph rec
+binder 5844:5844 <> g:37
+R5857:5860 Corelib.Init.Datatypes <> list ind
+R5862:5868 SotFS.SotfsGraph <> InodeId def
+R5875:5877 Corelib.Lists.ListDef <> map def
+R5886:5893 SotFS.SotfsGraph <> g_inodes proj
+R5895:5895 SotFS.SotfsGraph <> g:37 var
+R5879:5883 SotFS.SotfsGraph <> ir_id proj
+def 5911:5917 <> dir_ids
+R5924:5928 SotFS.SotfsGraph <> Graph rec
+binder 5920:5920 <> g:38
+R5933:5936 Corelib.Init.Datatypes <> list ind
+R5938:5942 SotFS.SotfsGraph <> DirId def
+R5949:5951 Corelib.Lists.ListDef <> map def
+R5960:5965 SotFS.SotfsGraph <> g_dirs proj
+R5967:5967 SotFS.SotfsGraph <> g:38 var
+R5953:5957 SotFS.SotfsGraph <> dr_id proj
+def 5983:5992 <> find_inode
+R5999:6003 SotFS.SotfsGraph <> Graph rec
+binder 5995:5995 <> g:39
+R6012:6018 SotFS.SotfsGraph <> InodeId def
+binder 6007:6008 <> id:40
+R6023:6028 Corelib.Init.Datatypes <> option ind
+R6030:6037 SotFS.SotfsGraph <> InodeRec rec
+R6044:6047 Stdlib.Lists.List <> find def
+R6084:6091 SotFS.SotfsGraph <> g_inodes proj
+R6093:6093 SotFS.SotfsGraph <> g:39 var
+binder 6054:6055 <> ir:41
+R6060:6066 Stdlib.Arith.PeanoNat Nat eqb def
+R6069:6073 SotFS.SotfsGraph <> ir_id proj
+R6075:6076 SotFS.SotfsGraph <> ir:41 var
+R6079:6080 SotFS.SotfsGraph <> id:40 var
+def 6109:6116 <> find_dir
+R6123:6127 SotFS.SotfsGraph <> Graph rec
+binder 6119:6119 <> g:42
+R6136:6140 SotFS.SotfsGraph <> DirId def
+binder 6131:6132 <> id:43
+R6145:6150 Corelib.Init.Datatypes <> option ind
+R6152:6157 SotFS.SotfsGraph <> DirRec rec
+R6164:6167 Stdlib.Lists.List <> find def
+R6204:6209 SotFS.SotfsGraph <> g_dirs proj
+R6211:6211 SotFS.SotfsGraph <> g:42 var
+binder 6174:6175 <> dr:44
+R6180:6186 Stdlib.Arith.PeanoNat Nat eqb def
+R6189:6193 SotFS.SotfsGraph <> dr_id proj
+R6195:6196 SotFS.SotfsGraph <> dr:44 var
+R6199:6200 SotFS.SotfsGraph <> id:43 var
+def 6227:6239 <> dir_for_inode
+R6246:6250 SotFS.SotfsGraph <> Graph rec
+binder 6242:6242 <> g:45
+R6260:6266 SotFS.SotfsGraph <> InodeId def
+binder 6254:6256 <> ino:46
+R6271:6276 Corelib.Init.Datatypes <> option ind
+R6278:6282 SotFS.SotfsGraph <> DirId def
+R6295:6298 Stdlib.Lists.List <> find def
+R6342:6347 SotFS.SotfsGraph <> g_dirs proj
+R6349:6349 SotFS.SotfsGraph <> g:45 var
+binder 6305:6306 <> dr:47
+R6311:6317 Stdlib.Arith.PeanoNat Nat eqb def
+R6320:6330 SotFS.SotfsGraph <> dr_inode_id proj
+R6332:6333 SotFS.SotfsGraph <> dr:47 var
+R6336:6338 SotFS.SotfsGraph <> ino:46 var
+R6361:6364 Corelib.Init.Datatypes <> Some constr
+R6372:6375 Corelib.Init.Datatypes <> Some constr
+R6378:6382 SotFS.SotfsGraph <> dr_id proj
+R6392:6395 Corelib.Init.Datatypes <> None constr
+R6400:6403 Corelib.Init.Datatypes <> None constr
+def 6424:6435 <> inode_exists
+R6442:6446 SotFS.SotfsGraph <> Graph rec
+binder 6438:6438 <> g:48
+R6455:6461 SotFS.SotfsGraph <> InodeId def
+binder 6450:6451 <> id:49
+R6476:6477 Stdlib.Lists.List <> In def
+R6483:6491 SotFS.SotfsGraph <> inode_ids def
+R6493:6493 SotFS.SotfsGraph <> g:48 var
+R6479:6480 SotFS.SotfsGraph <> id:49 var
+def 6509:6518 <> dir_exists
+R6525:6529 SotFS.SotfsGraph <> Graph rec
+binder 6521:6521 <> g:50
+R6538:6542 SotFS.SotfsGraph <> DirId def
+binder 6533:6534 <> id:51
+R6557:6558 Stdlib.Lists.List <> In def
+R6564:6570 SotFS.SotfsGraph <> dir_ids def
+R6572:6572 SotFS.SotfsGraph <> g:50 var
+R6560:6561 SotFS.SotfsGraph <> id:51 var
+def 6857:6870 <> count_occ_pred
+binder 6873:6873 <> A:52
+R6889:6892 Corelib.Init.Notations <> ::type_scope:x_'->'_x not
+R6888:6888 SotFS.SotfsGraph <> A:52 var
+R6893:6896 Corelib.Init.Datatypes <> bool ind
+binder 6884:6884 <> f:53
+R6904:6907 Corelib.Init.Datatypes <> list ind
+R6909:6909 SotFS.SotfsGraph <> A:52 var
+binder 6900:6900 <> l:54
+R6914:6916 Corelib.Init.Datatypes <> nat ind
+R6929:6929 SotFS.SotfsGraph <> l:54 var
+R6940:6941 Stdlib.Lists.List ListNotations ::list_scope:'['_']' not
+R6953:6956 Corelib.Init.Datatypes <> ::list_scope:x_'::'_x not
+R6963:6963 Corelib.Init.Peano <> ::nat_scope:x_'+'_x not
+R6984:6987 Corelib.Init.Peano <> ::nat_scope:x_'+'_x not
+R6967:6967 SotFS.SotfsGraph <> f:53 var
+R6988:7001 SotFS.SotfsGraph <> count_occ_pred:55 def
+R7003:7003 SotFS.SotfsGraph <> f:53 var
+def 7063:7073 <> remove_edge
+R7080:7091 SotFS.SotfsGraph <> ContainsEdge rec
+binder 7076:7076 <> e:57
+R7099:7102 Corelib.Init.Datatypes <> list ind
+R7104:7115 SotFS.SotfsGraph <> ContainsEdge rec
+binder 7095:7095 <> l:58
+R7120:7123 Corelib.Init.Datatypes <> list ind
+R7125:7136 SotFS.SotfsGraph <> ContainsEdge rec
+R7149:7149 SotFS.SotfsGraph <> l:58 var
+R7160:7161 Stdlib.Lists.List ListNotations ::list_scope:'['_']' not
+R7166:7167 Stdlib.Lists.List ListNotations ::list_scope:'['_']' not
+R7174:7177 Corelib.Init.Datatypes <> ::list_scope:x_'::'_x not
+R7191:7196 SotFS.SotfsGraph <> ce_eqb def
+R7200:7200 SotFS.SotfsGraph <> e:57 var
+R7220:7223 Corelib.Init.Datatypes <> ::list_scope:x_'::'_x not
+R7224:7234 SotFS.SotfsGraph <> remove_edge:59 def
+R7236:7236 SotFS.SotfsGraph <> e:57 var
+def 7299:7312 <> edges_from_dir
+R7319:7323 SotFS.SotfsGraph <> Graph rec
+binder 7315:7315 <> g:61
+R7331:7335 SotFS.SotfsGraph <> DirId def
+binder 7327:7327 <> d:62
+R7340:7343 Corelib.Init.Datatypes <> list ind
+R7345:7356 SotFS.SotfsGraph <> ContainsEdge rec
+R7363:7368 Stdlib.Lists.List <> filter def
+R7403:7409 SotFS.SotfsGraph <> g_edges proj
+R7411:7411 SotFS.SotfsGraph <> g:61 var
+binder 7375:7375 <> e:63
+R7380:7386 Stdlib.Arith.PeanoNat Nat eqb def
+R7389:7394 SotFS.SotfsGraph <> ce_dir proj
+R7396:7396 SotFS.SotfsGraph <> e:63 var
+R7399:7399 SotFS.SotfsGraph <> d:62 var
+def 7467:7477 <> name_in_dir
+R7484:7488 SotFS.SotfsGraph <> Graph rec
+binder 7480:7480 <> g:64
+R7496:7500 SotFS.SotfsGraph <> DirId def
+binder 7492:7492 <> d:65
+R7508:7511 SotFS.SotfsGraph <> Name def
+binder 7504:7504 <> n:66
+R7516:7519 Corelib.Init.Datatypes <> bool ind
+R7526:7532 Stdlib.Lists.List <> existsb def
+R7592:7598 SotFS.SotfsGraph <> g_edges proj
+R7600:7600 SotFS.SotfsGraph <> g:64 var
+binder 7539:7539 <> e:67
+R7564:7567 Corelib.Init.Datatypes <> ::bool_scope:x_'&&'_x not
+R7544:7550 Stdlib.Arith.PeanoNat Nat eqb def
+R7553:7558 SotFS.SotfsGraph <> ce_dir proj
+R7560:7560 SotFS.SotfsGraph <> e:67 var
+R7563:7563 SotFS.SotfsGraph <> d:65 var
+R7568:7574 Stdlib.Arith.PeanoNat Nat eqb def
+R7577:7583 SotFS.SotfsGraph <> ce_name proj
+R7585:7585 SotFS.SotfsGraph <> e:67 var
+R7588:7588 SotFS.SotfsGraph <> n:66 var
+def 7671:7682 <> resolve_name
+R7689:7693 SotFS.SotfsGraph <> Graph rec
+binder 7685:7685 <> g:68
+R7701:7705 SotFS.SotfsGraph <> DirId def
+binder 7697:7697 <> d:69
+R7713:7716 SotFS.SotfsGraph <> Name def
+binder 7709:7709 <> n:70
+R7721:7726 Corelib.Init.Datatypes <> option ind
+R7728:7734 SotFS.SotfsGraph <> InodeId def
+R7747:7750 Stdlib.Lists.List <> find def
+R7810:7816 SotFS.SotfsGraph <> g_edges proj
+R7818:7818 SotFS.SotfsGraph <> g:68 var
+binder 7757:7757 <> e:71
+R7782:7785 Corelib.Init.Datatypes <> ::bool_scope:x_'&&'_x not
+R7762:7768 Stdlib.Arith.PeanoNat Nat eqb def
+R7771:7776 SotFS.SotfsGraph <> ce_dir proj
+R7778:7778 SotFS.SotfsGraph <> e:71 var
+R7781:7781 SotFS.SotfsGraph <> d:69 var
+R7786:7792 Stdlib.Arith.PeanoNat Nat eqb def
+R7795:7801 SotFS.SotfsGraph <> ce_name proj
+R7803:7803 SotFS.SotfsGraph <> e:71 var
+R7806:7806 SotFS.SotfsGraph <> n:70 var
+R7830:7833 Corelib.Init.Datatypes <> Some constr
+R7840:7843 Corelib.Init.Datatypes <> Some constr
+R7846:7851 SotFS.SotfsGraph <> ce_ino proj
+R7860:7863 Corelib.Init.Datatypes <> None constr
+R7868:7871 Corelib.Init.Datatypes <> None constr
+def 7957:7970 <> incoming_count
+R7977:7981 SotFS.SotfsGraph <> Graph rec
+binder 7973:7973 <> g:72
+R7991:7997 SotFS.SotfsGraph <> InodeId def
+binder 7985:7987 <> ino:73
+R8002:8004 Corelib.Init.Datatypes <> nat ind
+R8011:8024 SotFS.SotfsGraph <> count_occ_pred def
+R8111:8117 SotFS.SotfsGraph <> g_edges proj
+R8119:8119 SotFS.SotfsGraph <> g:72 var
+binder 8035:8035 <> e:74
+R8062:8065 Corelib.Init.Datatypes <> ::bool_scope:x_'&&'_x not
+R8040:8046 Stdlib.Arith.PeanoNat Nat eqb def
+R8049:8054 SotFS.SotfsGraph <> ce_ino proj
+R8056:8056 SotFS.SotfsGraph <> e:74 var
+R8059:8061 SotFS.SotfsGraph <> ino:73 var
+R8066:8069 Corelib.Init.Datatypes <> negb def
+R8072:8078 Stdlib.Arith.PeanoNat Nat eqb def
+R8081:8087 SotFS.SotfsGraph <> ce_name proj
+R8089:8089 SotFS.SotfsGraph <> e:74 var
+R8092:8102 SotFS.SotfsGraph <> dotdot_name def
+def 8366:8378 <> NoDupInodeIds
+R8385:8389 SotFS.SotfsGraph <> Graph rec
+binder 8381:8381 <> g:75
+R8404:8408 Stdlib.Lists.List <> NoDup ind
+R8411:8419 SotFS.SotfsGraph <> inode_ids def
+R8421:8421 SotFS.SotfsGraph <> g:75 var
+def 8437:8447 <> NoDupDirIds
+R8454:8458 SotFS.SotfsGraph <> Graph rec
+binder 8450:8450 <> g:76
+R8473:8477 Stdlib.Lists.List <> NoDup ind
+R8480:8486 SotFS.SotfsGraph <> dir_ids def
+R8488:8488 SotFS.SotfsGraph <> g:76 var
+def 9038:9050 <> TypeInvariant
+R9057:9061 SotFS.SotfsGraph <> Graph rec
+binder 9053:9053 <> g:77
+R9076:9076 Corelib.Init.Logic <> ::type_scope:x_'/\'_x not
+R9163:9169 Corelib.Init.Logic <> ::type_scope:x_'/\'_x not
+binder 9084:9084 <> e:78
+R9103:9110 Corelib.Init.Notations <> ::type_scope:x_'->'_x not
+R9087:9088 Stdlib.Lists.List <> In def
+R9093:9099 SotFS.SotfsGraph <> g_edges proj
+R9101:9101 SotFS.SotfsGraph <> g:77 var
+R9090:9090 SotFS.SotfsGraph <> e:78 var
+R9134:9137 Corelib.Init.Logic <> ::type_scope:x_'/\'_x not
+R9111:9120 SotFS.SotfsGraph <> dir_exists def
+R9122:9122 SotFS.SotfsGraph <> g:77 var
+R9125:9130 SotFS.SotfsGraph <> ce_dir proj
+R9132:9132 SotFS.SotfsGraph <> e:78 var
+R9138:9149 SotFS.SotfsGraph <> inode_exists def
+R9151:9151 SotFS.SotfsGraph <> g:77 var
+R9154:9159 SotFS.SotfsGraph <> ce_ino proj
+R9161:9161 SotFS.SotfsGraph <> e:78 var
+R9185:9190 Corelib.Init.Logic <> ::type_scope:x_'/\'_x not
+R9170:9182 SotFS.SotfsGraph <> NoDupInodeIds def
+R9184:9184 SotFS.SotfsGraph <> g:77 var
+R9191:9201 SotFS.SotfsGraph <> NoDupDirIds def
+R9203:9203 SotFS.SotfsGraph <> g:77 var
+def 9458:9476 <> LinkCountConsistent
+R9483:9487 SotFS.SotfsGraph <> Graph rec
+binder 9479:9479 <> g:79
+binder 9509:9510 <> ir:80
+R9531:9538 Corelib.Init.Notations <> ::type_scope:x_'->'_x not
+R9513:9514 Stdlib.Lists.List <> In def
+R9520:9527 SotFS.SotfsGraph <> g_inodes proj
+R9529:9529 SotFS.SotfsGraph <> g:79 var
+R9516:9517 SotFS.SotfsGraph <> ir:80 var
+R9555:9557 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R9539:9551 SotFS.SotfsGraph <> ir_link_count proj
+R9553:9554 SotFS.SotfsGraph <> ir:80 var
+R9558:9571 SotFS.SotfsGraph <> incoming_count def
+R9573:9573 SotFS.SotfsGraph <> g:79 var
+R9576:9580 SotFS.SotfsGraph <> ir_id proj
+R9582:9583 SotFS.SotfsGraph <> ir:80 var
+def 9837:9853 <> UniqueNamesPerDir
+R9860:9864 SotFS.SotfsGraph <> Graph rec
+binder 9856:9856 <> g:81
+binder 9886:9887 <> e1:82
+binder 9889:9890 <> e2:83
+R9910:9913 Corelib.Init.Notations <> ::type_scope:x_'->'_x not
+R9893:9894 Stdlib.Lists.List <> In def
+R9900:9906 SotFS.SotfsGraph <> g_edges proj
+R9908:9908 SotFS.SotfsGraph <> g:81 var
+R9896:9897 SotFS.SotfsGraph <> e1:82 var
+R9931:9938 Corelib.Init.Notations <> ::type_scope:x_'->'_x not
+R9914:9915 Stdlib.Lists.List <> In def
+R9921:9927 SotFS.SotfsGraph <> g_edges proj
+R9929:9929 SotFS.SotfsGraph <> g:81 var
+R9917:9918 SotFS.SotfsGraph <> e2:83 var
+R9960:9967 Corelib.Init.Notations <> ::type_scope:x_'->'_x not
+R9948:9950 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R9939:9944 SotFS.SotfsGraph <> ce_dir proj
+R9946:9947 SotFS.SotfsGraph <> e1:82 var
+R9951:9956 SotFS.SotfsGraph <> ce_dir proj
+R9958:9959 SotFS.SotfsGraph <> e2:83 var
+R9991:9998 Corelib.Init.Notations <> ::type_scope:x_'->'_x not
+R9978:9980 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R9968:9974 SotFS.SotfsGraph <> ce_name proj
+R9976:9977 SotFS.SotfsGraph <> e1:82 var
+R9981:9987 SotFS.SotfsGraph <> ce_name proj
+R9989:9990 SotFS.SotfsGraph <> e2:83 var
+R10001:10003 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R9999:10000 SotFS.SotfsGraph <> e1:82 var
+R10004:10005 SotFS.SotfsGraph <> e2:83 var
+def 10325:10339 <> NoDanglingEdges
+R10346:10350 SotFS.SotfsGraph <> Graph rec
+binder 10342:10342 <> g:84
+binder 10372:10372 <> e:85
+R10391:10398 Corelib.Init.Notations <> ::type_scope:x_'->'_x not
+R10375:10376 Stdlib.Lists.List <> In def
+R10381:10387 SotFS.SotfsGraph <> g_edges proj
+R10389:10389 SotFS.SotfsGraph <> g:84 var
+R10378:10378 SotFS.SotfsGraph <> e:85 var
+R10422:10425 Corelib.Init.Logic <> ::type_scope:x_'/\'_x not
+R10399:10408 SotFS.SotfsGraph <> dir_exists def
+R10410:10410 SotFS.SotfsGraph <> g:84 var
+R10413:10418 SotFS.SotfsGraph <> ce_dir proj
+R10420:10420 SotFS.SotfsGraph <> e:85 var
+R10426:10437 SotFS.SotfsGraph <> inode_exists def
+R10439:10439 SotFS.SotfsGraph <> g:84 var
+R10442:10447 SotFS.SotfsGraph <> ce_ino proj
+R10449:10449 SotFS.SotfsGraph <> e:85 var
+def 10922:10932 <> NoDirCycles
+R10939:10943 SotFS.SotfsGraph <> Graph rec
+binder 10935:10935 <> g:86
+R10958:10964 Corelib.Init.Logic <> ::type_scope:'exists'_x_'..'_x_','_x not
+R10984:10989 Corelib.Init.Logic <> ::type_scope:'exists'_x_'..'_x_','_x not
+R10977:10980 Corelib.Init.Notations <> ::type_scope:x_'->'_x not
+R10972:10976 SotFS.SotfsGraph <> DirId def
+R10981:10983 Corelib.Init.Datatypes <> nat ind
+binder 10965:10968 <> rank:87
+binder 10997:10997 <> e:88
+R11016:11025 Corelib.Init.Notations <> ::type_scope:x_'->'_x not
+R11000:11001 Stdlib.Lists.List <> In def
+R11006:11012 SotFS.SotfsGraph <> g_edges proj
+R11014:11014 SotFS.SotfsGraph <> g:86 var
+R11003:11003 SotFS.SotfsGraph <> e:88 var
+R11050:11059 Corelib.Init.Notations <> ::type_scope:x_'->'_x not
+R11026:11037 SotFS.SotfsGraph <> is_user_name def
+R11040:11046 SotFS.SotfsGraph <> ce_name proj
+R11048:11048 SotFS.SotfsGraph <> e:88 var
+binder 11067:11068 <> ir:89
+R11104:11115 Corelib.Init.Notations <> ::type_scope:x_'->'_x not
+R11094:11096 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R11071:11080 SotFS.SotfsGraph <> find_inode def
+R11082:11082 SotFS.SotfsGraph <> g:86 var
+R11085:11090 SotFS.SotfsGraph <> ce_ino proj
+R11092:11092 SotFS.SotfsGraph <> e:88 var
+R11097:11100 Corelib.Init.Datatypes <> Some constr
+R11102:11103 SotFS.SotfsGraph <> ir:89 var
+R11143:11154 Corelib.Init.Notations <> ::type_scope:x_'->'_x not
+R11127:11129 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R11116:11123 SotFS.SotfsGraph <> ir_vtype proj
+R11125:11126 SotFS.SotfsGraph <> ir:89 var
+R11130:11142 SotFS.SotfsGraph <> DirectoryType constr
+binder 11162:11170 <> child_dir:90
+R11216:11229 Corelib.Init.Notations <> ::type_scope:x_'->'_x not
+R11199:11201 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R11173:11185 SotFS.SotfsGraph <> dir_for_inode def
+R11187:11187 SotFS.SotfsGraph <> g:86 var
+R11190:11195 SotFS.SotfsGraph <> ce_ino proj
+R11197:11197 SotFS.SotfsGraph <> e:88 var
+R11202:11205 Corelib.Init.Datatypes <> Some constr
+R11207:11215 SotFS.SotfsGraph <> child_dir:90 var
+R11244:11246 Corelib.Init.Peano <> ::nat_scope:x_'<'_x not
+R11230:11233 SotFS.SotfsGraph <> rank:87 var
+R11235:11243 SotFS.SotfsGraph <> child_dir:90 var
+R11247:11250 SotFS.SotfsGraph <> rank:87 var
+R11253:11258 SotFS.SotfsGraph <> ce_dir proj
+R11260:11260 SotFS.SotfsGraph <> e:88 var
+def 11506:11515 <> WellFormed
+R11522:11526 SotFS.SotfsGraph <> Graph rec
+binder 11518:11518 <> g:91
+R11556:11561 Corelib.Init.Logic <> ::type_scope:x_'/\'_x not
+R11541:11553 SotFS.SotfsGraph <> TypeInvariant def
+R11555:11555 SotFS.SotfsGraph <> g:91 var
+R11583:11588 Corelib.Init.Logic <> ::type_scope:x_'/\'_x not
+R11562:11580 SotFS.SotfsGraph <> LinkCountConsistent def
+R11582:11582 SotFS.SotfsGraph <> g:91 var
+R11608:11613 Corelib.Init.Logic <> ::type_scope:x_'/\'_x not
+R11589:11605 SotFS.SotfsGraph <> UniqueNamesPerDir def
+R11607:11607 SotFS.SotfsGraph <> g:91 var
+R11631:11636 Corelib.Init.Logic <> ::type_scope:x_'/\'_x not
+R11614:11628 SotFS.SotfsGraph <> NoDanglingEdges def
+R11630:11630 SotFS.SotfsGraph <> g:91 var
+R11637:11647 SotFS.SotfsGraph <> NoDirCycles def
+R11649:11649 SotFS.SotfsGraph <> g:91 var
+def 11895:11907 <> root_inode_id
+R11911:11917 SotFS.SotfsGraph <> InodeId def
+def 11936:11946 <> root_dir_id
+R11952:11956 SotFS.SotfsGraph <> DirId def
+def 11976:11985 <> init_graph
+R11989:11993 SotFS.SotfsGraph <> Graph rec
+R12003:12010 SotFS.SotfsGraph <> g_inodes proj
+R12058:12063 SotFS.SotfsGraph <> g_dirs proj
+R12107:12113 SotFS.SotfsGraph <> g_edges proj
+R12015:12015 Stdlib.Lists.List ListNotations ::list_scope:'['_x_']' not
+R12053:12053 Stdlib.Lists.List ListNotations ::list_scope:'['_x_']' not
+R12016:12022 SotFS.SotfsGraph <> mkInode constr
+R12024:12036 SotFS.SotfsGraph <> root_inode_id def
+R12038:12050 SotFS.SotfsGraph <> DirectoryType constr
+R12070:12070 Stdlib.Lists.List ListNotations ::list_scope:'['_x_']' not
+R12102:12102 Stdlib.Lists.List ListNotations ::list_scope:'['_x_']' not
+R12071:12075 SotFS.SotfsGraph <> mkDir constr
+R12077:12087 SotFS.SotfsGraph <> root_dir_id def
+R12089:12101 SotFS.SotfsGraph <> root_inode_id def
+R12119:12119 Stdlib.Lists.List ListNotations ::list_scope:'['_x_']' not
+R12165:12165 Stdlib.Lists.List ListNotations ::list_scope:'['_x_']' not
+R12120:12129 SotFS.SotfsGraph <> mkContains constr
+R12131:12141 SotFS.SotfsGraph <> root_dir_id def
+R12143:12155 SotFS.SotfsGraph <> root_inode_id def
+R12157:12164 SotFS.SotfsGraph <> dot_name def
+prf 12408:12425 <> count_occ_pred_app
+binder 12439:12439 <> A:92
+R12448:12451 Corelib.Init.Notations <> ::type_scope:x_'->'_x not
+R12447:12447 SotFS.SotfsGraph <> A:92 var
+R12452:12455 Corelib.Init.Datatypes <> bool ind
+binder 12443:12443 <> f:93
+binder 12458:12459 <> l1:94
+binder 12461:12462 <> l2:95
+R12496:12498 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R12469:12482 SotFS.SotfsGraph <> count_occ_pred def
+R12489:12492 Corelib.Init.Datatypes <> ::list_scope:x_'++'_x not
+R12487:12488 SotFS.SotfsGraph <> l1:94 var
+R12493:12494 SotFS.SotfsGraph <> l2:95 var
+R12484:12484 SotFS.SotfsGraph <> f:93 var
+R12518:12520 Corelib.Init.Peano <> ::nat_scope:x_'+'_x not
+R12499:12512 SotFS.SotfsGraph <> count_occ_pred def
+R12516:12517 SotFS.SotfsGraph <> l1:94 var
+R12514:12514 SotFS.SotfsGraph <> f:93 var
+R12521:12534 SotFS.SotfsGraph <> count_occ_pred def
+R12538:12539 SotFS.SotfsGraph <> l2:95 var
+R12536:12536 SotFS.SotfsGraph <> f:93 var
+prf 12661:12684 <> count_occ_pred_cons_true
+binder 12698:12698 <> A:96
+R12707:12710 Corelib.Init.Notations <> ::type_scope:x_'->'_x not
+R12706:12706 SotFS.SotfsGraph <> A:96 var
+R12711:12714 Corelib.Init.Datatypes <> bool ind
+binder 12702:12702 <> f:97
+binder 12717:12717 <> x:98
+binder 12719:12720 <> xs:99
+R12737:12744 Corelib.Init.Notations <> ::type_scope:x_'->'_x not
+R12730:12732 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R12727:12727 SotFS.SotfsGraph <> f:97 var
+R12729:12729 SotFS.SotfsGraph <> x:98 var
+R12733:12736 Corelib.Init.Datatypes <> true constr
+R12771:12773 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R12745:12758 SotFS.SotfsGraph <> count_occ_pred def
+R12764:12767 Corelib.Init.Datatypes <> ::list_scope:x_'::'_x not
+R12763:12763 SotFS.SotfsGraph <> x:98 var
+R12768:12769 SotFS.SotfsGraph <> xs:99 var
+R12760:12760 SotFS.SotfsGraph <> f:97 var
+R12774:12774 Corelib.Init.Datatypes <> S constr
+R12777:12790 SotFS.SotfsGraph <> count_occ_pred def
+R12794:12795 SotFS.SotfsGraph <> xs:99 var
+R12792:12792 SotFS.SotfsGraph <> f:97 var
+prf 12866:12890 <> count_occ_pred_cons_false
+binder 12904:12904 <> A:100
+R12913:12916 Corelib.Init.Notations <> ::type_scope:x_'->'_x not
+R12912:12912 SotFS.SotfsGraph <> A:100 var
+R12917:12920 Corelib.Init.Datatypes <> bool ind
+binder 12908:12908 <> f:101
+binder 12923:12923 <> x:102
+binder 12925:12926 <> xs:103
+R12944:12951 Corelib.Init.Notations <> ::type_scope:x_'->'_x not
+R12936:12938 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R12933:12933 SotFS.SotfsGraph <> f:101 var
+R12935:12935 SotFS.SotfsGraph <> x:102 var
+R12939:12943 Corelib.Init.Datatypes <> false constr
+R12978:12980 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R12952:12965 SotFS.SotfsGraph <> count_occ_pred def
+R12971:12974 Corelib.Init.Datatypes <> ::list_scope:x_'::'_x not
+R12970:12970 SotFS.SotfsGraph <> x:102 var
+R12975:12976 SotFS.SotfsGraph <> xs:103 var
+R12967:12967 SotFS.SotfsGraph <> f:101 var
+R12981:12994 SotFS.SotfsGraph <> count_occ_pred def
+R12998:12999 SotFS.SotfsGraph <> xs:103 var
+R12996:12996 SotFS.SotfsGraph <> f:101 var
+prf 13136:13150 <> NoDup_app_intro
+binder 13164:13164 <> A:104
+R13183:13186 Corelib.Init.Datatypes <> list ind
+R13188:13188 SotFS.SotfsGraph <> A:104 var
+binder 13175:13176 <> l1:105
+binder 13178:13179 <> l2:106
+R13204:13211 Corelib.Init.Notations <> ::type_scope:x_'->'_x not
+R13196:13200 Stdlib.Lists.List <> NoDup ind
+R13202:13203 SotFS.SotfsGraph <> l1:105 var
+R13220:13227 Corelib.Init.Notations <> ::type_scope:x_'->'_x not
+R13212:13216 Stdlib.Lists.List <> NoDup ind
+R13218:13219 SotFS.SotfsGraph <> l2:106 var
+R13228:13228 Corelib.Init.Notations <> ::type_scope:x_'->'_x not
+R13259:13267 Corelib.Init.Notations <> ::type_scope:x_'->'_x not
+binder 13236:13236 <> x:107
+R13246:13249 Corelib.Init.Notations <> ::type_scope:x_'->'_x not
+R13239:13240 Stdlib.Lists.List <> In def
+R13244:13245 SotFS.SotfsGraph <> l1:105 var
+R13242:13242 SotFS.SotfsGraph <> x:107 var
+R13250:13251 Corelib.Init.Logic <> ::type_scope:'~'_x not
+R13252:13253 Stdlib.Lists.List <> In def
+R13257:13258 SotFS.SotfsGraph <> l2:106 var
+R13255:13255 SotFS.SotfsGraph <> x:107 var
+R13268:13272 Stdlib.Lists.List <> NoDup ind
+R13277:13280 Corelib.Init.Datatypes <> ::list_scope:x_'++'_x not
+R13275:13276 SotFS.SotfsGraph <> l1:105 var
+R13281:13282 SotFS.SotfsGraph <> l2:106 var
+R13419:13428 Stdlib.Lists.List <> in_app_iff thm
+prf 13692:13703 <> find_app_iff
+binder 13717:13717 <> A:108
+R13733:13736 Corelib.Init.Notations <> ::type_scope:x_'->'_x not
+R13732:13732 SotFS.SotfsGraph <> A:108 var
+R13737:13740 Corelib.Init.Datatypes <> bool ind
+binder 13728:13728 <> f:109
+R13752:13755 Corelib.Init.Datatypes <> list ind
+R13757:13757 SotFS.SotfsGraph <> A:108 var
+binder 13744:13745 <> l1:110
+binder 13747:13748 <> l2:111
+R13782:13788 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R13765:13768 Stdlib.Lists.List <> find def
+R13775:13778 Corelib.Init.Datatypes <> ::list_scope:x_'++'_x not
+R13773:13774 SotFS.SotfsGraph <> l1:110 var
+R13779:13780 SotFS.SotfsGraph <> l2:111 var
+R13770:13770 SotFS.SotfsGraph <> f:109 var
+R13795:13798 Stdlib.Lists.List <> find def
+R13802:13803 SotFS.SotfsGraph <> l1:110 var
+R13800:13800 SotFS.SotfsGraph <> f:109 var
+R13816:13819 Corelib.Init.Datatypes <> Some constr
+R13826:13829 Corelib.Init.Datatypes <> Some constr
+R13839:13842 Corelib.Init.Datatypes <> None constr
+R13847:13850 Stdlib.Lists.List <> find def
+R13854:13855 SotFS.SotfsGraph <> l2:111 var
+R13852:13852 SotFS.SotfsGraph <> f:109 var
+prf 14070:14091 <> init_graph_well_formed
+R14095:14104 SotFS.SotfsGraph <> WellFormed def
+R14106:14115 SotFS.SotfsGraph <> init_graph def
+R14134:14143 SotFS.SotfsGraph <> WellFormed def
+R14146:14155 SotFS.SotfsGraph <> init_graph def
+R14390:14402 SotFS.SotfsGraph <> TypeInvariant def
+R14639:14651 SotFS.SotfsGraph <> NoDupInodeIds def
+R14654:14662 SotFS.SotfsGraph <> inode_ids def
+R14759:14769 SotFS.SotfsGraph <> NoDupDirIds def
+R14772:14778 SotFS.SotfsGraph <> dir_ids def
+R15474:15485 SotFS.SotfsGraph <> is_user_name def
+R15488:15495 SotFS.SotfsGraph <> dot_name def
+prf 15753:15776 <> name_in_dir_false_not_in
+binder 15789:15789 <> g:112
+binder 15791:15791 <> d:113
+binder 15793:15793 <> n:114
+R15825:15832 Corelib.Init.Notations <> ::type_scope:x_'->'_x not
+R15817:15819 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R15800:15810 SotFS.SotfsGraph <> name_in_dir def
+R15812:15812 SotFS.SotfsGraph <> g:112 var
+R15814:15814 SotFS.SotfsGraph <> d:113 var
+R15816:15816 SotFS.SotfsGraph <> n:114 var
+R15820:15824 Corelib.Init.Datatypes <> false constr
+R15833:15834 Corelib.Init.Logic <> ::type_scope:'~'_x not
+R15882:15882 Corelib.Init.Logic <> ::type_scope:'~'_x not
+R15835:15841 Corelib.Init.Logic <> ::type_scope:'exists'_x_'..'_x_','_x not
+R15845:15846 Corelib.Init.Logic <> ::type_scope:'exists'_x_'..'_x_','_x not
+binder 15842:15844 <> ino:115
+R15847:15848 Stdlib.Lists.List <> In def
+R15872:15878 SotFS.SotfsGraph <> g_edges proj
+R15880:15880 SotFS.SotfsGraph <> g:112 var
+R15851:15860 SotFS.SotfsGraph <> mkContains constr
+R15862:15862 SotFS.SotfsGraph <> d:113 var
+R15864:15866 SotFS.SotfsGraph <> ino:115 var
+R15868:15868 SotFS.SotfsGraph <> n:114 var
+R15901:15911 SotFS.SotfsGraph <> name_in_dir def
+R16051:16053 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R15967:15973 Stdlib.Lists.List <> existsb def
+R16041:16047 SotFS.SotfsGraph <> g_edges proj
+binder 15984:15984 <> e:116
+R16009:16012 Corelib.Init.Datatypes <> ::bool_scope:x_'&&'_x not
+R15989:15995 Stdlib.Arith.PeanoNat Nat eqb def
+R15998:16003 SotFS.SotfsGraph <> ce_dir proj
+R16005:16005 SotFS.SotfsGraph <> e:116 var
+R16013:16019 Stdlib.Arith.PeanoNat Nat eqb def
+R16022:16028 SotFS.SotfsGraph <> ce_name proj
+R16030:16030 SotFS.SotfsGraph <> e:116 var
+R16054:16057 Corelib.Init.Datatypes <> true constr
+binder 15984:15984 <> e:117
+R16005:16005 SotFS.SotfsGraph <> e:117 var
+R16030:16030 SotFS.SotfsGraph <> e:117 var
+R16071:16084 Stdlib.Lists.List <> existsb_exists thm
+R16099:16108 SotFS.SotfsGraph <> mkContains constr
+R16157:16168 Stdlib.Arith.PeanoNat Nat eqb_refl thm
+R16179:16190 Stdlib.Arith.PeanoNat Nat eqb_refl thm
+prf 16263:16288 <> not_in_edges_incoming_zero
+binder 16301:16305 <> edges:118
+binder 16307:16309 <> ino:119
+R16316:16316 Corelib.Init.Notations <> ::type_scope:x_'->'_x not
+R16356:16364 Corelib.Init.Notations <> ::type_scope:x_'->'_x not
+binder 16324:16324 <> e:120
+R16337:16340 Corelib.Init.Notations <> ::type_scope:x_'->'_x not
+R16327:16328 Stdlib.Lists.List <> In def
+R16332:16336 SotFS.SotfsGraph <> edges:118 var
+R16330:16330 SotFS.SotfsGraph <> e:120 var
+R16349:16352 Corelib.Init.Logic <> ::type_scope:x_'<>'_x not
+R16341:16346 SotFS.SotfsGraph <> ce_ino proj
+R16348:16348 SotFS.SotfsGraph <> e:120 var
+R16353:16355 SotFS.SotfsGraph <> ino:119 var
+R16473:16475 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R16365:16378 SotFS.SotfsGraph <> count_occ_pred def
+R16468:16472 SotFS.SotfsGraph <> edges:118 var
+binder 16391:16391 <> e:121
+R16418:16421 Corelib.Init.Datatypes <> ::bool_scope:x_'&&'_x not
+R16396:16402 Stdlib.Arith.PeanoNat Nat eqb def
+R16405:16410 SotFS.SotfsGraph <> ce_ino proj
+R16412:16412 SotFS.SotfsGraph <> e:121 var
+R16415:16417 SotFS.SotfsGraph <> ino:119 var
+R16422:16425 Corelib.Init.Datatypes <> negb def
+R16428:16434 Stdlib.Arith.PeanoNat Nat eqb def
+R16437:16443 SotFS.SotfsGraph <> ce_name proj
+R16445:16445 SotFS.SotfsGraph <> e:121 var
+R16448:16458 SotFS.SotfsGraph <> dotdot_name def
+R16576:16582 Stdlib.Arith.PeanoNat Nat eqb def
+R16585:16590 SotFS.SotfsGraph <> ce_ino proj
+R16621:16630 Stdlib.Arith.PeanoNat Nat eqb_eq thm
+prf 16854:16871 <> remove_edge_subset
+binder 16884:16884 <> e:122
+binder 16886:16890 <> edges:123
+binder 16892:16892 <> x:124
+R16925:16928 Corelib.Init.Notations <> ::type_scope:x_'->'_x not
+R16899:16900 Stdlib.Lists.List <> In def
+R16905:16915 SotFS.SotfsGraph <> remove_edge def
+R16917:16917 SotFS.SotfsGraph <> e:122 var
+R16919:16923 SotFS.SotfsGraph <> edges:123 var
+R16902:16902 SotFS.SotfsGraph <> x:124 var
+R16929:16930 Stdlib.Lists.List <> In def
+R16934:16938 SotFS.SotfsGraph <> edges:123 var
+R16932:16932 SotFS.SotfsGraph <> x:124 var
+R17071:17076 SotFS.SotfsGraph <> ce_eqb def
+prf 17234:17254 <> remove_edge_preserves
+binder 17267:17267 <> e:125
+binder 17269:17273 <> edges:126
+binder 17275:17275 <> x:127
+R17292:17295 Corelib.Init.Notations <> ::type_scope:x_'->'_x not
+R17282:17283 Stdlib.Lists.List <> In def
+R17287:17291 SotFS.SotfsGraph <> edges:126 var
+R17285:17285 SotFS.SotfsGraph <> x:127 var
+R17302:17305 Corelib.Init.Notations <> ::type_scope:x_'->'_x not
+R17297:17300 Corelib.Init.Logic <> ::type_scope:x_'<>'_x not
+R17296:17296 SotFS.SotfsGraph <> x:127 var
+R17301:17301 SotFS.SotfsGraph <> e:125 var
+R17306:17307 Stdlib.Lists.List <> In def
+R17312:17322 SotFS.SotfsGraph <> remove_edge def
+R17324:17324 SotFS.SotfsGraph <> e:125 var
+R17326:17330 SotFS.SotfsGraph <> edges:126 var
+R17309:17309 SotFS.SotfsGraph <> x:127 var
+R17448:17453 SotFS.SotfsGraph <> ce_eqb def
+R17516:17524 SotFS.SotfsGraph <> ce_eqb_eq thm
+prf 17992:18012 <> count_remove_matching
+R18042:18045 Corelib.Init.Notations <> ::type_scope:x_'->'_x not
+R18030:18041 SotFS.SotfsGraph <> ContainsEdge rec
+R18046:18049 Corelib.Init.Datatypes <> bool ind
+binder 18026:18026 <> f:128
+R18057:18068 SotFS.SotfsGraph <> ContainsEdge rec
+binder 18053:18053 <> e:129
+R18080:18083 Corelib.Init.Datatypes <> list ind
+R18085:18096 SotFS.SotfsGraph <> ContainsEdge rec
+binder 18072:18076 <> edges:130
+R18114:18121 Corelib.Init.Notations <> ::type_scope:x_'->'_x not
+R18104:18105 Stdlib.Lists.List <> In def
+R18109:18113 SotFS.SotfsGraph <> edges:130 var
+R18107:18107 SotFS.SotfsGraph <> e:129 var
+R18132:18139 Corelib.Init.Notations <> ::type_scope:x_'->'_x not
+R18125:18127 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R18122:18122 SotFS.SotfsGraph <> f:128 var
+R18124:18124 SotFS.SotfsGraph <> e:129 var
+R18128:18131 Corelib.Init.Datatypes <> true constr
+R18182:18184 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R18178:18180 Corelib.Init.Peano <> ::nat_scope:x_'+'_x not
+R18140:18153 SotFS.SotfsGraph <> count_occ_pred def
+R18158:18168 SotFS.SotfsGraph <> remove_edge def
+R18170:18170 SotFS.SotfsGraph <> e:129 var
+R18172:18176 SotFS.SotfsGraph <> edges:130 var
+R18155:18155 SotFS.SotfsGraph <> f:128 var
+R18185:18198 SotFS.SotfsGraph <> count_occ_pred def
+R18202:18206 SotFS.SotfsGraph <> edges:130 var
+R18200:18200 SotFS.SotfsGraph <> f:128 var
+R18322:18327 SotFS.SotfsGraph <> ce_eqb def
+R18401:18409 SotFS.SotfsGraph <> ce_eqb_eq thm
+R18700:18726 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R18696:18698 Corelib.Init.Peano <> ::nat_scope:x_'+'_x not
+R18662:18675 SotFS.SotfsGraph <> count_occ_pred def
+R18680:18690 SotFS.SotfsGraph <> remove_edge def
+R18727:18740 SotFS.SotfsGraph <> count_occ_pred def
+R18838:18848 SotFS.SotfsGraph <> ce_eqb_refl thm
+R19030:19040 SotFS.SotfsGraph <> ce_eqb_refl thm
+prf 19187:19212 <> count_remove_matching_pred
+R19242:19245 Corelib.Init.Notations <> ::type_scope:x_'->'_x not
+R19230:19241 SotFS.SotfsGraph <> ContainsEdge rec
+R19246:19249 Corelib.Init.Datatypes <> bool ind
+binder 19226:19226 <> f:131
+R19257:19268 SotFS.SotfsGraph <> ContainsEdge rec
+binder 19253:19253 <> e:132
+R19280:19283 Corelib.Init.Datatypes <> list ind
+R19285:19296 SotFS.SotfsGraph <> ContainsEdge rec
+binder 19272:19276 <> edges:133
+R19314:19321 Corelib.Init.Notations <> ::type_scope:x_'->'_x not
+R19304:19305 Stdlib.Lists.List <> In def
+R19309:19313 SotFS.SotfsGraph <> edges:133 var
+R19307:19307 SotFS.SotfsGraph <> e:132 var
+R19332:19339 Corelib.Init.Notations <> ::type_scope:x_'->'_x not
+R19325:19327 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R19322:19322 SotFS.SotfsGraph <> f:131 var
+R19324:19324 SotFS.SotfsGraph <> e:132 var
+R19328:19331 Corelib.Init.Datatypes <> true constr
+R19378:19380 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R19340:19353 SotFS.SotfsGraph <> count_occ_pred def
+R19358:19368 SotFS.SotfsGraph <> remove_edge def
+R19370:19370 SotFS.SotfsGraph <> e:132 var
+R19372:19376 SotFS.SotfsGraph <> edges:133 var
+R19355:19355 SotFS.SotfsGraph <> f:131 var
+R19381:19384 Corelib.Init.Peano <> pred abbrev
+R19387:19400 SotFS.SotfsGraph <> count_occ_pred def
+R19404:19408 SotFS.SotfsGraph <> edges:133 var
+R19402:19402 SotFS.SotfsGraph <> f:131 var
+R19462:19482 SotFS.SotfsGraph <> count_remove_matching thm
+prf 19828:19852 <> decrement_link_find_vtype
+binder 19865:19870 <> inodes:134
+binder 19872:19874 <> ino:135
+binder 19876:19885 <> target_ino:136
+binder 19899:19900 <> ir:137
+R20160:20167 Corelib.Init.Notations <> ::type_scope:x_'->'_x not
+R20150:20152 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R19903:19906 Stdlib.Lists.List <> find def
+R19962:19964 Corelib.Lists.ListDef <> map def
+R20143:20148 SotFS.SotfsGraph <> inodes:134 var
+binder 19971:19971 <> x:138
+R20001:20007 Stdlib.Arith.PeanoNat Nat eqb def
+R20010:20014 SotFS.SotfsGraph <> ir_id proj
+R20016:20016 SotFS.SotfsGraph <> x:138 var
+R20019:20028 SotFS.SotfsGraph <> target_ino:136 var
+R20140:20140 SotFS.SotfsGraph <> x:138 var
+R20057:20063 SotFS.SotfsGraph <> mkInode constr
+R20066:20070 SotFS.SotfsGraph <> ir_id proj
+R20072:20072 SotFS.SotfsGraph <> x:138 var
+R20076:20083 SotFS.SotfsGraph <> ir_vtype proj
+R20085:20085 SotFS.SotfsGraph <> x:138 var
+R20089:20092 Corelib.Init.Peano <> pred abbrev
+R20095:20107 SotFS.SotfsGraph <> ir_link_count proj
+R20109:20109 SotFS.SotfsGraph <> x:138 var
+binder 19913:19913 <> x:139
+R19918:19924 Stdlib.Arith.PeanoNat Nat eqb def
+R19927:19931 SotFS.SotfsGraph <> ir_id proj
+R19933:19933 SotFS.SotfsGraph <> x:139 var
+R19936:19938 SotFS.SotfsGraph <> ino:135 var
+R20153:20156 Corelib.Init.Datatypes <> Some constr
+R20158:20159 SotFS.SotfsGraph <> ir:137 var
+R20168:20174 Corelib.Init.Logic <> ::type_scope:'exists'_x_'..'_x_','_x not
+R20181:20188 Corelib.Init.Logic <> ::type_scope:'exists'_x_'..'_x_','_x not
+binder 20175:20180 <> ir_old:140
+R20247:20256 Corelib.Init.Logic <> ::type_scope:x_'/\'_x not
+R20233:20235 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R20189:20192 Stdlib.Lists.List <> find def
+R20227:20232 SotFS.SotfsGraph <> inodes:134 var
+binder 20199:20199 <> x:141
+R20204:20210 Stdlib.Arith.PeanoNat Nat eqb def
+R20213:20217 SotFS.SotfsGraph <> ir_id proj
+R20219:20219 SotFS.SotfsGraph <> x:141 var
+R20222:20224 SotFS.SotfsGraph <> ino:135 var
+R20236:20239 Corelib.Init.Datatypes <> Some constr
+R20241:20246 SotFS.SotfsGraph <> ir_old:140 var
+R20268:20270 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R20257:20264 SotFS.SotfsGraph <> ir_vtype proj
+R20266:20267 SotFS.SotfsGraph <> ir:137 var
+R20271:20278 SotFS.SotfsGraph <> ir_vtype proj
+R20280:20285 SotFS.SotfsGraph <> ir_old:140 var
+R20445:20451 Stdlib.Arith.PeanoNat Nat eqb def
+R20454:20458 SotFS.SotfsGraph <> ir_id proj
+R20585:20591 Stdlib.Arith.PeanoNat Nat eqb def
+R20594:20598 SotFS.SotfsGraph <> ir_id proj
+R20827:20830 Corelib.Init.Logic <> conj constr
+R20939:20945 Stdlib.Arith.PeanoNat Nat eqb def
+R20948:20952 SotFS.SotfsGraph <> ir_id proj
+R21186:21189 Corelib.Init.Logic <> conj constr
+prf 21335:21364 <> decrement_link_preserves_vtype
+binder 21377:21382 <> inodes:142
+binder 21384:21386 <> ino:143
+binder 21388:21397 <> target_ino:144
+binder 21399:21400 <> ir:145
+R21620:21627 Corelib.Init.Notations <> ::type_scope:x_'->'_x not
+R21610:21612 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R21407:21410 Stdlib.Lists.List <> find def
+R21455:21457 Corelib.Lists.ListDef <> map def
+R21603:21608 SotFS.SotfsGraph <> inodes:142 var
+binder 21464:21464 <> x:146
+R21483:21489 Stdlib.Arith.PeanoNat Nat eqb def
+R21492:21496 SotFS.SotfsGraph <> ir_id proj
+R21498:21498 SotFS.SotfsGraph <> x:146 var
+R21501:21510 SotFS.SotfsGraph <> target_ino:144 var
+R21600:21600 SotFS.SotfsGraph <> x:146 var
+R21528:21534 SotFS.SotfsGraph <> mkInode constr
+R21537:21541 SotFS.SotfsGraph <> ir_id proj
+R21543:21543 SotFS.SotfsGraph <> x:146 var
+R21547:21554 SotFS.SotfsGraph <> ir_vtype proj
+R21556:21556 SotFS.SotfsGraph <> x:146 var
+R21560:21563 Corelib.Init.Peano <> pred abbrev
+R21566:21578 SotFS.SotfsGraph <> ir_link_count proj
+R21580:21580 SotFS.SotfsGraph <> x:146 var
+binder 21417:21417 <> x:147
+R21422:21428 Stdlib.Arith.PeanoNat Nat eqb def
+R21431:21435 SotFS.SotfsGraph <> ir_id proj
+R21437:21437 SotFS.SotfsGraph <> x:147 var
+R21440:21442 SotFS.SotfsGraph <> ino:143 var
+R21613:21616 Corelib.Init.Datatypes <> Some constr
+R21618:21619 SotFS.SotfsGraph <> ir:145 var
+R21655:21662 Corelib.Init.Notations <> ::type_scope:x_'->'_x not
+R21639:21641 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R21628:21635 SotFS.SotfsGraph <> ir_vtype proj
+R21637:21638 SotFS.SotfsGraph <> ir:145 var
+R21642:21654 SotFS.SotfsGraph <> DirectoryType constr
+R21663:21669 Corelib.Init.Logic <> ::type_scope:'exists'_x_'..'_x_','_x not
+R21676:21683 Corelib.Init.Logic <> ::type_scope:'exists'_x_'..'_x_','_x not
+binder 21670:21675 <> ir_old:148
+R21742:21751 Corelib.Init.Logic <> ::type_scope:x_'/\'_x not
+R21728:21730 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R21684:21687 Stdlib.Lists.List <> find def
+R21722:21727 SotFS.SotfsGraph <> inodes:142 var
+binder 21694:21694 <> x:149
+R21699:21705 Stdlib.Arith.PeanoNat Nat eqb def
+R21708:21712 SotFS.SotfsGraph <> ir_id proj
+R21714:21714 SotFS.SotfsGraph <> x:149 var
+R21717:21719 SotFS.SotfsGraph <> ino:143 var
+R21731:21734 Corelib.Init.Datatypes <> Some constr
+R21736:21741 SotFS.SotfsGraph <> ir_old:148 var
+R21767:21769 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R21752:21759 SotFS.SotfsGraph <> ir_vtype proj
+R21761:21766 SotFS.SotfsGraph <> ir_old:148 var
+R21770:21782 SotFS.SotfsGraph <> DirectoryType constr
+R21848:21872 SotFS.SotfsGraph <> decrement_link_find_vtype thm

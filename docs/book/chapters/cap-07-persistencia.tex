@@ -1,0 +1,193 @@
+\chapter{Persistencia: redb e índices secundarios}
+\label{cap:persistencia}
+
+El cap.~\ref{cap:implementacion} mostró cómo el TypeGraph vive en
+heap. Este capítulo cubre cómo se vuelca a disco y se recupera, y por
+qué el truco crítico de la persistencia no es la serialización sino la
+\emph{rehidratación de los índices secundarios}.
+
+\section{El backend redb}
+
+\citaCrate{sotfs-storage} es un wrapper minimalista (~85 LOC) sobre
+\redb{}, una base de datos KV embebida con transacciones ACID. Hay una
+sola tabla:
+
+\begin{lstlisting}[language=rust]
+const METADATA_TABLE: TableDefinition<&str, &[u8]>
+    = TableDefinition::new("metadata");
+
+pub struct RedbBackend { db: Database, }
+\end{lstlisting}
+
+La tabla guarda un único par: \texttt{("graph", <bytes>)}. Los bytes
+son el \texttt{TypeGraph} entero serializado con \texttt{serde\_json}.
+La elección es deliberadamente simple: la atomicidad la da la
+transacción de \redb, no un protocolo casero.
+
+\section{Save y load}
+
+\paragraph{Save.} (\citaLine{sotfs-storage/src/backend.rs}{29})
+
+\begin{algorithm}[H]
+\SetAlgoLined
+\KwIn{Backend $B$, grafo $g$}
+\caption{\textsc{Backend.Save}}\label{alg:save}
+
+$\textit{bytes} \gets \texttt{serde\_json::to\_vec}(g)$\;
+$\textit{txn} \gets B.\textrm{db}.\texttt{begin\_write}()$\;
+$\textit{table} \gets \textit{txn}.\texttt{open\_table}(\texttt{METADATA\_TABLE})$\;
+$\textit{table}.\texttt{insert}(\texttt{"graph"}, \textit{bytes})$\;
+$\textit{txn}.\texttt{commit}()$
+\end{algorithm}
+
+\paragraph{Load.} (\citaLine{sotfs-storage/src/backend.rs}{41})
+
+\begin{algorithm}[H]
+\SetAlgoLined
+\KwIn{Backend $B$}
+\KwOut{Grafo $g$ rehidratado, o \texttt{None}}
+\caption{\textsc{Backend.Load}}\label{alg:load}
+
+$\textit{txn} \gets B.\textrm{db}.\texttt{begin\_read}()$\;
+$\textit{table} \gets \textit{txn}.\texttt{open\_table}(\texttt{METADATA\_TABLE})$\;
+\If{$\textit{table}.\texttt{get}(\texttt{"graph"}) = \texttt{None}$}{
+  \Return{\texttt{None}}\;
+}
+$g \gets \texttt{serde\_json::from\_slice}(\textit{bytes})$\;
+$g.\textsc{RebuildDirNameIdx}()$
+\Return{\texttt{Some}(g)}\;
+\end{algorithm}
+
+\section{El truco: rehidratación de índices secundarios}
+
+El \texttt{TypeGraph} contiene varios índices que no se serializan:
+
+\begin{itemize}
+  \item \texttt{dir\_name\_idx: BTreeMap<(DirId, String), EdgeId>} —
+    Marcado \texttt{\#[serde(skip)]}.
+  \item \texttt{dir\_for\_inode\_idx: BTreeMap<InodeId, DirId>} —
+    \texttt{\#[serde(default)]}, vacío tras deserialización.
+\end{itemize}
+
+\paragraph{¿Por qué saltarlos?} Las claves tupla \texttt{(DirId,
+String)} no caben naturalmente en JSON. Más importante: estos índices
+son \emph{datos derivados}, no estado canónico. Pueden reconstruirse a
+partir de \texttt{dir\_contains} (que sí se serializa). Persistirlos
+duplicaría datos y agregaría riesgo de inconsistencia.
+
+\paragraph{La función crítica.} \texttt{rebuild\_dir\_name\_idx}
+(\citaLine{sotfs-graph/src/graph.rs}{673}) recorre cada arista
+\econtains{} viva y la inserta en el \texttt{BTreeMap}:
+
+\begin{algorithm}[H]
+\SetAlgoLined
+\KwIn{Grafo $g$ recién deserializado}
+\caption{\textsc{Graph.RebuildDirNameIdx}}\label{alg:rebuild-idx}
+
+$g.\textrm{dir\_name\_idx} \gets \emptyset$\;
+\ForEach{$(d, \textit{eids}) \in g.\textrm{dir\_contains}$}{
+  \ForEach{$\textit{eid} \in \textit{eids}$}{
+    \If{$g.\textsc{GetEdge}(\textit{eid}) = \texttt{Contains}\{name, \dots\}$}{
+      $g.\textrm{dir\_name\_idx}.\textsc{Insert}((d, name), \textit{eid})$\;
+    }
+  }
+}
+\end{algorithm}
+
+\paragraph{Costo.} $O(M \log M)$ donde $M$ es el número de aristas
+\econtains. Para un FS de \(10^5\) entradas, sub-segundo.
+
+\paragraph{¿Por qué crítico?} Sin la rehidratación, \texttt{lookup\_name}
+caería al fallback lineal $O(N)$
+(cap.~\ref{cap:typegraph} \trampref{tr:on-cube}); el filesystem
+funcionaría pero degradaría a 92\% de CPU bajo workload realista.
+
+\section{El comando \texttt{sotfsctl}}
+
+\citaCrate{sotfs-cli} expone:
+
+\begin{description}
+  \item[\texttt{sotfsctl mkfs <db.redb>}] crea un FS vacío con root inode
+    + root dir.
+  \item[\texttt{sotfsctl check <db.redb>}] carga el FS, ejecuta
+    \texttt{check\_invariants()} y \texttt{check\_dir\_name\_idx\_consistency()}.
+    Versión \emph{offline} del fsck.
+  \item[\texttt{sotfsctl dump <db.redb>}] vuelca a stdout el grafo en
+    DOT o JSON.
+\end{description}
+
+\section{Crash safety: lo que da redb}
+
+\begin{teorema}[Garantías de redb]
+\label{teo:redb-garantias}
+La transacción de \redb{} provee atomicidad, durabilidad e isolation
+serializable. Concretamente: si \texttt{txn.commit()} retorna
+\texttt{Ok}, los datos están en NAND tras el power-cut; si retorna
+\texttt{Err} o crashea durante el commit, el estado pre-transacción
+sobrevive intacto.
+\end{teorema}
+
+La consecuencia para sotFS: el modelo formal del cap.~\ref{cap:transacciones}
+con su \wal{} explícito no se implementa en el runtime. La capa de
+durabilidad la provee \redb. Si \redb{} cumple sus contratos, sotFS
+hereda crash safety.
+
+\begin{trampa}[fsync sin barrier en SSDs consumer-grade]
+\label{tr:fsync-ssd}
+\redb{} llama a \texttt{fsync(2)} antes de retornar de \texttt{commit}.
+Pero un SSD consumer-grade que ignora el comando \texttt{FUA} puede
+ackear el \texttt{fsync} antes de flushear su caché DRAM volátil. Bajo
+power-cut, los bytes ``persistidos'' se pierden.
+
+\textbf{Mitigación.} El operador del FS debe verificar el SSD bajo
+power-cut físico (típicamente con un test de \emph{torn write}). Modelo
+asume \fsync{} honesto. Discusión completa en cap.~\ref{cap:transacciones}.
+\end{trampa}
+
+\section*{Resumen del capítulo}
+
+\begin{itemize}
+  \item Backend \redb: una sola tabla, un solo blob JSON, atomicidad
+    via \texttt{txn.commit}.
+  \item Save serializa el TypeGraph entero; load deserializa más
+    \emph{rehidrata} los índices secundarios via
+    \texttt{rebuild\_dir\_name\_idx}.
+  \item La rehidratación es \(O(M \log M)\) y crítica: sin ella,
+    \texttt{lookup\_name} cae a $O(N)$ y degrada todo el FS.
+  \item \texttt{sotfsctl mkfs/check/dump} expone las primitivas para
+    inicializar, verificar y volcar el FS offline.
+  \item Crash safety se hereda de las garantías de \redb; el modelo TLA
+    con \wal{} explícito vive un nivel de abstracción más arriba.
+\end{itemize}
+
+\section*{Ejercicios}
+
+\begin{ejercicio}[\dificultad{$\star$}]
+\label{ej:pers-1}
+¿Qué tabla(s) usa \citaCrate{sotfs-storage}? ¿Qué claves y valores?
+\end{ejercicio}
+
+\begin{ejercicio}[\dificultad{$\star$}]
+\label{ej:pers-2}
+¿Por qué \texttt{dir\_name\_idx} no se serializa con
+\texttt{serde\_json}?
+\end{ejercicio}
+
+\begin{ejercicio}[\dificultad{$\star\star$}]
+\label{ej:pers-3}
+Estime el costo de save / load para un FS de \(10^5\) inodes.
+Considerá serialización JSON de un \texttt{TypeGraph} de ese tamaño.
+\end{ejercicio}
+
+\begin{ejercicio}[\dificultad{$\star\star$}]
+\label{ej:pers-4}
+Diseñe un test que verifique la consistencia del índice
+\texttt{dir\_name\_idx} tras un round-trip save/load + 1000 ops más.
+\end{ejercicio}
+
+\begin{ejercicio}[\dificultad{$\star\star\star$}]
+\label{ej:pers-5}
+Reemplace el blob JSON por un schema de varias tablas redb: una para
+inodes, una para edges, etc. Discuta tradeoffs en velocidad de
+save/load, fragmentación on-disk, y atomicidad cross-table.
+\end{ejercicio}

@@ -1,0 +1,148 @@
+\chapter{Decepción: el functor de proyección}
+\label{cap:decepcion}
+
+Este capítulo presenta una pieza del runtime que es deliberadamente
+provocadora: el \emph{functor de decepción} $D_{\mathrm{FS}}$ del
+\citaCrate{sotfs-monitor}, que mapea un TypeGraph en otro TypeGraph
+\emph{visible} a un dominio distinto. La motivación es seguridad
+defensiva: presentar a un atacante (o sondeador) una versión filtrada
+o adulterada del filesystem, sin tocar el grafo real.
+
+\section{Decepción como functor}
+
+\begin{defn}[Functor de decepción]
+\label{def:dfs}
+$D_{\mathrm{FS}}: \TGraph \to \TGraph$ es un functor que toma un
+TypeGraph $G$ y un \emph{perfil de proyección} $\pi$, y produce un
+TypeGraph $D_{\mathrm{FS}}^{\pi}(G)$ que satisface:
+\begin{enumerate}
+  \item Es well-formed: $\mathrm{WellFormed}(D_{\mathrm{FS}}^{\pi}(G))$.
+  \item Es \emph{compatible con observación}: las syscalls del
+    dominio engañado retornan resultados que son consistentes con la
+    proyección.
+\end{enumerate}
+\end{defn}
+
+\section{Los cuatro modos de proyección}
+
+\citaLine{sotfs-monitor/src/deception.rs}{16} define cuatro variantes:
+
+\begin{description}
+  \item[\texttt{Passthrough}.] La identidad: $D_{\mathrm{FS}}^{\mathrm{id}}(G)
+    = G$. Útil para A/B testing del monitoreo.
+  \item[\texttt{Restrict}.] Subgrafo inducido por un subtree rooted en
+    $\mathit{root\_dir}$. El dominio ve sólo lo que está debajo de
+    ese root.
+  \item[\texttt{Fabricate}.] Inyecta nodos y aristas sintéticos
+    \emph{honeypots}. Cuatro perfiles pre-built: AWS credentials,
+    Kubernetes tokens, Active Directory NTDS, CI/CD secrets
+    (\citaLine{sotfs-monitor/src/deception.rs}{331}).
+  \item[\texttt{Redirect}.] Path resolution alterada: cierto path
+    apunta a un inode distinto del real. Útil para servir contenido
+    distinto a procesos engañados.
+\end{description}
+
+\section{Lemma de well-formedness}
+
+\begin{lema}[$D_{\mathrm{FS}}$ preserva well-formedness]
+\label{lem:dfs-wellformed}
+Para todo perfil $\pi \in \{\mathrm{Passthrough}, \mathrm{Restrict},
+\mathrm{Fabricate}, \mathrm{Redirect}\}$ y todo $G$ well-formed,
+$D_{\mathrm{FS}}^{\pi}(G)$ es well-formed.
+\end{lema}
+
+\begin{proof}[Esquema]
+\begin{itemize}
+  \item \texttt{Passthrough}: trivial.
+  \item \texttt{Restrict}: el subgrafo inducido por BFS desde
+    $\mathit{root\_dir}$ preserva todos los invariantes locales
+    (link-count se recalcula sobre el subgrafo).
+  \item \texttt{Fabricate}: los honeypots se inyectan con
+    \texttt{link\_count} y \texttt{refcount} correctos por
+    construcción.
+  \item \texttt{Redirect}: el target del redirect tiene que existir
+    en $G$, con lo que la arista \econtains{} apunta a un inode vivo.
+\end{itemize}
+\end{proof}
+
+\section{Detectabilidad por timing}
+
+\begin{trampa}[\texttt{Restrict} es detectable por timing]
+\label{tr:restrict-timing}
+\citaLine{sotfs-monitor/src/deception.rs}{716}. Bajo
+\texttt{Restrict}, las operaciones son ${\sim}1.7\times$ más rápidas
+que en el grafo real (porque la BFS es menor). Un atacante que mida
+\texttt{stat} en directorios de profundidad conocida puede
+distinguir el perfil.
+
+\textbf{Mitigación.} \texttt{Restrict} debe combinarse con
+\texttt{Fabricate} (que añade latencia sintética) o con una
+implementación que igualó el costo a un baseline esperado.
+
+\textbf{Lección.} La indistinguibilidad estructural no implica
+indistinguibilidad de timing. Cualquier proyección que reduzca el
+trabajo computacional es detectable.
+\end{trampa}
+
+\section{Honeypots: perfiles pre-built}
+
+\citaLine{sotfs-monitor/src/deception.rs}{283} contiene los cuatro
+perfiles \texttt{Fabricate}:
+
+\begin{description}
+  \item[AWS profile.] Inyecta \texttt{/.aws/credentials},
+    \texttt{/.aws/config}, etc.\ con strings que parecen access keys.
+  \item[Kubernetes profile.] \texttt{/var/run/secrets/kubernetes.io/serviceaccount/token},
+    \texttt{ca.crt}, \texttt{namespace}.
+  \item[Active Directory profile.] \texttt{NTDS.dit} fake, registry
+    hives.
+  \item[CI/CD profile.] \texttt{.env} con \texttt{GITHUB\_TOKEN},
+    \texttt{NPM\_TOKEN}, etc.
+\end{description}
+
+\paragraph{El truco operativo.} El honeypot no es sólo un archivo: es
+un nodo con su \texttt{record\_prov} ligado. Cada \opread{} de un
+inode honeypot se registra al provenance log con un flag especial. El
+SIEM consume ese feed y alerta.
+
+\section*{Resumen del capítulo}
+
+\begin{itemize}
+  \item $D_{\mathrm{FS}}$ es un functor que mapea un TypeGraph en otro
+    TypeGraph proyectado, según uno de cuatro perfiles.
+  \item Los cuatro perfiles: \texttt{Passthrough}, \texttt{Restrict},
+    \texttt{Fabricate}, \texttt{Redirect}.
+  \item \lemref{lem:dfs-wellformed}: cualquier proyección preserva
+    well-formedness.
+  \item \trampref{tr:restrict-timing}: las proyecciones que reducen
+    trabajo computacional son detectables por timing.
+  \item Honeypots pre-built (AWS, K8s, AD, CI/CD) son fabricated nodes
+    con provenance ligado para alertas.
+\end{itemize}
+
+\section*{Ejercicios}
+
+\begin{ejercicio}[\dificultad{$\star$}]
+\label{ej:dec-1}
+Liste los cuatro perfiles de proyección de $D_{\mathrm{FS}}$.
+\end{ejercicio}
+
+\begin{ejercicio}[\dificultad{$\star\star$}]
+\label{ej:dec-2}
+Demuestre el caso \texttt{Restrict} del \lemref{lem:dfs-wellformed}:
+que el link-count del subgrafo recalculado preserva el invariante.
+\end{ejercicio}
+
+\begin{ejercicio}[\dificultad{$\star\star$}]
+\label{ej:dec-3}
+La \trampref{tr:restrict-timing} habla de detección por timing.
+Diseñe un script que mida \texttt{stat} sobre un path conocido y
+detecte si está corriendo bajo \texttt{Restrict}.
+\end{ejercicio}
+
+\begin{ejercicio}[\dificultad{$\star\star\star$}]
+\label{ej:dec-4}
+Diseñe un quinto perfil \texttt{Hybrid} que combine \texttt{Restrict}
++ \texttt{Fabricate} con latencia compensada para evitar el timing
+side-channel. Bosqueje el algoritmo y la prueba de well-formedness.
+\end{ejercicio}

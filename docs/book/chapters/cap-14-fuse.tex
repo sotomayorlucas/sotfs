@@ -1,0 +1,236 @@
+\chapter{Adaptador FUSE y observabilidad}
+\label{cap:fuse}
+
+Este capítulo cierra el loop: una syscall POSIX que el usuario hace
+contra el mount point sotFS, ¿cómo se traduce a una regla DPO sobre el
+TypeGraph y luego de vuelta en una respuesta? La respuesta vive en
+\citaCrate{sotfs-fuse} y conecta todo lo anterior: el grafo del
+cap.~\ref{cap:typegraph}, las reglas del cap.~\ref{cap:dpo}, la
+persistencia del cap.~\ref{cap:persistencia}, las capabilities del
+cap.~\ref{cap:capabilities} y las transacciones del
+cap.~\ref{cap:transacciones}.
+
+\section{El callback FUSE: anatomía}
+
+El crate \citaCrate{sotfs-fuse} implementa \texttt{Filesystem} del
+crate \texttt{fuser}. Cada syscall mapeable se traduce en un callback
+con la siguiente forma:
+
+\begin{algorithm}[H]
+\SetAlgoLined
+\KwIn{Request $req$, parámetros POSIX, ReplyXxx}
+\caption{\textsc{Skeleton de un callback FUSE en sotFS}}\label{alg:fuse-cb}
+
+
+$\textit{ctx} \gets \textsc{CtxFromReq}(req)$\;
+$g.\textsc{SetCapCtx}(\textit{ctx})$\;
+
+
+$\textit{handles} \gets g.\textsc{Resolve}(\text{paths/inodes del req})$\;
+
+
+$\textit{result} \gets \textsc{DpoOp}(g, \textit{handles}, \ldots)$\;
+
+
+\eIf{$\textit{result} = \texttt{Ok}$}{
+  $\textit{reply}.\texttt{ok}(\dots)$\;
+}{
+  $\textit{reply}.\texttt{error}(\textsc{MapErrToErrno}(\textit{result}))$\;
+}
+
+
+\If{\texttt{SOTFS\_PROV\_SIDECAR} configurado}{
+  $\textsc{PersistProvLog}(g)$\;
+}
+\end{algorithm}
+
+\section{Mapeo VFS $\to$ DPO}
+
+\begin{table}[h]
+\centering
+\renewcommand{\arraystretch}{1.2}
+\begin{tabularx}{\linewidth}{l X}
+  \toprule
+  \textbf{VFS callback} & \textbf{DPO op invocada} \\
+  \midrule
+  \texttt{create} & \opcreate{} (\citaLine{sotfs-ops/src/lib.rs}{33}) \\
+  \texttt{mkdir}  & \opmkdir{} (\citaLine{sotfs-ops/src/lib.rs}{94}) \\
+  \texttt{unlink} & \opunlink{} (\citaLine{sotfs-ops/src/lib.rs}{322}) \\
+  \texttt{rmdir}  & \oprmdir{} (\citaLine{sotfs-ops/src/lib.rs}{198}) \\
+  \texttt{rename} & \oprename{} (\citaLine{sotfs-ops/src/lib.rs}{404}) \\
+  \texttt{link}   & \oplink{} (\citaLine{sotfs-ops/src/lib.rs}{272}) \\
+  \texttt{read}   & \op{read\_data} (\citaLine{sotfs-ops/src/lib.rs}{704}) \\
+  \texttt{write}  & \op{write\_data} (\citaLine{sotfs-ops/src/lib.rs}{670}) \\
+  \texttt{setxattr}/\texttt{getxattr}/\texttt{listxattr} & \op{*xattr} \\
+  \texttt{symlink}/\texttt{readlink} & \op{symlink}/\op{readlink} \\
+  \texttt{getattr}/\texttt{setattr} & lookup directo + \op{chmod}/\op{chown}/\op{truncate} \\
+  \bottomrule
+\end{tabularx}
+\caption{Cada VFS callback de \fuse{} se traduce en una llamada a una
+o más funciones DPO de \citaCrate{sotfs-ops}.}
+\label{tab:vfs-dpo}
+\end{table}
+
+\section{El \texttt{CapContext} desde una syscall}
+
+Recordando del cap.~\ref{cap:capabilities}, cada op corre bajo un
+\texttt{CapContext}. La traducción FUSE $\to$ context vive en
+\citaLine{sotfs-fuse/src/fs.rs}{59}:
+
+\begin{lstlisting}[language=rust]
+fn ctx_from_req(req: &Request<'_>) -> CapContext {
+    CapContext::new(None, req.uid() as u64)
+}
+\end{lstlisting}
+
+Versión actual minimalista: \texttt{cap\_id = None} y
+\texttt{domain\_id = uid}. Una extensión natural (no implementada en
+v0.2.5) usa el \texttt{pid} o un thread-local con la cap activa
+explícita. \citaCommit{61e7faf} cerró el gap más urgente: pre-v0.2.5
+el contexto se descartaba al entrar a las DPO ops; ahora se propaga al
+\texttt{record\_prov}.
+
+\section{Provenance log: el sidecar JSONL}
+
+\begin{defn}[ProvenanceEntry]
+\label{def:prov-entry}
+Un \emph{provenance entry} es un registro JSONL con la siguiente
+estructura (\citaLine{sotfs-graph/src/provenance.rs}{59}):
+
+\begin{lstlisting}[language=rust]
+struct ProvenanceEntry {
+    t: u64,          // unix timestamp seconds
+    op: ProvOp,      // {Create, Mkdir, Unlink, ...}
+    inode: u64,
+    cap: Option<u64>,
+    domain: u64,
+    detail: String,
+}
+\end{lstlisting}
+\end{defn}
+
+\paragraph{Cuándo se escribe.} Si la env var
+\texttt{SOTFS\_PROV\_SIDECAR} apunta a un path, cada DPO op exitosa
+emite una entry. El sidecar es append-only JSONL: una línea por entry.
+
+\paragraph{El bug v0.2.3 $\to$ v0.2.4.} Pre-v0.2.4 el formato escribía
+\texttt{op:Create} (sin comillas) y \texttt{cap:Some(7)}; no era JSON
+válido. v0.2.4 cambió a \texttt{serde\_json::to\_string} que produce
+JSON spec-compliant: \texttt{"op":"Create"}, \texttt{"cap":7}.
+Parsers legacy rompen; consumidores nuevos no.
+
+\section{Graph Hunter: exporter para threat-hunting}
+
+\citaCrate{sotfs-cli} tiene un binario \texttt{sotfs-export-hunter}
+con dos modos:
+
+\subsection*{Snapshot mode}
+
+\begin{lstlisting}[language=shellcmd]
+sotfs-export-hunter /tmp/test.redb -o hunter.json
+\end{lstlisting}
+
+Carga el grafo de \redb, lo convierte a formato \emph{Graph Hunter
+temporal multigraph}, y emite un JSON con dos secciones:
+\texttt{meta} y \texttt{events}.
+
+\begin{lstlisting}
+{
+  "meta": {
+    "format": "graph-hunter-temporal",
+    "version": 1,
+    "node_count": 9,
+    "edge_count": 10,
+    "node_types": ["inode","directory","capability","block","version"],
+    "edge_types": ["contains","grants","delegates",
+                   "derivesFrom","supersedes","pointsTo","hasXattr"]
+  },
+  "events": [
+    {"t":1778345083, "op":"add_node", "id":"I1",
+     "type":"inode", "vtype":"dir", "link_count":1, ...},
+    {"t":1778345083, "op":"add_edge", "id":1,
+     "src":"D1", "tgt":"I1", "type":"contains", "name":"."}
+  ]
+}
+\end{lstlisting}
+
+\subsection*{Tail mode (streaming)}
+
+\begin{lstlisting}[language=shellcmd]
+sotfs-export-hunter --tail /tmp/test.prov.jsonl
+sotfs-export-hunter --tail /tmp/test.prov.jsonl --once   # batch
+\end{lstlisting}
+
+Tail-f sobre el sidecar JSONL escrito por \texttt{SOTFS\_PROV\_SIDECAR},
+convierte cada entry a evento Graph Hunter NDJSON y emite a stdout.
+Útil para pipelining a un SIEM:
+
+\begin{lstlisting}[language=shellcmd]
+sotfs-export-hunter --tail /tmp/sotfs.prov.jsonl | \
+  jq -c '. | select(.cap == 42)'
+\end{lstlisting}
+
+\section{Mount: opciones runtime}
+
+\begin{lstlisting}[language=shellcmd]
+./target/release/sotfs-fuse /tmp/mnt --db /tmp/test.redb
+\end{lstlisting}
+
+Variables de entorno:
+
+\begin{tabularx}{\linewidth}{l X}
+  \toprule
+  Variable & Efecto \\
+  \midrule
+  \texttt{SOTFS\_FUSE\_TTL\_MS} & TTL del cache de FUSE (default 1000 ms; 0 desactiva). \\
+  \texttt{SOTFS\_FUSE\_ALLOW\_OTHER} & Si set, monta con \texttt{AllowOther + AutoUnmount}; default off (per-UID isolation). \\
+  \texttt{SOTFS\_PROV\_SIDECAR} & Path donde escribir el JSONL de provenance. \\
+  \bottomrule
+\end{tabularx}
+
+\section{Resumen del capítulo}
+
+\begin{itemize}
+  \item Cada VFS callback de \fuse{} en \citaCrate{sotfs-fuse} sigue el
+    patrón: set cap-context $\to$ resolve $\to$ DPO op $\to$ reply
+    $\to$ drain prov-log.
+  \item \texttt{ctx\_from\_req} construye el \texttt{CapContext} desde
+    el \texttt{Request}; \citaCommit{61e7faf} cerró el plumbing
+    hasta el prov-log.
+  \item El provenance log es un JSONL sidecar opcional activado por
+    \texttt{SOTFS\_PROV\_SIDECAR}. Cada DPO op exitosa emite una entry.
+  \item \texttt{sotfs-export-hunter} convierte snapshot o tail-streaming
+    a JSON Graph Hunter temporal multigraph, consumible por SIEMs.
+\end{itemize}
+
+\section*{Ejercicios}
+
+\begin{ejercicio}[\dificultad{$\star$}]
+\label{ej:fuse-1}
+Liste las tres variables de entorno que controlan el comportamiento
+de \texttt{sotfs-fuse}.
+\end{ejercicio}
+
+\begin{ejercicio}[\dificultad{$\star$}]
+\label{ej:fuse-2}
+¿Qué op DPO invoca el callback \texttt{rename} de FUSE?
+\end{ejercicio}
+
+\begin{ejercicio}[\dificultad{$\star\star$}]
+\label{ej:fuse-3}
+Diseñe un consumidor de provenance que cuente cuántos \opwrite{}
+ocurrieron en la última hora por dominio. Pista: jq + grep + sort.
+\end{ejercicio}
+
+\begin{ejercicio}[\dificultad{$\star\star$}]
+\label{ej:fuse-4}
+El \texttt{TTL\_MS} default es 1000 ms. ¿Qué pasa si se setea a 0?
+¿Por qué un usuario querría hacerlo (pista: benchmarking)?
+\end{ejercicio}
+
+\begin{ejercicio}[\dificultad{$\star\star\star$}]
+\label{ej:fuse-5}
+Extienda \texttt{ctx\_from\_req} para usar un thread-local de cap
+activa explícita, no sólo el \texttt{uid}. ¿Qué hace falta agregar al
+runtime para que el FUSE daemon mantenga la map ``thread $\to$ cap''?
+\end{ejercicio}

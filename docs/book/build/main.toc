@@ -1,0 +1,280 @@
+\xpg@aux {}{spanish}
+\contentsline {chapter}{Prefacio}{iii}{chapter*.1}%
+\contentsline {chapter}{Notación}{v}{chapter*.2}%
+\contentsline {chapter}{Índice de figuras}{xi}{chapter*.4}%
+\contentsline {chapter}{Índice de tablas}{xii}{chapter*.5}%
+\contentsline {chapter}{Índice de algoritmos}{xiii}{chapter*.6}%
+\contentsline {chapter}{\numberline {1}Introducción: por qué un FS basado en grafos}{1}{chapter.1}%
+\contentsline {section}{\numberline {1.1}Filesystems como árbol vs.\ como grafo}{1}{section.1.1}%
+\contentsline {paragraph}{El árbol POSIX clásico.}{1}{section.1.1}%
+\contentsline {paragraph}{El grafo tipado.}{1}{section.1.1}%
+\contentsline {paragraph}{El precio.}{1}{section.1.1}%
+\contentsline {section}{\numberline {1.2}Lo que sotFS es y lo que no}{2}{section.1.2}%
+\contentsline {paragraph}{Lo que es.}{2}{section.1.2}%
+\contentsline {paragraph}{Lo que no es (todavía).}{2}{section.1.2}%
+\contentsline {section}{\numberline {1.3}Mapa de capítulos}{2}{section.1.3}%
+\contentsline {section}{\numberline {1.4}Convenciones del libro}{3}{section.1.4}%
+\contentsline {paragraph}{Cajas tipadas.}{3}{section.1.4}%
+\contentsline {paragraph}{Algoritmos.}{3}{section.1.4}%
+\contentsline {paragraph}{Citas al repositorio.}{3}{section.1.4}%
+\contentsline {section}{\numberline {1.5}Cómo leer este libro}{3}{section.1.5}%
+\contentsline {paragraph}{Lectura lineal.}{3}{section.1.5}%
+\contentsline {paragraph}{Lectura selectiva.}{3}{section.1.5}%
+\contentsline {chapter}{\numberline {2}Preliminares matemáticos}{5}{chapter.2}%
+\contentsline {section}{\numberline {2.1}Grafos dirigidos tipados}{5}{section.2.1}%
+\contentsline {section}{\numberline {2.2}Funciones de hash criptográfico}{6}{section.2.2}%
+\contentsline {paragraph}{La elección de sotFS: BLAKE3.}{6}{defn.2.4}%
+\contentsline {section}{\numberline {2.3}Pushouts}{6}{section.2.3}%
+\contentsline {section}{\numberline {2.4}Reescritura DPO (\emph {double-pushout})}{7}{section.2.4}%
+\contentsline {section}{\numberline {2.5}Por qué DPO y no SPO o ARS}{8}{section.2.5}%
+\contentsline {section}{\numberline {2.6}Notación que se usa todo el libro}{8}{section.2.6}%
+\contentsline {chapter}{\numberline {3}El TypeGraph de sotFS}{11}{chapter.3}%
+\contentsline {section}{\numberline {3.1}Por qué un grafo tipado y no un árbol}{11}{section.3.1}%
+\contentsline {section}{\numberline {3.2}Definición formal del TypeGraph}{11}{section.3.2}%
+\contentsline {section}{\numberline {3.3}Los seis tipos de nodo}{12}{section.3.3}%
+\contentsline {paragraph}{\textsf {Inode}.}{13}{table.3.1}%
+\contentsline {paragraph}{\textsf {Directory}.}{13}{table.3.1}%
+\contentsline {paragraph}{\textsf {Capability}.}{13}{table.3.1}%
+\contentsline {paragraph}{\textsf {Transaction}.}{13}{table.3.1}%
+\contentsline {paragraph}{\textsf {Version}.}{13}{table.3.1}%
+\contentsline {paragraph}{\textsf {Block}.}{13}{table.3.1}%
+\contentsline {section}{\numberline {3.4}Los siete tipos de arista}{13}{section.3.4}%
+\contentsline {section}{\numberline {3.5}Diagrama de un TypeGraph mínimo}{14}{section.3.5}%
+\contentsline {section}{\numberline {3.6}Los siete invariantes verificados tras cada paso}{15}{section.3.6}%
+\contentsline {section}{\numberline {3.7}La cara TLA\textsuperscript {+} del TypeGraph}{18}{section.3.7}%
+\contentsline {section}{\numberline {3.8}Resumen del capítulo}{19}{section.3.8}%
+\contentsline {chapter}{\numberline {4}Hashing de contenido y direccionamiento}{21}{chapter.4}%
+\contentsline {section}{\numberline {4.1}El hash de un nodo}{21}{section.4.1}%
+\contentsline {paragraph}{Algoritmo.}{21}{defn.4.1}%
+\contentsline {section}{\numberline {4.2}Identidad por contenido y deduplicación}{21}{section.4.2}%
+\contentsline {section}{\numberline {4.3}Verificación incremental}{22}{section.4.3}%
+\contentsline {section}{\numberline {4.4}Snapshots gratis}{22}{section.4.4}%
+\contentsline {section}{\numberline {4.5}Sharing entre dominios}{23}{section.4.5}%
+\contentsline {section}{\numberline {4.6}Comparación con árbol POSIX}{23}{section.4.6}%
+\contentsline {section}{\numberline {4.7}Inmutabilidad de nodo}{24}{section.4.7}%
+\contentsline {chapter}{\numberline {5}Reescritura DPO de operaciones POSIX}{26}{chapter.5}%
+\contentsline {section}{\numberline {5.1}Repaso: pushout en $\ensuremath {\mathbf {Set}}$ y en $\ensuremath {\mathbf {Graph}}$}{26}{section.5.1}%
+\contentsline {section}{\numberline {5.2}Una regla DPO}{26}{section.5.2}%
+\contentsline {section}{\numberline {5.3}Producciones DPO de las operaciones POSIX}{27}{section.5.3}%
+\contentsline {subsection}{\numberline {5.3.1}\texttt {create\_file}}{27}{subsection.5.3.1}%
+\contentsline {paragraph}{Intuición.}{27}{subsection.5.3.1}%
+\contentsline {paragraph}{Producción $\mitrho _{\mathrm {create}}$.}{28}{subsection.5.3.1}%
+\contentsline {paragraph}{Gluing condition (NAC, \emph {negative application condition}).}{28}{subsection.5.3.1}%
+\contentsline {paragraph}{Firma Rust}{28}{subsection.5.3.1}%
+\contentsline {subsection}{\numberline {5.3.2}\texttt {mkdir}}{28}{subsection.5.3.2}%
+\contentsline {paragraph}{Producción.}{28}{subsection.5.3.2}%
+\contentsline {paragraph}{Gluing condition.}{29}{subsection.5.3.2}%
+\contentsline {paragraph}{Por qué \texttt {link\_count=2}.}{29}{subsection.5.3.2}%
+\contentsline {paragraph}{Firma Rust}{29}{subsection.5.3.2}%
+\contentsline {subsection}{\numberline {5.3.3}\texttt {link}}{29}{subsection.5.3.3}%
+\contentsline {paragraph}{Producción.}{29}{subsection.5.3.3}%
+\contentsline {paragraph}{Gluing condition.}{29}{subsection.5.3.3}%
+\contentsline {paragraph}{Firma Rust}{29}{subsection.5.3.3}%
+\contentsline {subsection}{\numberline {5.3.4}\texttt {unlink}}{29}{subsection.5.3.4}%
+\contentsline {paragraph}{Producción.}{29}{subsection.5.3.4}%
+\contentsline {paragraph}{Gluing condition.}{30}{subsection.5.3.4}%
+\contentsline {paragraph}{Firma Rust}{30}{subsection.5.3.4}%
+\contentsline {subsection}{\numberline {5.3.5}\texttt {rmdir}}{30}{subsection.5.3.5}%
+\contentsline {paragraph}{Producción.}{30}{subsection.5.3.5}%
+\contentsline {paragraph}{Gluing condition.}{30}{subsection.5.3.5}%
+\contentsline {paragraph}{Firma Rust}{30}{subsection.5.3.5}%
+\contentsline {subsection}{\numberline {5.3.6}\texttt {rename}}{30}{subsection.5.3.6}%
+\contentsline {paragraph}{Same-dir, sin destino preexistente.}{31}{subsection.5.3.6}%
+\contentsline {paragraph}{Cross-dir.}{31}{subsection.5.3.6}%
+\contentsline {paragraph}{Reemplazo de destino existente.}{31}{subsection.5.3.6}%
+\contentsline {paragraph}{Firma Rust}{31}{subsection.5.3.6}%
+\contentsline {subsection}{\numberline {5.3.7}\texttt {write}}{31}{subsection.5.3.7}%
+\contentsline {paragraph}{Intuición.}{31}{subsection.5.3.7}%
+\contentsline {paragraph}{Producción (versión simple, un único bloque).}{31}{subsection.5.3.7}%
+\contentsline {section}{\numberline {5.4}Gluing condition vs. invariantes}{31}{section.5.4}%
+\contentsline {section}{\numberline {5.5}Algoritmo genérico de aplicación de una regla DPO}{32}{section.5.5}%
+\contentsline {section}{\numberline {5.6}Trampas históricas}{32}{section.5.6}%
+\contentsline {section}{\numberline {5.7}Resumen del capítulo}{33}{section.5.7}%
+\contentsline {chapter}{\numberline {6}Implementación: arenas, RCU y motor de reglas}{36}{chapter.6}%
+\contentsline {section}{\numberline {6.1}Arenas: alocación dense con reuso}{36}{section.6.1}%
+\contentsline {paragraph}{Estructura interna.}{36}{defn.6.1}%
+\contentsline {paragraph}{Algoritmo de alocación.}{37}{defn.6.1}%
+\contentsline {paragraph}{Por qué importa.}{37}{lema.6.1}%
+\contentsline {section}{\numberline {6.2}Cómo se usa la arena en \texttt {TypeGraph}}{37}{section.6.2}%
+\contentsline {section}{\numberline {6.3}RCU: lectores lock-free, escritor único}{37}{section.6.3}%
+\contentsline {paragraph}{Lectores.}{38}{AlgoLine.6.6.5}%
+\contentsline {paragraph}{Trampa subtle.}{38}{invariante.6.1}%
+\contentsline {section}{\numberline {6.4}El motor de reglas: cómo se aplica un paso DPO}{38}{section.6.4}%
+\contentsline {paragraph}{Punto clave.}{39}{AlgoLine.7.7.11}%
+\contentsline {section}{\numberline {6.5}Provenance log: el sidecar opcional}{39}{section.6.5}%
+\contentsline {chapter}{\numberline {7}Persistencia: redb e índices secundarios}{41}{chapter.7}%
+\contentsline {section}{\numberline {7.1}El backend redb}{41}{section.7.1}%
+\contentsline {section}{\numberline {7.2}Save y load}{41}{section.7.2}%
+\contentsline {paragraph}{Save.}{41}{section.7.2}%
+\contentsline {paragraph}{Load.}{41}{AlgoLine.8.8.5}%
+\contentsline {section}{\numberline {7.3}El truco: rehidratación de índices secundarios}{42}{section.7.3}%
+\contentsline {paragraph}{¿Por qué saltarlos?}{42}{section.7.3}%
+\contentsline {paragraph}{La función crítica.}{42}{section.7.3}%
+\contentsline {paragraph}{Costo.}{42}{AlgoLine.10.10.8}%
+\contentsline {paragraph}{¿Por qué crítico?}{42}{AlgoLine.10.10.8}%
+\contentsline {section}{\numberline {7.4}El comando \texttt {sotfsctl}}{42}{section.7.4}%
+\contentsline {section}{\numberline {7.5}Crash safety: lo que da redb}{42}{section.7.5}%
+\contentsline {chapter}{\numberline {8}Capabilities y delegación}{45}{chapter.8}%
+\contentsline {section}{\numberline {8.1}El nodo \textsf {Capability}}{45}{section.8.1}%
+\contentsline {paragraph}{Aristas asociadas.}{45}{lstnumber.-5.5}%
+\contentsline {section}{\numberline {8.2}El invariante central: monotonicidad}{45}{section.8.2}%
+\contentsline {section}{\numberline {8.3}Acciones formales en el spec TLA}{46}{section.8.3}%
+\contentsline {section}{\numberline {8.4}El \texttt {CapContext}: cap-mediated context}{46}{section.8.4}%
+\contentsline {paragraph}{Cómo lo setean los callers.}{46}{lstnumber.-7.4}%
+\contentsline {paragraph}{El plumbing de v0.2.5}{46}{lstnumber.-7.4}%
+\contentsline {section}{\numberline {8.5}Algoritmo de chequeo de acceso}{47}{section.8.5}%
+\contentsline {paragraph}{Costo.}{47}{AlgoLine.11.11.11}%
+\contentsline {section}{\numberline {8.6}Revocación y el rol del \texttt {epoch}}{47}{section.8.6}%
+\contentsline {chapter}{\numberline {9}Transacciones y crash refinement}{49}{chapter.9}%
+\contentsline {section}{\numberline {9.1}Modelo formal vs.\ implementación}{49}{section.9.1}%
+\contentsline {section}{\numberline {9.2}La GTXN del runtime}{50}{section.9.2}%
+\contentsline {section}{\numberline {9.3}El protocolo abstracto del modelo TLA: GTXN con WAL}{51}{section.9.3}%
+\contentsline {section}{\numberline {9.4}Crash refinement}{51}{section.9.4}%
+\contentsline {section}{\numberline {9.5}Las propiedades verificadas}{52}{section.9.5}%
+\contentsline {section}{\numberline {9.6}El protocolo de fsync}{52}{section.9.6}%
+\contentsline {section}{\numberline {9.7}Trampas históricas}{53}{section.9.7}%
+\contentsline {section}{\numberline {9.8}La invariante de \emph {readers see committed-or-pre-tx}}{53}{section.9.8}%
+\contentsline {section}{\numberline {9.9}Origen del diseño}{54}{section.9.9}%
+\contentsline {section}{\numberline {9.10}Resumen del capítulo}{54}{section.9.10}%
+\contentsline {chapter}{\numberline {10}Verificación con TLA\textsuperscript {+}}{57}{chapter.10}%
+\contentsline {section}{\numberline {10.1}La biblioteca de specs}{57}{section.10.1}%
+\contentsline {section}{\numberline {10.2}Anatomía de un spec: \texttt {sotfs\_graph}}{57}{section.10.2}%
+\contentsline {section}{\numberline {10.3}Cómo correr TLC}{59}{section.10.3}%
+\contentsline {section}{\numberline {10.4}Cómo leer un contraejemplo de TLC}{60}{section.10.4}%
+\contentsline {section}{\numberline {10.5}Crash refinement: el spec más sofisticado}{60}{section.10.5}%
+\contentsline {section}{\numberline {10.6}Status TLC v0.2.5}{60}{section.10.6}%
+\contentsline {section}{\numberline {10.7}Lo que TLA\textsuperscript {+} no prueba}{60}{section.10.7}%
+\contentsline {chapter}{\numberline {11}Verificación con Coq}{63}{chapter.11}%
+\contentsline {section}{\numberline {11.1}El modelo Records: \texttt {SotfsGraph.v}}{63}{section.11.1}%
+\contentsline {paragraph}{Por qué Records (no inductivos).}{63}{lstnumber.11.1.22}%
+\contentsline {section}{\numberline {11.2}Los teoremas de preservación}{64}{section.11.2}%
+\contentsline {section}{\numberline {11.3}Deuda formal: los tres \texttt {Admitted}}{65}{section.11.3}%
+\contentsline {section}{\numberline {11.4}Cómo correr las pruebas Coq}{66}{section.11.4}%
+\contentsline {section}{\numberline {11.5}Lo que Coq prueba (y lo que no)}{66}{section.11.5}%
+\contentsline {paragraph}{Lo que prueba.}{66}{section.11.5}%
+\contentsline {paragraph}{Lo que no prueba.}{66}{section.11.5}%
+\contentsline {chapter}{\numberline {12}Topología del grafo: treewidth y curvatura}{69}{chapter.12}%
+\contentsline {section}{\numberline {12.1}Por qué importan estas métricas en un FS}{69}{section.12.1}%
+\contentsline {paragraph}{Treewidth.}{69}{section.12.1}%
+\contentsline {paragraph}{Curvatura.}{69}{section.12.1}%
+\contentsline {section}{\numberline {12.2}Treewidth: definición y aproximación}{69}{section.12.2}%
+\contentsline {paragraph}{Costo.}{70}{AlgoLine.14.14.10}%
+\contentsline {paragraph}{Resultado para sotFS.}{70}{AlgoLine.14.14.10}%
+\contentsline {section}{\numberline {12.3}Curvatura de Ollivier-Ricci}{70}{section.12.3}%
+\contentsline {paragraph}{Costo.}{71}{defn.12.2}%
+\contentsline {paragraph}{Interpretación.}{71}{AlgoLine.15.15.6}%
+\contentsline {section}{\numberline {12.4}Detección de anomalías}{71}{section.12.4}%
+\contentsline {paragraph}{Firmas observadas}{71}{defn.12.3}%
+\contentsline {section}{\numberline {12.5}El spec TLA de curvatura}{72}{section.12.5}%
+\contentsline {chapter}{\numberline {13}Decepción: el functor de proyección}{74}{chapter.13}%
+\contentsline {section}{\numberline {13.1}Decepción como functor}{74}{section.13.1}%
+\contentsline {section}{\numberline {13.2}Los cuatro modos de proyección}{74}{section.13.2}%
+\contentsline {section}{\numberline {13.3}Lemma de well-formedness}{74}{section.13.3}%
+\contentsline {section}{\numberline {13.4}Detectabilidad por timing}{75}{section.13.4}%
+\contentsline {section}{\numberline {13.5}Honeypots: perfiles pre-built}{75}{section.13.5}%
+\contentsline {paragraph}{El truco operativo.}{75}{section.13.5}%
+\contentsline {chapter}{\numberline {14}Adaptador FUSE y observabilidad}{77}{chapter.14}%
+\contentsline {section}{\numberline {14.1}El callback FUSE: anatomía}{77}{section.14.1}%
+\contentsline {section}{\numberline {14.2}Mapeo VFS $\to $ DPO}{77}{section.14.2}%
+\contentsline {section}{\numberline {14.3}El \texttt {CapContext} desde una syscall}{77}{section.14.3}%
+\contentsline {section}{\numberline {14.4}Provenance log: el sidecar JSONL}{77}{section.14.4}%
+\contentsline {paragraph}{Cuándo se escribe.}{78}{lstnumber.-20.8}%
+\contentsline {paragraph}{El bug v0.2.3 $\to $ v0.2.4.}{78}{lstnumber.-20.8}%
+\contentsline {section}{\numberline {14.5}Graph Hunter: exporter para threat-hunting}{78}{section.14.5}%
+\contentsline {section}{\numberline {14.6}Mount: opciones runtime}{79}{section.14.6}%
+\contentsline {section}{\numberline {14.7}Resumen del capítulo}{79}{section.14.7}%
+\contentsline {chapter}{\numberline {A}Catálogo completo de invariantes}{81}{appendix.A}%
+\contentsline {chapter}{\numberline {B}Tablas DPO por operación POSIX}{83}{appendix.B}%
+\contentsline {chapter}{\numberline {C}Resultados de model checking con TLC}{86}{appendix.C}%
+\contentsline {chapter}{\numberline {D}Setup reproducible}{88}{appendix.D}%
+\contentsline {chapter}{\numberline {E}Soluciones a ejercicios seleccionados}{91}{appendix.E}%
+\contentsline {paragraph}{\ref {ej:intro-1}.}{91}{appendix.E}%
+\contentsline {paragraph}{\ref {ej:intro-2}.}{91}{appendix.E}%
+\contentsline {paragraph}{\ref {ej:intro-3}.}{91}{appendix.E}%
+\contentsline {paragraph}{\ref {ej:intro-4}.}{91}{appendix.E}%
+\contentsline {paragraph}{\ref {ej:intro-5}.}{91}{appendix.E}%
+\contentsline {paragraph}{\ref {ej:prelim-1}.}{91}{appendix.E}%
+\contentsline {paragraph}{\ref {ej:prelim-2}.}{91}{appendix.E}%
+\contentsline {paragraph}{\ref {ej:prelim-3}.}{91}{appendix.E}%
+\contentsline {paragraph}{\ref {ej:prelim-4}.}{91}{appendix.E}%
+\contentsline {paragraph}{\ref {ej:prelim-5}.}{91}{appendix.E}%
+\contentsline {paragraph}{\ref {ej:prelim-6}.}{91}{appendix.E}%
+\contentsline {paragraph}{\ref {ej:prelim-7}.}{92}{appendix.E}%
+\contentsline {paragraph}{\ref {ej:tg-1}.}{92}{appendix.E}%
+\contentsline {paragraph}{\ref {ej:tg-2}.}{92}{appendix.E}%
+\contentsline {paragraph}{\ref {ej:tg-3}.}{92}{appendix.E}%
+\contentsline {paragraph}{\ref {ej:tg-4}.}{92}{appendix.E}%
+\contentsline {paragraph}{\ref {ej:tg-5}.}{92}{appendix.E}%
+\contentsline {paragraph}{\ref {ej:tg-6}.}{92}{appendix.E}%
+\contentsline {paragraph}{\ref {ej:tg-7}.}{92}{appendix.E}%
+\contentsline {paragraph}{\ref {ej:tg-8}.}{92}{appendix.E}%
+\contentsline {paragraph}{\ref {ej:tg-9}.}{92}{appendix.E}%
+\contentsline {paragraph}{\ref {ej:hash-1}.}{92}{appendix.E}%
+\contentsline {paragraph}{\ref {ej:hash-2}.}{92}{appendix.E}%
+\contentsline {paragraph}{\ref {ej:hash-3}.}{92}{appendix.E}%
+\contentsline {paragraph}{\ref {ej:hash-4}.}{92}{appendix.E}%
+\contentsline {paragraph}{\ref {ej:hash-5}.}{93}{appendix.E}%
+\contentsline {paragraph}{\ref {ej:dpo-1}.}{93}{appendix.E}%
+\contentsline {paragraph}{\ref {ej:dpo-2}.}{93}{appendix.E}%
+\contentsline {paragraph}{\ref {ej:dpo-3}.}{93}{appendix.E}%
+\contentsline {paragraph}{\ref {ej:dpo-4}.}{93}{appendix.E}%
+\contentsline {paragraph}{\ref {ej:dpo-5}.}{93}{appendix.E}%
+\contentsline {paragraph}{\ref {ej:dpo-6}.}{93}{appendix.E}%
+\contentsline {paragraph}{\ref {ej:dpo-7}.}{93}{appendix.E}%
+\contentsline {paragraph}{\ref {ej:dpo-8}.}{93}{appendix.E}%
+\contentsline {paragraph}{\ref {ej:dpo-9}.}{93}{appendix.E}%
+\contentsline {paragraph}{\ref {ej:impl-1}.}{93}{appendix.E}%
+\contentsline {paragraph}{\ref {ej:impl-2}.}{93}{appendix.E}%
+\contentsline {paragraph}{\ref {ej:impl-3}.}{93}{appendix.E}%
+\contentsline {paragraph}{\ref {ej:impl-4}.}{93}{appendix.E}%
+\contentsline {paragraph}{\ref {ej:impl-5}.}{94}{appendix.E}%
+\contentsline {paragraph}{\ref {ej:impl-6}.}{94}{appendix.E}%
+\contentsline {paragraph}{\ref {ej:impl-7}.}{94}{appendix.E}%
+\contentsline {paragraph}{\ref {ej:impl-8}.}{94}{appendix.E}%
+\contentsline {paragraph}{\ref {ej:pers-1}.}{94}{appendix.E}%
+\contentsline {paragraph}{\ref {ej:pers-2}.}{94}{appendix.E}%
+\contentsline {paragraph}{\ref {ej:pers-3}.}{94}{appendix.E}%
+\contentsline {paragraph}{\ref {ej:pers-4}.}{94}{appendix.E}%
+\contentsline {paragraph}{\ref {ej:pers-5}.}{94}{appendix.E}%
+\contentsline {paragraph}{\ref {ej:cap-1}.}{94}{appendix.E}%
+\contentsline {paragraph}{\ref {ej:cap-2}.}{94}{appendix.E}%
+\contentsline {paragraph}{\ref {ej:cap-3}.}{94}{appendix.E}%
+\contentsline {paragraph}{\ref {ej:cap-4}.}{95}{appendix.E}%
+\contentsline {paragraph}{\ref {ej:cap-5}.}{95}{appendix.E}%
+\contentsline {paragraph}{\ref {ej:cap-6}.}{95}{appendix.E}%
+\contentsline {paragraph}{\ref {ej:tx-1}.}{95}{appendix.E}%
+\contentsline {paragraph}{\ref {ej:tx-2}.}{95}{appendix.E}%
+\contentsline {paragraph}{\ref {ej:tx-3}.}{95}{appendix.E}%
+\contentsline {paragraph}{\ref {ej:tx-4}.}{95}{appendix.E}%
+\contentsline {paragraph}{\ref {ej:tx-5}.}{95}{appendix.E}%
+\contentsline {paragraph}{\ref {ej:tx-6}.}{95}{appendix.E}%
+\contentsline {paragraph}{\ref {ej:tx-7}.}{95}{appendix.E}%
+\contentsline {paragraph}{\ref {ej:tx-8}.}{95}{appendix.E}%
+\contentsline {paragraph}{\ref {ej:tx-9}.}{96}{appendix.E}%
+\contentsline {paragraph}{\ref {ej:tx-10}.}{96}{appendix.E}%
+\contentsline {paragraph}{\ref {ej:tx-11}.}{96}{appendix.E}%
+\contentsline {paragraph}{\ref {ej:tx-12}.}{96}{appendix.E}%
+\contentsline {paragraph}{\ref {ej:tla-1}.}{96}{appendix.E}%
+\contentsline {paragraph}{\ref {ej:tla-2}.}{96}{appendix.E}%
+\contentsline {paragraph}{\ref {ej:tla-3}.}{96}{appendix.E}%
+\contentsline {paragraph}{\ref {ej:tla-5}.}{96}{appendix.E}%
+\contentsline {paragraph}{\ref {ej:tla-7}.}{96}{appendix.E}%
+\contentsline {paragraph}{\ref {ej:coq-1}.}{96}{appendix.E}%
+\contentsline {paragraph}{\ref {ej:coq-2}.}{96}{appendix.E}%
+\contentsline {paragraph}{\ref {ej:coq-3}.}{96}{appendix.E}%
+\contentsline {paragraph}{\ref {ej:coq-4}.}{96}{appendix.E}%
+\contentsline {paragraph}{\ref {ej:coq-5}.}{97}{appendix.E}%
+\contentsline {paragraph}{\ref {ej:coq-6}.}{97}{lstnumber.-34.6}%
+\contentsline {paragraph}{\ref {ej:topo-1}.}{97}{lstnumber.-34.6}%
+\contentsline {paragraph}{\ref {ej:topo-2}.}{97}{lstnumber.-34.6}%
+\contentsline {paragraph}{\ref {ej:topo-3}.}{97}{lstnumber.-34.6}%
+\contentsline {paragraph}{\ref {ej:topo-4}.}{97}{lstnumber.-34.6}%
+\contentsline {paragraph}{\ref {ej:topo-5}.}{97}{lstnumber.-34.6}%
+\contentsline {paragraph}{\ref {ej:topo-6}.}{97}{lstnumber.-34.6}%
+\contentsline {paragraph}{\ref {ej:dec-1}.}{97}{lstnumber.-34.6}%
+\contentsline {paragraph}{\ref {ej:dec-2}.}{97}{lstnumber.-34.6}%
+\contentsline {paragraph}{\ref {ej:fuse-1}.}{97}{lstnumber.-34.6}%
+\contentsline {paragraph}{\ref {ej:fuse-2}.}{97}{lstnumber.-34.6}%
+\contentsline {paragraph}{\ref {ej:fuse-3}.}{97}{lstnumber.-34.6}%
+\contentsline {paragraph}{\ref {ej:fuse-4}.}{98}{lstnumber.-35.4}%
+\contentsline {chapter}{Bibliografía}{99}{appendix*.7}%

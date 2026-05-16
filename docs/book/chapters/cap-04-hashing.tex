@@ -1,0 +1,240 @@
+\chapter{Hashing de contenido y direccionamiento}
+\label{cap:hashing}
+
+El TypeGraph del cap.~\ref{cap:typegraph} fija qué tipos viven en el
+grafo. Este capítulo agrega la \emph{identidad por contenido}: cada
+nodo tiene un identificador derivado del hash criptográfico de su
+contenido serializado. Esa decisión apenas perceptible en la API tiene
+consecuencias profundas: deduplicación intrínseca, snapshots gratis,
+verificación incremental, sharing entre dominios sin bolt-on.
+
+\section{El hash de un nodo}
+
+\begin{defn}[Content hash]
+\label{def:content-hash}
+Para todo nodo $v \in V$, su \emph{content hash} es
+\[
+  \hashof{v} \;=\; \blake\bigl(\tau_V(v) \,\Vert\, \mathrm{serialize}(v)\bigr)
+\]
+donde $\Vert$ denota concatenación, $\tau_V(v)$ es un byte-tag que
+identifica el tipo del nodo (8-bit) y $\mathrm{serialize}$ es la
+serialización canónica del contenido.
+\end{defn}
+
+La canonicidad de $\mathrm{serialize}$ es crítica: dos nodos con el
+mismo contenido lógico pero distinta serialización se hashean a valores
+distintos, lo que rompería la deduplicación. \citaCrate{sotfs-graph}
+usa una serialización determinista (campos en orden fijo, sin padding,
+sin reordering) basada en \texttt{serde\_json} configurado para emitir
+keys ordenadas. Para los \NBlk{} en particular, el contenido es la
+sucesión cruda de bytes, sin metadatos: dos archivos con el mismo
+contenido producen el mismo \texttt{BlockId}.
+
+\paragraph{Algoritmo.}
+
+\begin{algorithm}[H]
+\SetAlgoLined
+\KwIn{Nodo $v$ con tipo $\tau_V(v)$ y contenido $\mathrm{content}(v)$}
+\KwOut{Hash $h \in \{0,1\}^{256}$}
+\caption{\textsc{NodeHash}}\label{alg:node-hash}
+
+$\mathrm{hasher} \gets \blake.\textsc{New}()$\;
+$\mathrm{hasher}.\textsc{Update}(\tau_V(v).\textsc{ToBytes}())$\;
+$\mathrm{hasher}.\textsc{Update}(\mathrm{Serialize}(\mathrm{content}(v)))$\;
+\Return{$\mathrm{hasher}.\textsc{Finalize}()$}\;
+\end{algorithm}
+
+\section{Identidad por contenido y deduplicación}
+
+\begin{invariante}[Identidad por contenido]
+\label{inv:identidad-contenido}
+Dos nodos con el mismo $\hashof{\cdot}$ son el mismo nodo en el
+TypeGraph: el filesystem mantiene una sola copia. Identidad estructural
+implica identidad de almacenamiento.
+\end{invariante}
+
+La consecuencia operativa: dos archivos cuya escritura produce los
+mismos bloques no duplican espacio. La operación \opwrite{}
+(cap.~\ref{cap:dpo}) computa el \texttt{BlockId} de cada bloque a
+escribir; si ya existe en \citaCrate{sotfs-storage}, simplemente añade
+una arista \epointsto{} y bumpea el \texttt{refcount} del bloque
+existente.
+
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}[node distance=10mm and 16mm]
+  \node[nino] (i1) {Inode A\\\texttt{file1.txt}};
+  \node[nino, right=30mm of i1] (i2) {Inode B\\\texttt{file2.txt}};
+  \node[nblk, below=14mm of i1, xshift=8mm] (b1) {Block\\\hashof{·}=A1};
+  \node[nblk, below=14mm of i1, xshift=30mm] (b2) {Block compartido\\\hashof{·}=B2};
+  \node[nblk, below=14mm of i2, xshift=12mm] (b3) {Block\\\hashof{·}=C3};
+
+  \draw[arr-points] (i1) -- (b1);
+  \draw[arr-points] (i1) -- (b2);
+  \draw[arr-points] (i2) -- (b2);
+  \draw[arr-points] (i2) -- (b3);
+\end{tikzpicture}
+\caption{Sharing intrínseco: \texttt{file1.txt} y \texttt{file2.txt}
+comparten el bloque \texttt{B2} por construcción porque ambos lo
+producen con el mismo hash. No es un hard link; es la semántica natural
+del Merkle DAG. El \texttt{refcount} de \texttt{B2} es 2.}
+\label{fig:hashing-sharing}
+\end{figure}
+
+\section{Verificación incremental}
+
+\begin{teorema}[Verificación cripto-derivada]
+\label{teo:verificacion-incremental}
+Dado el hash de la raíz de un sub-DAG $G_R$, el contenido de cada nodo
+del sub-DAG se puede verificar sin material adicional, en tiempo $O(N
+\cdot \mathrm{cost}(\blake))$, donde $N$ es la cantidad de nodos en el
+sub-DAG.
+\end{teorema}
+
+\begin{proof}[Esquema]
+Por inducción sobre la profundidad del sub-DAG. La raíz se verifica
+recomputando $\hashof{r}$ y comparando con el dado. Cada hijo aparece
+referenciado por su hash dentro del contenido del padre; recomputar
+$\hashof{\mathrm{hijo}}$ y comparar con el referenciado verifica el
+hijo. La consistencia entre padre y hijo es automática porque la
+referencia (hash) está en el contenido del padre.
+\end{proof}
+
+Esa propiedad es la base de los snapshots: un snapshot es \emph{nada
+más que} un puntero al hash de un nodo \NVer{}. Para verificar que el
+snapshot no fue manipulado, se recomputa el hash del nodo \NVer{} y se
+compara.
+
+\section{Snapshots gratis}
+
+Bajo el modelo content-addressed, hacer un snapshot de un FS de 1\,TiB
+con \(10^6\) archivos cuesta exactamente \emph{32 bytes}: el hash del
+nodo \NVer{} que apunta a la raíz. Comparar con \texttt{ext4} con
+LVM-snapshots, donde el costo es proporcional al número de bloques
+modificados desde el snapshot original (vía COW): $O(\Delta)$ bytes y
+$O(\Delta)$ overhead de tracking.
+
+La desventaja: garbage collection. Cada snapshot ``pin'' a un sub-DAG;
+nodos no alcanzables desde ningún snapshot son candidatos a GC. La
+implementación es mark-and-sweep desde los roots de snapshot;
+cap.~\ref{cap:persistencia} desarrolla los detalles.
+
+\begin{trampa}[BLAKE3 collision (no observada en práctica)]
+\label{tr:blake3-collision}
+La \invref{inv:identidad-contenido} asume que los hashes son únicos.
+\blake{} con 256 bits tiene resistencia a colisión de $2^{128}$
+(birthday bound); la probabilidad de un ciclo accidental por colisión
+es \emph{efectivamente cero}. Pero un atacante con poder de construir
+\emph{colisiones intencionales} (problema abierto en \blake{}) podría
+engañar al filesystem para que un nodo se auto-referencie a través de
+su contenido.
+
+\textbf{Fix preventivo.} Chequeo runtime que un nodo recién insertado
+no contiene su propio hash entre sus referencias. Costo $O(|\text{children}|)$
+por inserción. Reductible si hace falta.
+
+\textbf{Lección.} Las propiedades cripto-derivadas son fuertes pero no
+infalibles. Un check runtime trivial (anti-self-reference) preserva la
+invariante incluso bajo collision attack.
+\end{trampa}
+
+\section{Sharing entre dominios}
+
+\begin{defn}[Dominio]
+\label{def:dominio}
+Un \emph{dominio} es una partición lógica del namespace del filesystem,
+identificada por un \texttt{domain\_id} (un \texttt{u64}). Los caps
+están parametrizados por el \texttt{domain\_id} del operador
+(\citaLine{sotfs-graph/src/types.rs}{189}).
+\end{defn}
+
+Dos dominios distintos pueden referenciar el mismo \NBlk{} porque el
+\NBlk{} se nombra por hash; no hay copia ni protocolo cross-domain. La
+propiedad emerge del modelo. La consecuencia: dos contenedores
+distintos en sotFS que comparten la misma imagen base pueden compartir
+bloques sin sobrecosto.
+
+\section{Comparación con árbol POSIX}
+
+\begin{table}[h]
+\centering
+\renewcommand{\arraystretch}{1.2}
+\begin{tabularx}{\linewidth}{l X X}
+  \toprule
+   & \textbf{Árbol POSIX (\texttt{ext4})} & \textbf{Merkle DAG (sotFS)} \\
+  \midrule
+  Identidad   & \texttt{InodeId} arbitrario, allocator-dependent & $\hashof{\cdot}$ del contenido \\
+  Dedup       & manual / scrub & intrínseca \\
+  Snapshot    & LVM/COW, $O(\Delta)$ bytes & 32 bytes \\
+  Sharing     & hard link, simulink, reflink (extensión) & emerge del modelo \\
+  Verificación & no nativa & $O(N \cdot \mathrm{cost}(\blake))$ recursiva \\
+  Mutación    & in-place a bloque & inmutable; nuevo nodo, padre actualizado \\
+  GC          & no necesario (sin sharing) & necesario; mark-and-sweep \\
+  \bottomrule
+\end{tabularx}
+\caption{Tradeoffs de árbol POSIX vs.\ Merkle DAG.}
+\label{tab:hash-tradeoffs}
+\end{table}
+
+\section{Inmutabilidad de nodo}
+
+\begin{invariante}[Inmutabilidad estructural]
+\label{inv:inmutabilidad}
+Un nodo nunca se modifica \emph{in situ}. Una mutación lógica
+(\opwrite, \texttt{truncate}, \texttt{chmod}) crea un nodo nuevo con el
+contenido nuevo y actualiza el padre. El nodo viejo sobrevive si está
+referenciado por algún snapshot; si no, queda candidato a GC.
+\end{invariante}
+
+\section*{Resumen del capítulo}
+
+\begin{itemize}
+  \item Cada nodo del TypeGraph tiene un content hash $\hashof{v} =
+    \blake(\tau_V(v) \Vert \mathrm{serialize}(v))$, calculado con
+    serialización canónica.
+  \item Identidad por contenido implica deduplicación intrínseca y
+    sharing entre dominios sin bolt-on.
+  \item Verificación incremental: dado el hash raíz, todo el sub-DAG
+    se verifica en $O(N \cdot \mathrm{cost}(\blake))$.
+  \item Snapshots gratis: 32 bytes para snapshot un FS de 1\,TiB.
+  \item Inmutabilidad estructural: las mutaciones crean nodos nuevos,
+    no modifican in-place.
+  \item Trampa: colisiones intencionales de \blake{} son un problema
+    abierto; chequeo anti-self-reference como mitigación barata.
+\end{itemize}
+
+\section*{Ejercicios}
+
+\begin{ejercicio}[\dificultad{$\star$}]
+\label{ej:hash-1}
+¿Cuál es la longitud en bytes del hash \blake{} usado por sotFS?
+¿Cuál es la cota de colisión por birthday bound?
+\end{ejercicio}
+
+\begin{ejercicio}[\dificultad{$\star$}]
+\label{ej:hash-2}
+Indique tres consecuencias del modelo content-addressed sobre la
+operación \opwrite{} en sotFS.
+\end{ejercicio}
+
+\begin{ejercicio}[\dificultad{$\star\star$}]
+\label{ej:hash-3}
+Dos archivos de 1\,MiB tienen 80\% de contenido en común, dividido en
+bloques de 4\,KiB. Calcule el espacio total ocupado en sotFS y compare
+con \texttt{ext4} sin reflinks.
+\end{ejercicio}
+
+\begin{ejercicio}[\dificultad{$\star\star$}]
+\label{ej:hash-4}
+Argumente por qué la canonicidad de la serialización es crítica.
+Construya un escenario donde dos serializaciones distintas del mismo
+contenido lógico romperían la deduplicación.
+\end{ejercicio}
+
+\begin{ejercicio}[\dificultad{$\star\star$}]
+\label{ej:hash-5}
+Diseñe un mecanismo de \emph{garbage collection} para sotFS basado en
+mark-and-sweep desde los snapshot roots. ¿Cómo manejás writes
+concurrentes que crean nodos durante el mark? Pista: tri-color marking
++ write barrier sobre roots.
+\end{ejercicio}

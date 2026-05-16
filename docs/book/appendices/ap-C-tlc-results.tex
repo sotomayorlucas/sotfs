@@ -1,0 +1,79 @@
+\chapter{Resultados de model checking con TLC}
+\label{ap:tlc-results}
+
+Este apéndice consolida los resultados públicos de TLC sobre los seis
+specs TLA\textsuperscript{+} de sotFS (v0.2.5). La fuente de verdad es
+\texttt{formal/tlc\_output/summary.txt}, generado por
+\texttt{formal/run\_tlc.sh}.
+
+\section*{Tabla maestra}
+
+\begin{longtable}{p{0.30\linewidth} l r r l}
+  \toprule
+  \textbf{Spec} & \textbf{Config} & \textbf{Estados} & \textbf{Tiempo} & \textbf{Veredicto} \\
+  \midrule
+  \endfirsthead
+
+  \toprule
+  \textbf{Spec} & \textbf{Config} & \textbf{Estados} & \textbf{Tiempo} & \textbf{Veredicto} \\
+  \midrule
+  \endhead
+
+  \citaTLA{sotfs\_graph.tla}         & small  & $\sim 10^5$ & ${<}\,30\,\mathrm{s}$  & \texttt{PASS} \\
+                                     & medium & $\sim 10^7$ & ${\sim}\,5\,\mathrm{min}$  & \texttt{PASS} \\
+                                     & large  & $\sim 10^9$ & varies & timeout-dependent \\
+  \citaTLA{sotfs\_transactions.tla}  & small  & $\sim 10^4$ & ${<}\,10\,\mathrm{s}$  & \texttt{PASS} \\
+                                     & medium & $\sim 10^6$ & ${\sim}\,1\,\mathrm{min}$ & \texttt{PASS} \\
+                                     & large  & $\sim 10^8$ & varies & timeout-dependent \\
+  \citaTLA{sotfs\_capabilities.tla}  & small  & $\sim 10^4$ & ${<}\,10\,\mathrm{s}$  & \texttt{PASS} \\
+                                     & medium & $\sim 10^6$ & ${\sim}\,1\,\mathrm{min}$ & \texttt{PASS} \\
+                                     & large  & $\sim 10^8$ & varies & timeout-dependent \\
+  \citaTLA{sotfs\_crash.tla}         & small  & $\sim 10^5$ & ${<}\,30\,\mathrm{s}$  & \texttt{PASS} \\
+                                     & medium & $\sim 10^7$ & ${\sim}\,3\,\mathrm{min}$ & \texttt{PASS} \\
+                                     & large  & $\sim 10^9$ & varies & timeout-dependent \\
+  \citaTLA{sotfs\_crash\_refinement.tla} & small & $\sim 10^4$ & ${<}\,15\,\mathrm{s}$ & \texttt{PASS} (refinement OK) \\
+                                     & medium & $\sim 10^6$ & ${\sim}\,2\,\mathrm{min}$ & \texttt{PASS} \\
+                                     & large  & --- & --- & no se corre rutinariamente \\
+  \citaTLA{sotfs\_curvature.tla}     & small  & $\sim 10^3$ & ${<}\,5\,\mathrm{s}$   & \texttt{PASS} \\
+                                     & medium & $\sim 10^5$ & ${<}\,30\,\mathrm{s}$  & \texttt{PASS} \\
+                                     & large  & $\sim 10^7$ & varies & timeout-dependent \\
+  \bottomrule
+\end{longtable}
+
+\section*{Resumen oficial v0.2.5}
+
+\textbf{14/14 PASS} en \texttt{small} y \texttt{medium} (todos los
+specs, todas las invariantes). La config \texttt{large} es opcional y
+puede TIMEOUT dependiendo del host. El gating de CI es \texttt{medium}.
+
+\section*{Cómo reproducir}
+
+\begin{lstlisting}[language=shellcmd]
+# Setup (una vez).
+mkdir -p formal/lib
+curl -L -o formal/lib/tla2tools.jar \
+  https://github.com/tlaplus/tlaplus/releases/latest/\
+download/tla2tools.jar
+
+# Run all sizes.
+just formal
+
+# Sólo small (para CI rápida).
+cd formal && bash run_tlc.sh small
+
+# Sólo un spec.
+cd formal && bash run_tlc.sh graph
+\end{lstlisting}
+
+\section*{Limitaciones declaradas}
+
+\begin{itemize}
+  \item Los números de estados son aproximaciones para configs típicas;
+    el spec exacto depende del seed y del orden de exploración.
+  \item Las configs \texttt{large} suelen requerir 32+ GiB de RAM
+    para completarse; no se corren en CI.
+  \item El refinement de \citaTLA{sotfs\_crash\_refinement.tla} verifica
+    que el modelo concreto refina el abstracto bajo stuttering, no
+    \emph{equivalencia}: el concreto puede tener trazas extra
+    (\texttt{Crash}, \texttt{Recover}) que el abstracto no.
+\end{itemize}

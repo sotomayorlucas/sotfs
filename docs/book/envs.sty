@@ -1,0 +1,122 @@
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{envs}[2026/05/13 sotFS book custom environments]
+
+\RequirePackage{amsthm}
+\RequirePackage{mdframed}
+\RequirePackage{colors}
+
+% --- estilo base mdframed ---
+\mdfdefinestyle{sotxBox}{%
+  linewidth=0.6pt,
+  innerleftmargin=10pt,
+  innerrightmargin=10pt,
+  innertopmargin=8pt,
+  innerbottommargin=8pt,
+  skipabove=8pt,
+  skipbelow=8pt,
+  roundcorner=2pt,
+}
+
+% --- contadores por capítulo ---
+\newcounter{invariante}[chapter]
+\renewcommand{\theinvariante}{\thechapter.\arabic{invariante}}
+
+\newcounter{trampa}[chapter]
+\renewcommand{\thetrampa}{\thechapter.\arabic{trampa}}
+
+\newcounter{ejercicio}[chapter]
+\renewcommand{\theejercicio}{\thechapter.\arabic{ejercicio}}
+
+\newcounter{defn}[chapter]
+\renewcommand{\thedefn}{\thechapter.\arabic{defn}}
+
+\newcounter{teorema}[chapter]
+\renewcommand{\theteorema}{\thechapter.\arabic{teorema}}
+
+\newcounter{lema}[chapter]
+\renewcommand{\thelema}{\thechapter.\arabic{lema}}
+
+% --- invariante ---
+\newenvironment{invariante}[1][]{%
+  \refstepcounter{invariante}%
+  \begin{mdframed}[style=sotxBox,
+    linecolor=invarianteRule,
+    backgroundcolor=invarianteBg,
+    frametitle={\textbf{Invariante \theinvariante}\ifx\\#1\\\else\ \emph{(#1)}\fi}]%
+  \itshape
+}{%
+  \end{mdframed}%
+}
+
+% --- trampa ---
+\newenvironment{trampa}[1][]{%
+  \refstepcounter{trampa}%
+  \begin{mdframed}[style=sotxBox,
+    linecolor=trampaRule,
+    backgroundcolor=trampaBg,
+    frametitle={\textbf{Trampa \thetrampa}\ifx\\#1\\\else\ \emph{(#1)}\fi}]%
+}{%
+  \end{mdframed}%
+}
+
+% --- ejercicio ---
+\newenvironment{ejercicio}[1][]{%
+  \refstepcounter{ejercicio}%
+  \begin{mdframed}[style=sotxBox,
+    linecolor=ejercicioRule,
+    backgroundcolor=ejercicioBg,
+    frametitle={\textbf{Ejercicio \theejercicio}\ifx\\#1\\\else\ \ #1\fi}]%
+}{%
+  \end{mdframed}%
+}
+
+% --- definicion ---
+\newenvironment{defn}[1][]{%
+  \refstepcounter{defn}%
+  \begin{mdframed}[style=sotxBox,
+    linecolor=defnRule,
+    backgroundcolor=defnBg,
+    frametitle={\textbf{Definición \thedefn}\ifx\\#1\\\else\ \emph{(#1)}\fi}]%
+}{%
+  \end{mdframed}%
+}
+
+% --- teorema ---
+\newenvironment{teorema}[1][]{%
+  \refstepcounter{teorema}%
+  \begin{mdframed}[style=sotxBox,
+    linecolor=teoremaRule,
+    backgroundcolor=teoremaBg,
+    frametitle={\textbf{Teorema \theteorema}\ifx\\#1\\\else\ \emph{(#1)}\fi}]%
+  \itshape
+}{%
+  \end{mdframed}%
+}
+
+% --- lema ---
+\newenvironment{lema}[1][]{%
+  \refstepcounter{lema}%
+  \begin{mdframed}[style=sotxBox,
+    linecolor=lemaRule,
+    backgroundcolor=lemaBg,
+    frametitle={\textbf{Lema \thelema}\ifx\\#1\\\else\ \emph{(#1)}\fi}]%
+  \itshape
+}{%
+  \end{mdframed}%
+}
+
+% --- observacion ---
+\newenvironment{observacion}[1][]{%
+  \begin{mdframed}[style=sotxBox,
+    linecolor=observacionRule,
+    backgroundcolor=observacionBg,
+    frametitle={\textbf{Observación}\ifx\\#1\\\else\ \emph{(#1)}\fi}]%
+}{%
+  \end{mdframed}%
+}
+
+% --- prueba (estándar amsthm) ---
+\renewcommand{\proofname}{Demostración}
+
+% --- markers de dificultad de ejercicios ---
+\providecommand{\dificultad}[1]{\textsf{[\,#1\,]}}

@@ -1,0 +1,28 @@
+\addvspace {10\p@ }
+\contentsline {table}{\numberline {1.1}{\ignorespaces \xpg@aux {}{spanish}\ignorespaces Mapa de capítulos y dependencias estrictas para una lectura lineal. Los apéndices son lookup, no lectura lineal.}}{2}{table.1.1}%
+\addvspace {10\p@ }
+\addvspace {10\p@ }
+\contentsline {table}{\numberline {3.1}{\ignorespaces \xpg@aux {}{spanish}\ignorespaces Atributos de cada tipo de nodo. Definidos en \texttt {sotfs-graph/src/types.rs:91} (Inode), \texttt {:142} (Directory), \texttt {:174} (Capability), \texttt {:227} (Transaction), \texttt {:238} (Version), \texttt {:246} (Block).}}{12}{table.3.1}%
+\contentsline {table}{\numberline {3.2}{\ignorespaces \xpg@aux {}{spanish}\ignorespaces Signatura de las siete aristas. La columna \emph {Origen} y \emph {Destino} fijan los tipos admisibles; un par fuera de la signatura viola el TypeInvariant. El \textsf {XAttr} aparece como séptimo tipo de nodo en algunas vistas; en este libro lo tratamos como una variante de \textsf {Inode}{} para mantener el conteo en seis. La definición canónica vive en \texttt {sotfs-graph/src/types.rs:346}.}}{14}{table.3.2}%
+\contentsline {table}{\numberline {3.3}{\ignorespaces \xpg@aux {}{spanish}\ignorespaces Costo de cada chequeo. $^\dagger $ El worst-case $O(N^3)$ del chequeo de ciclos viene de un patrón patológico de cadenas de \texttt {mkdir}{} profundas; está documentado y mitigable con un índice adicional. Cf.\ trampa~\ref {tr:cycle-cost}.}}{17}{table.3.3}%
+\addvspace {10\p@ }
+\contentsline {table}{\numberline {4.1}{\ignorespaces \xpg@aux {}{spanish}\ignorespaces Tradeoffs de árbol POSIX vs.\ Merkle DAG.}}{23}{table.4.1}%
+\addvspace {10\p@ }
+\addvspace {10\p@ }
+\addvspace {10\p@ }
+\addvspace {10\p@ }
+\addvspace {10\p@ }
+\contentsline {table}{\numberline {9.1}{\ignorespaces \xpg@aux {}{spanish}\ignorespaces Modelo formal vs.\ implementación. El modelo describe un \textsc {WAL}{} explícito; el runtime delega la durabilidad al backend redb. La correspondencia es por \emph {inspección humana}, no por \emph {extracción mecánica}; cap.~\ref {cap:tla} discute las consecuencias de esa elección.}}{49}{table.9.1}%
+\addvspace {10\p@ }
+\contentsline {table}{\numberline {10.1}{\ignorespaces \xpg@aux {}{spanish}\ignorespaces Los seis specs TLA\textsuperscript {+} de sotFS y la propiedad que cada uno verifica.}}{57}{table.10.1}%
+\addvspace {10\p@ }
+\contentsline {table}{\numberline {11.1}{\ignorespaces \xpg@aux {}{spanish}\ignorespaces Los seis archivos de prueba DPO. Para cada uno, el teorema final es de la forma ``$\forall g, \text {precond} \Rightarrow \text {WellFormed}(g) \Rightarrow \text {WellFormed}(\text {op}\,g)$''.}}{64}{table.11.1}%
+\addvspace {10\p@ }
+\addvspace {10\p@ }
+\addvspace {10\p@ }
+\contentsline {table}{\numberline {14.1}{\ignorespaces \xpg@aux {}{spanish}\ignorespaces Cada VFS callback de \textsc {FUSE}{} se traduce en una llamada a una o más funciones DPO de el crate \texttt {sotfs-ops}.}}{78}{table.14.1}%
+\addvspace {10\p@ }
+\addvspace {10\p@ }
+\addvspace {10\p@ }
+\addvspace {10\p@ }
+\addvspace {10\p@ }

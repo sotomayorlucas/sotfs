@@ -1,0 +1,463 @@
+DIGEST 1658de2d1a859f88cea96216197f30ab
+FSotFS.DpoCreate
+R774:788 Stdlib.Arith.Arith <> <> lib
+R806:819 Stdlib.Lists.List <> <> lib
+R837:849 Stdlib.Bool.Bool <> <> lib
+R867:869 Stdlib.micromega.Lia <> <> lib
+R879:891 Stdlib.Lists.List ListNotations <> mod
+R910:919 SotFS.SotfsGraph <> <> lib
+rec 1373:1381 <> CreatePre
+proj 1455:1467 <> cp_dir_exists
+proj 1491:1502 <> cp_user_name
+proj 1530:1542 <> cp_name_fresh
+proj 1580:1591 <> cp_ino_fresh
+R1388:1392 SotFS.SotfsGraph <> Graph rec
+binder 1384:1384 <> g:1
+R1400:1404 SotFS.SotfsGraph <> DirId def
+binder 1396:1396 <> d:2
+R1415:1418 SotFS.SotfsGraph <> Name def
+binder 1408:1411 <> name:3
+R1432:1438 SotFS.SotfsGraph <> InodeId def
+binder 1422:1428 <> new_ino:4
+R1473:1482 SotFS.SotfsGraph <> dir_exists def
+R1484:1484 SotFS.DpoCreate <> g:1 var
+R1486:1486 SotFS.DpoCreate <> d:2 var
+R1509:1520 SotFS.SotfsGraph <> is_user_name def
+R1522:1525 SotFS.DpoCreate <> name:3 var
+R1568:1570 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R1548:1558 SotFS.SotfsGraph <> name_in_dir def
+R1560:1560 SotFS.DpoCreate <> g:1 var
+R1562:1562 SotFS.DpoCreate <> d:2 var
+R1564:1567 SotFS.DpoCreate <> name:3 var
+R1571:1575 Corelib.Init.Datatypes <> false constr
+R1598:1599 Corelib.Init.Logic <> ::type_scope:'~'_x not
+R1600:1611 SotFS.SotfsGraph <> inode_exists def
+R1613:1613 SotFS.DpoCreate <> g:1 var
+R1615:1621 SotFS.DpoCreate <> new_ino:4 var
+def 1868:1878 <> create_file
+R1885:1889 SotFS.SotfsGraph <> Graph rec
+binder 1881:1881 <> g:10
+R1897:1901 SotFS.SotfsGraph <> DirId def
+binder 1893:1893 <> d:11
+R1912:1915 SotFS.SotfsGraph <> Name def
+binder 1905:1908 <> name:12
+R1929:1935 SotFS.SotfsGraph <> InodeId def
+binder 1919:1925 <> new_ino:13
+R1942:1946 SotFS.SotfsGraph <> Graph rec
+R1956:1963 SotFS.SotfsGraph <> g_inodes proj
+R2016:2021 SotFS.SotfsGraph <> g_dirs proj
+R2043:2049 SotFS.SotfsGraph <> g_edges proj
+R1978:1981 Corelib.Init.Datatypes <> ::list_scope:x_'++'_x not
+R1968:1975 SotFS.SotfsGraph <> g_inodes proj
+R1977:1977 SotFS.DpoCreate <> g:10 var
+R1982:1982 Stdlib.Lists.List ListNotations ::list_scope:'['_x_']' not
+R2008:2008 Stdlib.Lists.List ListNotations ::list_scope:'['_x_']' not
+R1983:1989 SotFS.SotfsGraph <> mkInode constr
+R1991:1997 SotFS.DpoCreate <> new_ino:13 var
+R1999:2005 SotFS.SotfsGraph <> Regular constr
+R2028:2033 SotFS.SotfsGraph <> g_dirs proj
+R2035:2035 SotFS.DpoCreate <> g:10 var
+R2064:2067 Corelib.Init.Datatypes <> ::list_scope:x_'++'_x not
+R2055:2061 SotFS.SotfsGraph <> g_edges proj
+R2063:2063 SotFS.DpoCreate <> g:10 var
+R2068:2068 Stdlib.Lists.List ListNotations ::list_scope:'['_x_']' not
+R2094:2094 Stdlib.Lists.List ListNotations ::list_scope:'['_x_']' not
+R2069:2078 SotFS.SotfsGraph <> mkContains constr
+R2080:2080 SotFS.DpoCreate <> d:11 var
+R2082:2088 SotFS.DpoCreate <> new_ino:13 var
+R2090:2093 SotFS.DpoCreate <> name:12 var
+prf 2379:2395 <> create_new_ino_in
+binder 2408:2408 <> g:14
+binder 2410:2410 <> d:15
+binder 2412:2415 <> name:16
+binder 2417:2423 <> new_ino:17
+R2430:2441 SotFS.SotfsGraph <> inode_exists def
+R2444:2454 SotFS.DpoCreate <> create_file def
+R2456:2456 SotFS.DpoCreate <> g:14 var
+R2458:2458 SotFS.DpoCreate <> d:15 var
+R2460:2463 SotFS.DpoCreate <> name:16 var
+R2465:2471 SotFS.DpoCreate <> new_ino:17 var
+R2474:2480 SotFS.DpoCreate <> new_ino:17 var
+R2507:2518 SotFS.SotfsGraph <> inode_exists def
+R2521:2529 SotFS.SotfsGraph <> inode_ids def
+R2532:2542 SotFS.DpoCreate <> create_file def
+R2562:2568 Stdlib.Lists.List <> map_app thm
+R2577:2585 Stdlib.Lists.List <> in_or_app thm
+prf 2664:2686 <> create_preserves_inodes
+binder 2699:2699 <> g:18
+binder 2701:2701 <> d:19
+binder 2703:2706 <> name:20
+binder 2708:2714 <> new_ino:21
+binder 2716:2717 <> id:22
+R2741:2744 Corelib.Init.Notations <> ::type_scope:x_'->'_x not
+R2724:2735 SotFS.SotfsGraph <> inode_exists def
+R2737:2737 SotFS.DpoCreate <> g:18 var
+R2739:2740 SotFS.DpoCreate <> id:22 var
+R2745:2756 SotFS.SotfsGraph <> inode_exists def
+R2759:2769 SotFS.DpoCreate <> create_file def
+R2771:2771 SotFS.DpoCreate <> g:18 var
+R2773:2773 SotFS.DpoCreate <> d:19 var
+R2775:2778 SotFS.DpoCreate <> name:20 var
+R2780:2786 SotFS.DpoCreate <> new_ino:21 var
+R2789:2790 SotFS.DpoCreate <> id:22 var
+R2817:2828 SotFS.SotfsGraph <> inode_exists def
+R2831:2839 SotFS.SotfsGraph <> inode_ids def
+R2842:2852 SotFS.DpoCreate <> create_file def
+R2877:2883 Stdlib.Lists.List <> map_app thm
+R2892:2900 Stdlib.Lists.List <> in_or_app thm
+prf 2976:2996 <> create_preserves_dirs
+binder 3009:3009 <> g:23
+binder 3011:3011 <> d:24
+binder 3013:3016 <> name:25
+binder 3018:3024 <> new_ino:26
+binder 3026:3027 <> id:27
+R3049:3053 Corelib.Init.Logic <> ::type_scope:x_'<->'_x not
+R3034:3043 SotFS.SotfsGraph <> dir_exists def
+R3045:3045 SotFS.DpoCreate <> g:23 var
+R3047:3048 SotFS.DpoCreate <> id:27 var
+R3054:3063 SotFS.SotfsGraph <> dir_exists def
+R3066:3076 SotFS.DpoCreate <> create_file def
+R3078:3078 SotFS.DpoCreate <> g:23 var
+R3080:3080 SotFS.DpoCreate <> d:24 var
+R3082:3085 SotFS.DpoCreate <> name:25 var
+R3087:3093 SotFS.DpoCreate <> new_ino:26 var
+R3096:3097 SotFS.DpoCreate <> id:27 var
+R3124:3133 SotFS.SotfsGraph <> dir_exists def
+R3136:3142 SotFS.SotfsGraph <> dir_ids def
+R3145:3155 SotFS.DpoCreate <> create_file def
+prf 3224:3235 <> create_edges
+binder 3248:3248 <> g:28
+binder 3250:3250 <> d:29
+binder 3252:3255 <> name:30
+binder 3257:3263 <> new_ino:31
+binder 3265:3265 <> e:32
+R3317:3325 Corelib.Init.Logic <> ::type_scope:x_'<->'_x not
+R3272:3273 Stdlib.Lists.List <> In def
+R3278:3284 SotFS.SotfsGraph <> g_edges proj
+R3287:3297 SotFS.DpoCreate <> create_file def
+R3299:3299 SotFS.DpoCreate <> g:28 var
+R3301:3301 SotFS.DpoCreate <> d:29 var
+R3303:3306 SotFS.DpoCreate <> name:30 var
+R3308:3314 SotFS.DpoCreate <> new_ino:31 var
+R3275:3275 SotFS.DpoCreate <> e:32 var
+R3342:3345 Corelib.Init.Logic <> ::type_scope:x_'\/'_x not
+R3326:3327 Stdlib.Lists.List <> In def
+R3332:3338 SotFS.SotfsGraph <> g_edges proj
+R3340:3340 SotFS.DpoCreate <> g:28 var
+R3329:3329 SotFS.DpoCreate <> e:32 var
+R3347:3349 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R3346:3346 SotFS.DpoCreate <> e:32 var
+R3350:3359 SotFS.SotfsGraph <> mkContains constr
+R3361:3361 SotFS.DpoCreate <> d:29 var
+R3363:3369 SotFS.DpoCreate <> new_ino:31 var
+R3371:3374 SotFS.DpoCreate <> name:30 var
+R3401:3411 SotFS.DpoCreate <> create_file def
+R3429:3438 Stdlib.Lists.List <> in_app_iff thm
+prf 3724:3742 <> create_find_new_ino
+binder 3755:3755 <> g:33
+binder 3757:3757 <> d:34
+binder 3759:3762 <> name:35
+binder 3764:3770 <> new_ino:36
+R3801:3808 Corelib.Init.Notations <> ::type_scope:x_'->'_x not
+R3777:3778 Corelib.Init.Logic <> ::type_scope:'~'_x not
+R3779:3790 SotFS.SotfsGraph <> inode_exists def
+R3792:3792 SotFS.DpoCreate <> g:33 var
+R3794:3800 SotFS.DpoCreate <> new_ino:36 var
+R3824:3831 Corelib.Init.Notations <> ::type_scope:x_'->'_x not
+R3809:3821 SotFS.SotfsGraph <> NoDupInodeIds def
+R3823:3823 SotFS.DpoCreate <> g:33 var
+R3881:3889 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R3832:3841 SotFS.SotfsGraph <> find_inode def
+R3844:3854 SotFS.DpoCreate <> create_file def
+R3856:3856 SotFS.DpoCreate <> g:33 var
+R3858:3858 SotFS.DpoCreate <> d:34 var
+R3860:3863 SotFS.DpoCreate <> name:35 var
+R3865:3871 SotFS.DpoCreate <> new_ino:36 var
+R3874:3880 SotFS.DpoCreate <> new_ino:36 var
+R3890:3893 Corelib.Init.Datatypes <> Some constr
+R3896:3902 SotFS.SotfsGraph <> mkInode constr
+R3904:3910 SotFS.DpoCreate <> new_ino:36 var
+R3912:3918 SotFS.SotfsGraph <> Regular constr
+R3981:3990 SotFS.SotfsGraph <> find_inode def
+R3993:4003 SotFS.DpoCreate <> create_file def
+R4023:4034 SotFS.SotfsGraph <> find_app_iff thm
+R4049:4052 Stdlib.Lists.List <> find def
+R4094:4101 SotFS.SotfsGraph <> g_inodes proj
+binder 4059:4060 <> ir:37
+R4065:4071 Stdlib.Arith.PeanoNat Nat eqb def
+R4074:4078 SotFS.SotfsGraph <> ir_id proj
+R4080:4081 SotFS.DpoCreate <> ir:37 var
+binder 4059:4060 <> ir:38
+R4080:4081 SotFS.DpoCreate <> ir:38 var
+R4190:4198 Stdlib.Lists.List <> find_some thm
+R4250:4259 Stdlib.Arith.PeanoNat Nat eqb_eq thm
+R4308:4319 SotFS.SotfsGraph <> inode_exists def
+R4322:4330 SotFS.SotfsGraph <> inode_ids def
+R4343:4352 Stdlib.Lists.List <> in_map_iff thm
+R4448:4459 Stdlib.Arith.PeanoNat Nat eqb_refl thm
+prf 4525:4543 <> create_find_old_ino
+binder 4556:4556 <> g:39
+binder 4558:4558 <> d:40
+binder 4560:4563 <> name:41
+binder 4565:4571 <> new_ino:42
+binder 4573:4574 <> id:43
+R4594:4601 Corelib.Init.Notations <> ::type_scope:x_'->'_x not
+R4583:4586 Corelib.Init.Logic <> ::type_scope:x_'<>'_x not
+R4581:4582 SotFS.DpoCreate <> id:43 var
+R4587:4593 SotFS.DpoCreate <> new_ino:42 var
+R4646:4648 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R4602:4611 SotFS.SotfsGraph <> find_inode def
+R4614:4624 SotFS.DpoCreate <> create_file def
+R4626:4626 SotFS.DpoCreate <> g:39 var
+R4628:4628 SotFS.DpoCreate <> d:40 var
+R4630:4633 SotFS.DpoCreate <> name:41 var
+R4635:4641 SotFS.DpoCreate <> new_ino:42 var
+R4644:4645 SotFS.DpoCreate <> id:43 var
+R4649:4658 SotFS.SotfsGraph <> find_inode def
+R4660:4660 SotFS.DpoCreate <> g:39 var
+R4662:4663 SotFS.DpoCreate <> id:43 var
+R4717:4726 SotFS.SotfsGraph <> find_inode def
+R4729:4739 SotFS.DpoCreate <> create_file def
+R4759:4770 SotFS.SotfsGraph <> find_app_iff thm
+R4785:4788 Stdlib.Lists.List <> find def
+R4825:4832 SotFS.SotfsGraph <> g_inodes proj
+binder 4795:4796 <> ir:44
+R4801:4807 Stdlib.Arith.PeanoNat Nat eqb def
+R4810:4814 SotFS.SotfsGraph <> ir_id proj
+R4816:4817 SotFS.DpoCreate <> ir:44 var
+binder 4795:4796 <> ir:45
+R4816:4817 SotFS.DpoCreate <> ir:45 var
+R4911:4913 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R4893:4899 Stdlib.Arith.PeanoNat Nat eqb def
+R4914:4918 Corelib.Init.Datatypes <> false constr
+R4934:4944 Stdlib.Arith.PeanoNat Nat eqb_neq thm
+prf 5062:5084 <> create_incoming_old_ino
+binder 5097:5097 <> g:46
+binder 5099:5099 <> d:47
+binder 5101:5104 <> name:48
+binder 5106:5112 <> new_ino:49
+binder 5114:5116 <> ino:50
+R5137:5144 Corelib.Init.Notations <> ::type_scope:x_'->'_x not
+R5126:5129 Corelib.Init.Logic <> ::type_scope:x_'<>'_x not
+R5123:5125 SotFS.DpoCreate <> ino:50 var
+R5130:5136 SotFS.DpoCreate <> new_ino:49 var
+R5194:5200 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R5145:5158 SotFS.SotfsGraph <> incoming_count def
+R5161:5171 SotFS.DpoCreate <> create_file def
+R5173:5173 SotFS.DpoCreate <> g:46 var
+R5175:5175 SotFS.DpoCreate <> d:47 var
+R5177:5180 SotFS.DpoCreate <> name:48 var
+R5182:5188 SotFS.DpoCreate <> new_ino:49 var
+R5191:5193 SotFS.DpoCreate <> ino:50 var
+R5201:5214 SotFS.SotfsGraph <> incoming_count def
+R5216:5216 SotFS.DpoCreate <> g:46 var
+R5218:5220 SotFS.DpoCreate <> ino:50 var
+R5247:5260 SotFS.SotfsGraph <> incoming_count def
+R5263:5273 SotFS.DpoCreate <> create_file def
+R5293:5310 SotFS.SotfsGraph <> count_occ_pred_app thm
+R5356:5358 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R5337:5343 Stdlib.Arith.PeanoNat Nat eqb def
+R5359:5363 Corelib.Init.Datatypes <> false constr
+R5377:5387 Stdlib.Arith.PeanoNat Nat eqb_neq thm
+prf 5669:5698 <> create_preserves_TypeInvariant
+binder 5711:5711 <> g:51
+binder 5713:5713 <> d:52
+binder 5715:5718 <> name:53
+binder 5720:5726 <> new_ino:54
+R5745:5752 Corelib.Init.Notations <> ::type_scope:x_'->'_x not
+R5733:5742 SotFS.SotfsGraph <> WellFormed def
+R5744:5744 SotFS.DpoCreate <> g:51 var
+R5779:5786 Corelib.Init.Notations <> ::type_scope:x_'->'_x not
+R5753:5761 SotFS.DpoCreate <> CreatePre rec
+R5763:5763 SotFS.DpoCreate <> g:51 var
+R5765:5765 SotFS.DpoCreate <> d:52 var
+R5767:5770 SotFS.DpoCreate <> name:53 var
+R5772:5778 SotFS.DpoCreate <> new_ino:54 var
+R5787:5799 SotFS.SotfsGraph <> TypeInvariant def
+R5802:5812 SotFS.DpoCreate <> create_file def
+R5814:5814 SotFS.DpoCreate <> g:51 var
+R5816:5816 SotFS.DpoCreate <> d:52 var
+R5818:5821 SotFS.DpoCreate <> name:53 var
+R5823:5829 SotFS.DpoCreate <> new_ino:54 var
+R6028:6040 SotFS.SotfsGraph <> TypeInvariant def
+R6122:6133 SotFS.DpoCreate <> create_edges thm
+R6238:6258 SotFS.DpoCreate <> create_preserves_dirs thm
+R6285:6307 SotFS.DpoCreate <> create_preserves_inodes thm
+R6364:6384 SotFS.DpoCreate <> create_preserves_dirs thm
+R6413:6429 SotFS.DpoCreate <> create_new_ino_in thm
+R6467:6479 SotFS.SotfsGraph <> NoDupInodeIds def
+R6482:6490 SotFS.SotfsGraph <> inode_ids def
+R6493:6503 SotFS.DpoCreate <> create_file def
+R6525:6531 Stdlib.Lists.List <> map_app thm
+R6551:6565 SotFS.SotfsGraph <> NoDup_app_intro thm
+R6768:6779 SotFS.SotfsGraph <> inode_exists def
+R6782:6790 SotFS.SotfsGraph <> inode_ids def
+R6859:6869 SotFS.SotfsGraph <> NoDupDirIds def
+R6872:6878 SotFS.SotfsGraph <> dir_ids def
+R6881:6891 SotFS.DpoCreate <> create_file def
+prf 7376:7411 <> create_preserves_LinkCountConsistent
+binder 7424:7424 <> g:55
+binder 7426:7426 <> d:56
+binder 7428:7431 <> name:57
+binder 7433:7439 <> new_ino:58
+R7458:7465 Corelib.Init.Notations <> ::type_scope:x_'->'_x not
+R7446:7455 SotFS.SotfsGraph <> WellFormed def
+R7457:7457 SotFS.DpoCreate <> g:55 var
+R7492:7499 Corelib.Init.Notations <> ::type_scope:x_'->'_x not
+R7466:7474 SotFS.DpoCreate <> CreatePre rec
+R7476:7476 SotFS.DpoCreate <> g:55 var
+R7478:7478 SotFS.DpoCreate <> d:56 var
+R7480:7483 SotFS.DpoCreate <> name:57 var
+R7485:7491 SotFS.DpoCreate <> new_ino:58 var
+R7500:7518 SotFS.SotfsGraph <> LinkCountConsistent def
+R7521:7531 SotFS.DpoCreate <> create_file def
+R7533:7533 SotFS.DpoCreate <> g:55 var
+R7535:7535 SotFS.DpoCreate <> d:56 var
+R7537:7540 SotFS.DpoCreate <> name:57 var
+R7542:7548 SotFS.DpoCreate <> new_ino:58 var
+R7706:7724 SotFS.SotfsGraph <> LinkCountConsistent def
+R7753:7763 SotFS.DpoCreate <> create_file def
+R7795:7804 Stdlib.Lists.List <> in_app_iff thm
+R7935:7938 Corelib.Init.Logic <> ::type_scope:x_'<>'_x not
+R7927:7931 SotFS.SotfsGraph <> ir_id proj
+R7997:8008 SotFS.SotfsGraph <> inode_exists def
+R8011:8019 SotFS.SotfsGraph <> inode_ids def
+R8034:8043 Stdlib.Lists.List <> in_map_iff thm
+R8091:8113 SotFS.DpoCreate <> create_incoming_old_ino thm
+R8133:8137 SotFS.SotfsGraph <> ir_id proj
+R8311:8324 SotFS.SotfsGraph <> incoming_count def
+R8327:8337 SotFS.DpoCreate <> create_file def
+R8359:8376 SotFS.SotfsGraph <> count_occ_pred_app thm
+R8398:8409 Stdlib.Arith.PeanoNat Nat eqb_refl thm
+R8456:8458 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R8432:8438 Stdlib.Arith.PeanoNat Nat eqb def
+R8445:8455 SotFS.SotfsGraph <> dotdot_name def
+R8459:8463 Corelib.Init.Datatypes <> false constr
+R8479:8489 Stdlib.Arith.PeanoNat Nat eqb_neq thm
+R8498:8517 SotFS.SotfsGraph <> user_name_not_dotdot thm
+R8836:8838 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R8714:8727 SotFS.SotfsGraph <> count_occ_pred def
+R8826:8832 SotFS.SotfsGraph <> g_edges proj
+binder 8742:8742 <> e:59
+R8773:8776 Corelib.Init.Datatypes <> ::bool_scope:x_'&&'_x not
+R8747:8753 Stdlib.Arith.PeanoNat Nat eqb def
+R8756:8761 SotFS.SotfsGraph <> ce_ino proj
+R8763:8763 SotFS.DpoCreate <> e:59 var
+R8777:8780 Corelib.Init.Datatypes <> negb def
+R8783:8789 Stdlib.Arith.PeanoNat Nat eqb def
+R8792:8798 SotFS.SotfsGraph <> ce_name proj
+R8800:8800 SotFS.DpoCreate <> e:59 var
+R8803:8813 SotFS.SotfsGraph <> dotdot_name def
+binder 8742:8742 <> e:60
+R8763:8763 SotFS.DpoCreate <> e:60 var
+R8800:8800 SotFS.DpoCreate <> e:60 var
+R8855:8880 SotFS.SotfsGraph <> not_in_edges_incoming_zero thm
+prf 9283:9316 <> create_preserves_UniqueNamesPerDir
+binder 9329:9329 <> g:61
+binder 9331:9331 <> d:62
+binder 9333:9336 <> name:63
+binder 9338:9344 <> new_ino:64
+R9363:9370 Corelib.Init.Notations <> ::type_scope:x_'->'_x not
+R9351:9360 SotFS.SotfsGraph <> WellFormed def
+R9362:9362 SotFS.DpoCreate <> g:61 var
+R9397:9404 Corelib.Init.Notations <> ::type_scope:x_'->'_x not
+R9371:9379 SotFS.DpoCreate <> CreatePre rec
+R9381:9381 SotFS.DpoCreate <> g:61 var
+R9383:9383 SotFS.DpoCreate <> d:62 var
+R9385:9388 SotFS.DpoCreate <> name:63 var
+R9390:9396 SotFS.DpoCreate <> new_ino:64 var
+R9405:9421 SotFS.SotfsGraph <> UniqueNamesPerDir def
+R9424:9434 SotFS.DpoCreate <> create_file def
+R9436:9436 SotFS.DpoCreate <> g:61 var
+R9438:9438 SotFS.DpoCreate <> d:62 var
+R9440:9443 SotFS.DpoCreate <> name:63 var
+R9445:9451 SotFS.DpoCreate <> new_ino:64 var
+R9609:9625 SotFS.SotfsGraph <> UniqueNamesPerDir def
+R9679:9690 SotFS.DpoCreate <> create_edges thm
+R9707:9718 SotFS.DpoCreate <> create_edges thm
+R9980:10003 SotFS.SotfsGraph <> name_in_dir_false_not_in thm
+R10039:10044 SotFS.SotfsGraph <> ce_ino proj
+R10226:10249 SotFS.SotfsGraph <> name_in_dir_false_not_in thm
+R10285:10290 SotFS.SotfsGraph <> ce_ino proj
+prf 10646:10677 <> create_preserves_NoDanglingEdges
+binder 10690:10690 <> g:65
+binder 10692:10692 <> d:66
+binder 10694:10697 <> name:67
+binder 10699:10705 <> new_ino:68
+R10724:10731 Corelib.Init.Notations <> ::type_scope:x_'->'_x not
+R10712:10721 SotFS.SotfsGraph <> WellFormed def
+R10723:10723 SotFS.DpoCreate <> g:65 var
+R10758:10765 Corelib.Init.Notations <> ::type_scope:x_'->'_x not
+R10732:10740 SotFS.DpoCreate <> CreatePre rec
+R10742:10742 SotFS.DpoCreate <> g:65 var
+R10744:10744 SotFS.DpoCreate <> d:66 var
+R10746:10749 SotFS.DpoCreate <> name:67 var
+R10751:10757 SotFS.DpoCreate <> new_ino:68 var
+R10766:10780 SotFS.SotfsGraph <> NoDanglingEdges def
+R10783:10793 SotFS.DpoCreate <> create_file def
+R10795:10795 SotFS.DpoCreate <> g:65 var
+R10797:10797 SotFS.DpoCreate <> d:66 var
+R10799:10802 SotFS.DpoCreate <> name:67 var
+R10804:10810 SotFS.DpoCreate <> new_ino:68 var
+R10968:10982 SotFS.SotfsGraph <> NoDanglingEdges def
+R11009:11020 SotFS.DpoCreate <> create_edges thm
+R11118:11138 SotFS.DpoCreate <> create_preserves_dirs thm
+R11163:11185 SotFS.DpoCreate <> create_preserves_inodes thm
+R11237:11257 SotFS.DpoCreate <> create_preserves_dirs thm
+R11284:11300 SotFS.DpoCreate <> create_new_ino_in thm
+prf 11671:11698 <> create_preserves_NoDirCycles
+binder 11711:11711 <> g:69
+binder 11713:11713 <> d:70
+binder 11715:11718 <> name:71
+binder 11720:11726 <> new_ino:72
+R11745:11752 Corelib.Init.Notations <> ::type_scope:x_'->'_x not
+R11733:11742 SotFS.SotfsGraph <> WellFormed def
+R11744:11744 SotFS.DpoCreate <> g:69 var
+R11779:11786 Corelib.Init.Notations <> ::type_scope:x_'->'_x not
+R11753:11761 SotFS.DpoCreate <> CreatePre rec
+R11763:11763 SotFS.DpoCreate <> g:69 var
+R11765:11765 SotFS.DpoCreate <> d:70 var
+R11767:11770 SotFS.DpoCreate <> name:71 var
+R11772:11778 SotFS.DpoCreate <> new_ino:72 var
+R11787:11797 SotFS.SotfsGraph <> NoDirCycles def
+R11800:11810 SotFS.DpoCreate <> create_file def
+R11812:11812 SotFS.DpoCreate <> g:69 var
+R11814:11814 SotFS.DpoCreate <> d:70 var
+R11816:11819 SotFS.DpoCreate <> name:71 var
+R11821:11827 SotFS.DpoCreate <> new_ino:72 var
+R12126:12137 SotFS.DpoCreate <> create_edges thm
+R12211:12220 Stdlib.Arith.PeanoNat Nat eq_dec thm
+R12223:12228 SotFS.SotfsGraph <> ce_ino proj
+R12399:12417 SotFS.DpoCreate <> create_find_new_ino thm
+R12580:12598 SotFS.DpoCreate <> create_find_old_ino thm
+R12618:12623 SotFS.SotfsGraph <> ce_ino proj
+R12657:12669 SotFS.SotfsGraph <> dir_for_inode def
+R12695:12705 SotFS.DpoCreate <> create_file def
+R12813:12825 SotFS.SotfsGraph <> dir_for_inode def
+R12936:12954 SotFS.DpoCreate <> create_find_new_ino thm
+prf 13308:13334 <> create_preserves_WellFormed
+binder 13347:13347 <> g:73
+binder 13349:13349 <> d:74
+binder 13351:13354 <> name:75
+binder 13356:13362 <> new_ino:76
+R13381:13388 Corelib.Init.Notations <> ::type_scope:x_'->'_x not
+R13369:13378 SotFS.SotfsGraph <> WellFormed def
+R13380:13380 SotFS.DpoCreate <> g:73 var
+R13415:13422 Corelib.Init.Notations <> ::type_scope:x_'->'_x not
+R13389:13397 SotFS.DpoCreate <> CreatePre rec
+R13399:13399 SotFS.DpoCreate <> g:73 var
+R13401:13401 SotFS.DpoCreate <> d:74 var
+R13403:13406 SotFS.DpoCreate <> name:75 var
+R13408:13414 SotFS.DpoCreate <> new_ino:76 var
+R13423:13432 SotFS.SotfsGraph <> WellFormed def
+R13435:13445 SotFS.DpoCreate <> create_file def
+R13447:13447 SotFS.DpoCreate <> g:73 var
+R13449:13449 SotFS.DpoCreate <> d:74 var
+R13451:13454 SotFS.DpoCreate <> name:75 var
+R13456:13462 SotFS.DpoCreate <> new_ino:76 var
+R13518:13527 SotFS.SotfsGraph <> WellFormed def
+R13581:13610 SotFS.DpoCreate <> create_preserves_TypeInvariant thm
+R13651:13686 SotFS.DpoCreate <> create_preserves_LinkCountConsistent thm
+R13727:13760 SotFS.DpoCreate <> create_preserves_UniqueNamesPerDir thm
+R13801:13832 SotFS.DpoCreate <> create_preserves_NoDanglingEdges thm
+R13873:13900 SotFS.DpoCreate <> create_preserves_NoDirCycles thm

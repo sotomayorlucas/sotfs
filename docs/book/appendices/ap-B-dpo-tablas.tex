@@ -1,0 +1,118 @@
+\chapter{Tablas DPO por operación POSIX}
+\label{ap:dpo-tablas}
+
+Para cada operación POSIX cubierta en el cap.~\ref{cap:dpo}, este
+apéndice da la tripleta $(L, K, R)$ y la gluing condition formal en
+una tabla compacta. Usar como referencia rápida al leer
+\citaCrate{sotfs-ops}.
+
+\section*{\opcreate{}}
+
+\begin{tabularx}{\linewidth}{l X}
+  \toprule
+  $L$ & $\{d\}$ (un \Dir) \\
+  $K$ & $L$ \\
+  $R$ & $\{d, i_{\text{new}}\}$ + arista $d \xrightarrow{\econtains, n} i_{\text{new}}$, $i_{\text{new}}.\texttt{link\_count} = 1$ \\
+  Gluing & $\neg\,\exists\,e \in E_d^{\econtains}: e.\texttt{name} = n$ \\
+  Errno & \eexist \\
+  Coq   & \citaCoq{DpoCreate.v}, \texttt{create\_preserves\_WellFormed} (línea 335) \\
+  \bottomrule
+\end{tabularx}
+
+\section*{\opmkdir{}}
+
+\begin{tabularx}{\linewidth}{l X}
+  \toprule
+  $L$ & $\{d_{\text{p}}, i_{\text{p}}\}$ (dir padre + su inode) \\
+  $K$ & $L$ \\
+  $R$ & $L$ + \{$d_{\text{new}}, i_{\text{new}}$\} + 3 aristas \econtains: padre$\xrightarrow{n}$nuevo, nuevo$\xrightarrow{.}$nuevo, nuevo$\xrightarrow{..}$padre.\,inode \\
+  Gluing & $\neg\,\exists\,e \in E_{d_{\text{p}}}^{\econtains}: e.\texttt{name} = n$ \\
+  Errno & \eexist \\
+  Coq   & \citaCoq{DpoMkdir.v} línea 572 \\
+  \bottomrule
+\end{tabularx}
+
+\section*{\oplink{} (hard link)}
+
+\begin{tabularx}{\linewidth}{l X}
+  \toprule
+  $L$ & $\{d, i\}$ \\
+  $K$ & $L$ \\
+  $R$ & $L$ + arista $d \xrightarrow{\econtains, n} i$; $i.\texttt{link\_count} \mathrel{{+}{=}} 1$ \\
+  Gluing & $\neg\,\exists\,e \in E_d^{\econtains}: e.\texttt{name} = n$ \,$\wedge$\, $i.\texttt{link\_count} < \texttt{LINK\_MAX}$ \\
+  Errno & \eexist, \texttt{EMLINK} \\
+  Coq   & \citaCoq{DpoLink.v} línea 369 \\
+  \bottomrule
+\end{tabularx}
+
+\section*{\opunlink{}}
+
+\begin{tabularx}{\linewidth}{l X}
+  \toprule
+  $L$ & $\{d, i\}$ + arista $d \xrightarrow{n} i$ \\
+  $K$ & $\{d\}$ si $i.\texttt{link\_count} = 1$, $\{d, i\}$ si $> 1$ \\
+  $R$ & $K$; si $i \in K$, $i.\texttt{link\_count} \mathrel{{-}{=}} 1$; remover arista \\
+  Gluing & $\exists\,e: \mathrm{src}(e)=d, e.\texttt{name}=n$ \,$\wedge$\, $i.\texttt{vtype} \neq \texttt{Directory}$ \\
+  Errno & \enoent, \texttt{EISDIR} \\
+  Coq   & \citaCoq{DpoUnlink.v} línea 300 (versión \texttt{keep}) \\
+  \bottomrule
+\end{tabularx}
+
+\section*{\oprmdir{}}
+
+\begin{tabularx}{\linewidth}{l X}
+  \toprule
+  $L$ & $\{d_{\text{p}}, d, i\}$ + 3 aristas (\econtains{} padre$\to$inode, self-ref, parent-ref) \\
+  $K$ & $\{d_{\text{p}}\}$ \\
+  $R$ & $K$ \\
+  Gluing & $E_d^{\econtains} = \{\,d \xrightarrow{.} i,\; d \xrightarrow{..} d_{\text{p}}.\texttt{inode}\,\}$ (dir vacío) \\
+  Errno & \enotempty, \enoent \\
+  Coq   & \citaCoq{DpoRmdir.v} \textbf{3 \texttt{Admitted}} (líneas 349, 405, 505) \\
+  \bottomrule
+\end{tabularx}
+
+\section*{\oprename{} (same-dir)}
+
+\begin{tabularx}{\linewidth}{l X}
+  \toprule
+  $L$ & $\{d, i\}$ + arista $d \xrightarrow{n} i$ \\
+  $K$ & $\{d, i\}$ \\
+  $R$ & $K$ + arista $d \xrightarrow{n'} i$ (misma EdgeId, reescribe atributo \texttt{name}) \\
+  Gluing & $\neg\,\exists\,e \in E_d^{\econtains}: e.\texttt{name} = n'$ \\
+  Errno & \eexist, \enoent \\
+  Coq   & \citaCoq{DpoRename.v} línea 304 \\
+  \bottomrule
+\end{tabularx}
+
+\section*{\oprename{} (cross-dir)}
+
+\begin{tabularx}{\linewidth}{l X}
+  \toprule
+  $L$ & $\{d_1, d_2, i\}$ + arista $d_1 \xrightarrow{n} i$ \\
+  $K$ & $\{d_1, d_2, i\}$ \\
+  $R$ & $K$ + arista $d_2 \xrightarrow{n'} i$; si $i$ es dir, actualiza su \texttt{..} \\
+  Gluing & ($\neg\,\exists\,e \in E_{d_2}^{\econtains}: e.\texttt{name} = n'$) $\wedge$ (si $i$ es dir, $i \notin \mathrm{ancestors}(d_2)$) \\
+  Errno & \eexist, \texttt{EINVAL} \\
+  Coq   & idem que same-dir (la prueba cubre ambos casos) \\
+  \bottomrule
+\end{tabularx}
+
+\section*{\opwrite{} (un bloque)}
+
+\begin{tabularx}{\linewidth}{l X}
+  \toprule
+  $L$ & $\{i\}$ \\
+  $K$ & $L$ \\
+  $R$ & $L$ + $\{b\}$ + arista $i \xrightarrow{\epointsto, \mathrm{off}=k} b$; $b.\texttt{refcount}=1$ \\
+  Gluing & $i.\texttt{vtype} = \texttt{Regular}$ \\
+  Errno & \texttt{EISDIR}, \texttt{ENOSPC} \\
+  Coq   & --- (no formalizado en v0.2.5) \\
+  \bottomrule
+\end{tabularx}
+
+\section*{Resumen}
+
+De las siete operaciones, seis tienen prueba Coq completa de
+preservación de \texttt{WellFormed}. La séptima, \opwrite, todavía no
+está formalizada en Coq. \oprmdir{} tiene su teorema con
+tres \texttt{Admitted} (cf.\ cap.~\ref{cap:coq}).

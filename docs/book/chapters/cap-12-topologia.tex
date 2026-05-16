@@ -1,0 +1,276 @@
+\chapter{Topología del grafo: treewidth y curvatura}
+\label{cap:topologia}
+
+Hasta acá los invariantes del TypeGraph fueron \emph{semánticos}: link
+counts, monotonía de capabilities, ausencia de ciclos de directorios.
+Este capítulo introduce dos métricas \emph{estructurales} que el
+runtime computa sobre el grafo: \emph{treewidth} (aproximada) y
+\emph{curvatura de Ollivier-Ricci}. Ambas miden qué tan ``árbol-like''
+es el grafo. La motivación es operativa: si un workload adversarial
+empuja el grafo lejos del régimen tree-like, se levantan alertas; si
+una proyección del grafo (cap.~\ref{cap:decepcion}) tiene curvatura
+sistemáticamente distinta del original, el atacante podría detectarla
+por timing-side-channel.
+
+\section{Por qué importan estas métricas en un FS}
+
+\paragraph{Treewidth.} Una cantidad asociada a cómo de bien un grafo se
+puede descomponer en un árbol de bags pequeños. Treewidth bajo
+$\Leftrightarrow$ grafo tree-like $\Leftrightarrow$ muchos algoritmos
+NP-difíciles se vuelven polinomiales sobre él. Para sotFS, un
+treewidth acotado superiormente por el \texttt{LINK\_MAX = 65535}
+(cap.~\ref{cap:typegraph}) más unas pocas unidades garantiza
+escalabilidad de algoritmos de análisis y monitoreo.
+
+\paragraph{Curvatura.} La curvatura de Ollivier-Ricci sobre un grafo
+mide qué tan ``positivamente curvado'' (cliques, esferas) o
+``negativamente curvado'' (árboles, cuellos de botella) es cada arista.
+Permite detectar patrones adversariales: una ``symlink bomb''
+produce una firma de curvatura distinta a la de un FS normal; una
+operación de \texttt{mkdir} masivo produce una spike positiva en el
+directorio padre.
+
+\section{Treewidth: definición y aproximación}
+
+\begin{defn}[Tree decomposition]
+\label{def:tree-decomposition}
+Una \emph{tree decomposition} de un grafo $G = (V, E)$ es un árbol $T$
+junto con una asignación $X: V_T \to \mathcal{P}(V)$ tal que:
+\begin{enumerate}
+  \item $\bigcup_{t \in V_T} X(t) = V$.
+  \item Para toda arista $(u, v) \in E$, existe $t$ con
+    $\{u, v\} \subseteq X(t)$.
+  \item Para todo $v \in V$, el conjunto $\{t : v \in X(t)\}$ induce
+    un subárbol conexo de $T$.
+\end{enumerate}
+El \emph{ancho} de la descomposición es $\max_t |X(t)| - 1$. El
+\emph{treewidth} de $G$ es el mínimo ancho sobre todas las
+descomposiciones.
+\end{defn}
+
+Calcular treewidth exacto es NP-hard \cite{Bodlaender1993}. sotFS usa
+una aproximación greedy con \emph{min-degree elimination ordering}.
+
+\subsection*{Algoritmo greedy}
+
+\begin{algorithm}[H]
+\SetAlgoLined
+\KwIn{Grafo $G = (V, E)$}
+\KwOut{Upper bound de treewidth}
+\caption{\textsc{GreedyMinDegreeTreewidth}}\label{alg:treewidth}
+
+$G' \gets G$
+$\mathit{tw} \gets 0$\;
+\While{$|V_{G'}| > 1$}{
+  $v \gets \arg\min_{u \in V_{G'}} \deg_{G'}(u)$\;
+  $\mathit{tw} \gets \max(\mathit{tw}, \deg_{G'}(v))$\;
+  
+  \ForEach{$u_1, u_2 \in N_{G'}(v), u_1 \neq u_2$}{
+    Add edge $(u_1, u_2)$ to $G'$ if not present\;
+  }
+  Remove $v$ from $G'$\;
+}
+\Return{$\mathit{tw}$}\;
+\end{algorithm}
+
+\paragraph{Costo.} $O(n^2)$ con representación adecuada. Suficientemente
+barato para correr periódicamente sobre el grafo del FS.
+
+\paragraph{Resultado para sotFS.}
+
+\begin{teorema}[Treewidth acotado para FS con hard-link cap]
+\label{teo:treewidth-fs}
+Sea $G$ un TypeGraph well-formed con $i.\texttt{link\_count} \leq
+\texttt{LINK\_MAX}$ para todo inode. Entonces el treewidth de $G$
+satisface $\mathrm{tw}(G) \leq \texttt{LINK\_MAX} + O(1)$.
+\end{teorema}
+
+Sin hard links ($\texttt{link\_count} \leq 1$ para todo inode), el
+TypeGraph es esencialmente un árbol, $\mathrm{tw}(G) \leq 6$. La cota
+\texttt{LINK\_MAX} de \invref{inv:link-count} (vía
+\trampref{tr:link-treewidth}) preserva este orden de magnitud
+incluso bajo workload adversarial.
+
+\section{Curvatura de Ollivier-Ricci}
+
+\begin{defn}[Curvatura discreta]
+\label{def:ricci}
+La \emph{curvatura de Ollivier-Ricci} de una arista $(u, v)$ en un
+grafo $G$ es
+\[
+  \kappa(u, v) \;=\; 1 - \frac{W_1(\mu_u, \mu_v)}{d(u, v)}
+\]
+donde $W_1$ es la distancia Wasserstein-1, $d(u,v)$ es la distancia
+en el grafo, y $\mu_u, \mu_v$ son medidas de probabilidad sobre los
+vecinos de $u$ y $v$ respectivamente.
+\end{defn}
+
+Para grafos no ponderados, $d(u, v) = 1$ (los extremos son adyacentes),
+y se usa la \emph{lazy random walk} con parámetro $\alpha \in [0, 1]$:
+$\mu_x(x) = \alpha$, $\mu_x(z) = (1-\alpha)/\deg(x)$ para todo $z$
+vecino de $x$.
+
+\subsection*{Aproximación Lin-Lu-Yau}
+
+Calcular $W_1$ exactamente requiere resolver un transporte óptimo
+(linear program). \citaCrate{sotfs-monitor} usa la aproximación
+Lin-Lu-Yau \cite{LinLuYau2011} con $\alpha = 0.5$:
+
+\[
+  \kappa_{\mathrm{LLY}}(u, v) \;\approx\;
+    \frac{|N(u) \cap N(v)|}{\max(\deg u, \deg v)}
+    \cdot (1-\alpha)^2 + \text{(correcciones de borde)}
+\]
+
+\paragraph{Costo.} $O(\deg u + \deg v)$ por arista, $O(E \cdot \bar{d})$
+total. Implementación en \citaLine{sotfs-monitor/src/curvature.rs}{75}.
+
+\subsection*{Algoritmo}
+
+\begin{algorithm}[H]
+\SetAlgoLined
+\KwIn{Grafo $G$, arista $(u, v)$, parámetro $\alpha$}
+\KwOut{Aproximación de $\kappa_{\mathrm{LLY}}(u, v)$}
+\caption{\textsc{OllivierRicciLLY}}\label{alg:curvatura}
+
+$\mathit{common} \gets |N(u) \cap N(v)|$\;
+$\mathit{d}_u \gets \deg u; \;\; \mathit{d}_v \gets \deg v$\;
+$\mathit{base} \gets \mathit{common} / \max(\mathit{d}_u, \mathit{d}_v)$\;
+$\mathit{self\_transport} \gets (1 - \alpha)^2$\;
+$\kappa \gets 1 - (1 - \mathit{base} \cdot \mathit{self\_transport})$\;
+\Return{$\kappa$}\;
+\end{algorithm}
+
+\paragraph{Interpretación.}
+
+\begin{itemize}
+  \item $\kappa = 1$: arista en una clique (los vecindarios coinciden).
+  \item $\kappa = 0$: arista en un grafo regular ``neutro''.
+  \item $\kappa < 0$: arista en una región tree-like (cuellos de
+    botella, dirs profundos).
+\end{itemize}
+
+\section{Detección de anomalías}
+
+\begin{defn}[Anomalía por curvatura]
+\label{def:anomalia}
+Una arista $(u, v)$ es \emph{anómala} si
+\[
+  |\kappa(u, v) - \bar{\kappa}| > 2\,\sigma_{\kappa}
+\]
+donde $\bar{\kappa}$ y $\sigma_{\kappa}$ son la media y desviación
+estándar de la curvatura sobre todas las aristas del grafo.
+\end{defn}
+
+\paragraph{Firmas observadas} (en
+\citaLine{sotfs-monitor/src/curvature.rs}{173}):
+
+\begin{itemize}
+  \item \emph{Mass file creation}: spike positivo de $\kappa$ en el
+    directorio padre (sus vecindarios crecen mucho).
+  \item \emph{Symlink bomb}: $\kappa$ fuerte positivo en aristas
+    \texttt{Symlink → target}.
+  \item \emph{Directorio profundo}: $\kappa \approx -1.0$ en el cuello
+    de la cadena.
+\end{itemize}
+
+\section{El spec TLA de curvatura}
+
+\citaTLA{sotfs\_curvature.tla} (301 LOC) modela la curvatura como
+una función computada del estado y prueba dos cosas:
+
+\begin{lstlisting}[language=tla, caption={Invariantes de curvatura
+en TLA.}, label={lst:curvature-tla}]
+SafetyInvariant ==
+    /\ TypeInvariant
+    /\ CurvatureBounded
+    /\ KappaConsistent
+    /\ CurvatureDropImpliesFanOut
+\end{lstlisting}
+
+\begin{description}
+  \item[\texttt{CurvatureBounded}] $|\kappa(u,v)| \leq \max(\deg u,
+    \deg v)$.
+  \item[\texttt{KappaConsistent}] el cálculo es determinista: dos
+    invocaciones sobre el mismo estado dan el mismo resultado.
+  \item[\texttt{CurvatureDropImpliesFanOut}] si entre dos estados
+    $\Delta\kappa < -T$ para alguna arista, entonces \emph{en el mismo
+    paso} ocurrió un evento de fan-out (un nodo aumentó su grado en
+    $\geq$ \texttt{FanOutDelta}).
+\end{description}
+
+TLC verifica que estas tres se mantienen bajo todas las acciones del
+spec, incluyendo creates masivos y unlinks.
+
+\section*{Resumen del capítulo}
+
+\begin{itemize}
+  \item \emph{Treewidth} mide qué tan tree-like es el grafo; sotFS lo
+    aproxima con min-degree elimination ordering en $O(n^2)$
+    (\citaLine{sotfs-monitor/src/treewidth.rs}{33}).
+  \item Con \texttt{LINK\_MAX = 65535}, $\mathrm{tw}(G) \leq
+    \texttt{LINK\_MAX} + O(1)$; sin hard links, $\leq 6$.
+  \item \emph{Curvatura de Ollivier-Ricci} mide cuán ``positivamente
+    curvada'' es cada arista (Wasserstein-1 entre vecindarios). sotFS
+    usa la aproximación Lin-Lu-Yau con $\alpha = 0.5$, costo
+    $O(\deg u + \deg v)$ por arista.
+  \item Anomalías: aristas con $|\kappa - \bar{\kappa}| > 2\sigma$.
+    Firmas distintivas para mass-create, symlink bomb, dir profundo.
+  \item \citaTLA{sotfs\_curvature.tla} verifica tres invariantes:
+    bounded, consistent, drop-implies-fan-out.
+\end{itemize}
+
+\section*{Ejercicios}
+
+\begin{ejercicio}[\dificultad{$\star$}]
+\label{ej:topo-1}
+Defina treewidth en una línea. ¿Para qué algoritmos sirve tenerlo
+acotado?
+\end{ejercicio}
+
+\begin{ejercicio}[\dificultad{$\star$}]
+\label{ej:topo-2}
+¿Cuál es el valor de $\alpha$ usado por sotFS en la lazy random walk
+de Ollivier-Ricci?
+\end{ejercicio}
+
+\begin{ejercicio}[\dificultad{$\star\star$}]
+\label{ej:topo-3}
+Calcule la curvatura aproximada (Lin-Lu-Yau, $\alpha = 0.5$) de una
+arista en un grafo triangular (vecindarios coinciden completamente).
+\end{ejercicio}
+
+\begin{ejercicio}[\dificultad{$\star\star$}]
+\label{ej:topo-4}
+Calcule la curvatura aproximada de una arista que une dos hojas de un
+árbol binario completo. ¿Por qué da negativa?
+\end{ejercicio}
+
+\begin{ejercicio}[\dificultad{$\star\star$}]
+\label{ej:topo-5}
+Demuestre el \teoref{teo:treewidth-fs} para el caso sin hard links
+(\texttt{link\_count} $\leq$ 1 para todos los inodes). Pista: identificá
+los seis tipos de nodo como candidatos a bag.
+\end{ejercicio}
+
+\begin{ejercicio}[\dificultad{$\star\star$}]
+\label{ej:topo-6}
+Considere un workload adversarial que crea $10^4$ archivos en un solo
+directorio. ¿Qué firma de curvatura esperamos en el inode del
+directorio? ¿En las aristas \econtains{} salientes?
+\end{ejercicio}
+
+\begin{ejercicio}[\dificultad{$\star\star\star$}]
+\label{ej:topo-7}
+\citaTLA{sotfs\_curvature.tla} prueba que un drop de curvatura
+implica un fan-out en el mismo paso. ¿Vale la implicación inversa
+(fan-out implica drop)? Justifique.
+\end{ejercicio}
+
+\begin{ejercicio}[\dificultad{$\star\star\star$}]
+\label{ej:topo-8}
+Diseñe un detector de anomalías que use \emph{ambos} treewidth y
+curvatura. ¿Cómo combinás las dos señales? Pista: un cambio brusco de
+treewidth con $\kappa$ estable indica algo distinto a un $\kappa$
+shift con treewidth estable.
+\end{ejercicio}

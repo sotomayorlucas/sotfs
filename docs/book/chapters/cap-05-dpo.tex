@@ -1,0 +1,594 @@
+\chapter{Reescritura DPO de operaciones POSIX}
+\label{cap:dpo}
+
+Este es el capítulo más cargado del libro y el corazón teórico de sotFS.
+Las operaciones POSIX (\opcreate, \opmkdir, \opunlink, \oprename,
+\oplink, \oprmdir, \opwrite) se modelan acá como reglas de
+\emph{double-pushout} (DPO) sobre el TypeGraph del cap.~\ref{cap:typegraph}.
+La virtud del enfoque DPO no es estética: cada regla viene con
+condiciones formales (\emph{gluing condition}) cuya verificación es
+mecánica, y la preservación de los invariantes de
+sec.~\ref{sec:invariantes} se sigue del enunciado de la regla, no de un
+chequeo aislado.
+
+\section{Repaso: pushout en \texorpdfstring{$\Set$}{Set} y en \texorpdfstring{$\Graph$}{Graph}}
+
+\begin{defn}[Pushout en $\Set$]
+\label{def:pushout-set}
+Dadas tres funciones $f: A \to B$, $g: A \to C$, su \emph{pushout} es un
+objeto $D$ junto con dos funciones $h: B \to D$, $k: C \to D$ tales que
+$h \circ f = k \circ g$ y, para cualquier otro objeto $D'$ con flechas
+$h', k'$ que cumpla la misma ecuación, existe una única flecha
+$u: D \to D'$ que las factoriza.
+\end{defn}
+
+Concretamente en $\Set$, el pushout se construye como el cociente
+$(B \sqcup C)/\sim$ donde $f(a) \sim g(a)$ para todo $a \in A$. La
+intuición: $A$ es el ``pegamento'' que identifica qué elementos de $B$ y
+$C$ son ``el mismo elemento'' en el resultado.
+
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}[node distance=15mm and 22mm]
+  \node (A) {$A$};
+  \node[right=of A] (B) {$B$};
+  \node[below=of A] (C) {$C$};
+  \node[below=of B] (D) {$D$};
+  \draw[arr] (A) -- (B) node[edgelbl, midway] {$f$};
+  \draw[arr] (A) -- (C) node[edgelbl, midway] {$g$};
+  \draw[arr] (B) -- (D) node[edgelbl, midway] {$h$};
+  \draw[arr] (C) -- (D) node[edgelbl, midway] {$k$};
+\end{tikzpicture}
+\caption{Diagrama de pushout. $D$ es el menor objeto que cierra el
+cuadrado conmutativo.}
+\label{fig:pushout-set}
+\end{figure}
+
+En la categoría $\Graph$ (grafos dirigidos y morfismos de grafos) la
+construcción es análoga: el pushout existe siempre y se construye nodo
+por nodo, arista por arista, identificando los pares que vienen del
+``pegamento'' $A$. Este es el sustrato técnico que permite hablar de
+\emph{reemplazar un fragmento por otro pegándolo a lo que queda}.
+
+\section{Una regla DPO}
+
+\begin{defn}[Regla DPO]
+\label{def:dpo-rule}
+Una \emph{regla DPO} es un span
+$\rho: \dpo{L}{K}{R}$ en la categoría $\Graph$ (o $\TGraph$, en nuestro
+caso). Intuitivamente:
+\begin{itemize}
+  \item $L$ es el patrón \emph{a remover} (\emph{left-hand side}).
+  \item $K$ es la parte \emph{glue} que se conserva tras la
+    transformación.
+  \item $R$ es el patrón \emph{a insertar} (\emph{right-hand side}).
+\end{itemize}
+La inclusión $K \hookrightarrow L$ y $K \hookrightarrow R$ codifica qué
+sobrevive y qué se reemplaza.
+\end{defn}
+
+Un \emph{paso DPO} sobre un grafo \emph{host} $G$ requiere:
+
+\begin{enumerate}
+  \item Un \emph{matching} $m: L \to G$, esto es, un morfismo de
+    grafos que ubica $L$ dentro de $G$.
+  \item La \emph{gluing condition}: el matching no debe ``dejar
+    aristas colgando'' al borrar lo que sólo pertenece a $L$. Más
+    formalmente, todo nodo de $L$ con aristas adyacentes en $G$ que no
+    estén en $m(L)$ debe estar en $K$ (es decir, debe sobrevivir).
+  \item Construir el pushout complement $D$ tal que $L \leftarrow K
+    \rightarrow D$ y $L \rightarrow G$ formen un cuadrado pushout.
+  \item Construir el pushout final $H$ entre $D$ y $R$ a lo largo de
+    $K$.
+\end{enumerate}
+
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}[node distance=12mm and 18mm]
+  \node (L) {$L$};
+  \node[right=of L] (K) {$K$};
+  \node[right=of K] (R) {$R$};
+  \node[below=of L] (G) {$G$};
+  \node[below=of K] (D) {$D$};
+  \node[below=of R] (H) {$H$};
+  \draw[arr] (K) -- (L) node[edgelbl, midway] {};
+  \draw[arr] (K) -- (R) node[edgelbl, midway] {};
+  \draw[arr] (L) -- (G) node[edgelbl, midway] {$m$};
+  \draw[arr] (K) -- (D) node[edgelbl, midway] {};
+  \draw[arr] (R) -- (H) node[edgelbl, midway] {};
+  \draw[arr] (D) -- (G) node[edgelbl, midway] {};
+  \draw[arr] (D) -- (H) node[edgelbl, midway] {};
+  \node at ($(L)!0.5!(D)$) {\scriptsize PO};
+  \node at ($(R)!0.5!(D)$) {\scriptsize PO};
+\end{tikzpicture}
+\caption{Diagrama de un paso DPO: dos cuadrados pushout (PO) compartiendo
+el lado central $K \to D$. El de la izquierda \emph{borra} lo que está
+en $L \setminus K$; el de la derecha \emph{inserta} lo que está en $R
+\setminus K$.}
+\label{fig:dpo-square}
+\end{figure}
+
+\begin{observacion}[En sotFS las reglas son funciones Rust, no estructuras explícitas]
+\label{obs:dpo-rust}
+El runtime no implementa un motor DPO genérico que tome un span $(L, K,
+R)$ y haga el pushout complement: implementa cada operación POSIX como
+una función Rust en \citaCrate{sotfs-ops} que, en orden, (i) ubica el
+matching (\texttt{resolve\_name}, \texttt{get\_dir},
+\texttt{get\_inode}); (ii) chequea la gluing condition con
+\emph{pre-condiciones} explícitas; (iii) muta el grafo para producir
+$H$. La equivalencia con la formulación categórica es por
+\emph{inspección}: cada función se diseña para que el efecto neto sobre
+el grafo coincida con el pushout final. La gluing condition aparece
+como un \texttt{return Err(\dots)} antes de mutar; los chequeos
+post-mutación son los siete invariantes (sec.~\ref{sec:invariantes}).
+\end{observacion}
+
+\section{Producciones DPO de las operaciones POSIX}
+
+Acá vienen las siete producciones que cubren la mayoría del API POSIX.
+Cada una se presenta con una caja \texttt{(L, K, R)}, su gluing
+condition formal, la firma exacta de la función Rust en
+\citaCrate{sotfs-ops} y el lemma de preservación. Las pruebas formales
+están en Coq y se discuten en cap.~\ref{cap:coq}.
+
+\subsection{\opcreate}
+
+\paragraph{Intuición.} Crear un archivo regular bajo $d/n$. Aparece un
+nuevo \NInode{} con \texttt{link\_count=1} y una arista \econtains{} con
+nombre $n$ desde $d$ hasta el inode nuevo.
+
+\paragraph{Producción $\rho_{\mathrm{create}}$.}
+
+\begin{itemize}
+  \item $L$: el directorio $d$ (un único nodo \NDir).
+  \item $K = L$: el directorio sobrevive entero (no se borra nada).
+  \item $R$: $d$ \textbf{más} un nuevo \NInode{} $i$ con
+    \texttt{link\_count=1} y una arista \econtains{} de $d$ a $i$ con
+    nombre $n$.
+\end{itemize}
+
+\paragraph{Gluing condition (NAC, \emph{negative application condition}).}
+\[
+  \neg\,\exists\,e \in E\,:\;
+    \tau_E(e) = \econtains \;\wedge\; \mathrm{src}(e) = d \;\wedge\; e.\texttt{name} = n.
+\]
+``No existe ya una entrada con ese nombre en $d$.'' En POSIX corresponde
+a \eexist.
+
+\paragraph{Firma Rust} (\citaLine{sotfs-ops/src/lib.rs}{33}).
+
+\begin{lstlisting}[language=rust]
+pub fn create_file(
+    g: &mut TypeGraph,
+    parent_dir: DirId,
+    name: &str,
+    uid: u32, gid: u32,
+    permissions: Permissions,
+) -> Result<InodeId, GraphError>
+\end{lstlisting}
+
+\begin{lema}[Preservación bajo \opcreate]
+\label{lem:create-preserva}
+Si $G$ es well-formed y $\rho_{\mathrm{create}}$ se aplica con éxito
+sobre $G$ produciendo $H$, entonces $H$ es well-formed.
+\end{lema}
+
+\begin{proof}[Esquema]
+Los siete invariantes:
+\begin{itemize}
+  \item Link-count: el inode nuevo tiene \texttt{link\_count = 1} y
+    exactamente una arista \econtains{} entrante con $\texttt{name} \neq
+    \texttt{".."}$. Coincide.
+  \item Unique-names: la NAC garantiza que $n$ no existía en $d$;
+    seguimos sin duplicados.
+  \item Dir-self-ref: no se tocan dirs distintos de $d$, y $d$ ya
+    tenía su \texttt{.}.
+  \item No-dangling: la arista nueva conecta $d$ (vivo) e $i$ (recién
+    insertado, vivo).
+  \item Block-refcount: no se tocan bloques.
+  \item No-dir-cycles: no se inserta un \NDir, así que la sub-relación
+    \econtains-restringida-a-dirs no cambia.
+  \item Cap-monotonicity: no se tocan caps.
+\end{itemize}
+La prueba formal mecanizada vive en \citaCoq{DpoCreate.v}, theorem
+\texttt{create\_preserves\_WellFormed} en línea 335 (cap.~\ref{cap:coq}).
+\end{proof}
+
+\subsection{\opmkdir}
+
+\paragraph{Producción.}
+
+\begin{itemize}
+  \item $L$: el directorio padre $d_{\text{p}}$ (su \NDir{} y su \NInode).
+  \item $K = L$.
+  \item $R$: $d_{\text{p}}$ \textbf{más} un nuevo \NInode{} $i$
+    (\texttt{vtype = Directory}, \texttt{link\_count=2}), un nuevo
+    \NDir{} $d$ con \texttt{inode\_id = i}, y \emph{tres} aristas
+    \econtains: $d_{\text{p}} \xrightarrow{n} i$ (la entrada nueva en
+    el padre), $d \xrightarrow{\,.\,} i$ (la self-ref del nuevo dir),
+    $d \xrightarrow{\,..\,} d_{\text{p}}.\texttt{inode\_id}$ (el back-pointer al padre).
+\end{itemize}
+
+\paragraph{Gluing condition.} Análoga a \opcreate: $\neg\,\exists\,e \in
+E_d^{\econtains}$ con $e.\texttt{name} = n$.
+
+\paragraph{Por qué \texttt{link\_count=2}.} Un directorio nuevo recibe
+dos aristas \econtains{} entrantes: la del padre con nombre $n$, y la
+\texttt{.} desde sí mismo. La invariante~\ref{inv:link-count} excluye
+``..'' pero \emph{no} ``.''. El \texttt{link\_count} inicial es por
+construcción 2.
+
+\paragraph{Firma Rust} (\citaLine{sotfs-ops/src/lib.rs}{94}).
+
+\begin{lstlisting}[language=rust]
+pub fn mkdir(
+    g: &mut TypeGraph,
+    parent_dir: DirId,
+    name: &str,
+    uid: u32, gid: u32,
+    permissions: Permissions,
+) -> Result<CreateResult, GraphError>
+\end{lstlisting}
+
+Resultado: el \texttt{InodeId} y el \texttt{DirId} del directorio nuevo.
+
+\subsection{\oplink} (hard link)
+
+\paragraph{Producción.}
+
+\begin{itemize}
+  \item $L$: el directorio $d$ y el inode existente $i$.
+  \item $K = L$.
+  \item $R$: $L$ \textbf{más} una arista \econtains{} de $d$ a $i$ con
+    nombre $n$. \emph{Adicionalmente}: el atributo $i.\texttt{link\_count}$ se
+    incrementa en uno.
+\end{itemize}
+
+La actualización de \texttt{link\_count} es un \emph{cambio de
+atributo}, no un cambio topológico; el formalismo DPO
+\emph{atribuido} (sobre $\TGraph$, no $\Graph$) lo cubre con un morfismo
+sobre los atributos.
+
+\paragraph{Gluing condition.}
+\[
+  \neg\,\exists\,e \in E_d^{\econtains} : e.\texttt{name} = n
+  \;\;\wedge\;\;
+  i.\texttt{link\_count} < \texttt{LINK\_MAX}.
+\]
+
+La segunda cláusula evita overflow del contador y, más sutilmente,
+acota el \emph{treewidth} del grafo
+(\trampref{tr:link-treewidth} más abajo y cap.~\ref{cap:topologia}).
+\texttt{LINK\_MAX = 65535} en
+\citaLine{sotfs-graph/src/graph.rs}{28}.
+
+\paragraph{Firma Rust} (\citaLine{sotfs-ops/src/lib.rs}{272}).
+
+\subsection{\opunlink}
+
+\paragraph{Producción.}
+
+\begin{itemize}
+  \item $L$: el directorio $d$, el inode $i$ y la arista \econtains{}
+    $d \xrightarrow{n} i$.
+  \item $K$: depende de $i.\texttt{link\_count}$.
+    \begin{itemize}
+      \item Si $i.\texttt{link\_count} = 1$, $K = \{d\}$ (el inode se
+        irá).
+      \item Si $i.\texttt{link\_count} > 1$, $K = \{d, i\}$ (el inode
+        sobrevive con \texttt{link\_count} decrementado).
+    \end{itemize}
+  \item $R = K$ \textbf{más} actualización del atributo
+    $i.\texttt{link\_count} \leftarrow i.\texttt{link\_count} - 1$ si $i \in K$.
+\end{itemize}
+
+\paragraph{Gluing condition.} Que la arista exista
+($\exists\,e: \mathrm{src}(e)=d \wedge e.\texttt{name}=n$) y, si
+$i.\texttt{vtype} = \texttt{Directory}$, que se invoque \oprmdir{} en
+vez de \opunlink{} (POSIX prohíbe \opunlink{} sobre directorios; en
+sotFS la verificación está en la firma).
+
+\paragraph{Firma Rust} (\citaLine{sotfs-ops/src/lib.rs}{322}).
+
+\begin{trampa}[Orphan blocks bajo \opunlink{} de hard-linked file]
+\label{tr:orphan-blocks}
+Cuando $i.\texttt{link\_count} = 1 \to 0$, el inode desaparece y sus
+aristas \epointsto{} también. Pero los \NBlk{} que apuntaba podrían
+quedar con \texttt{refcount} desactualizado si la regla no decrementa
+$b.\texttt{refcount}$ por cada arista borrada. Versión vulnerable: la
+regla decrementaba \texttt{refcount} sólo a la primera vista del bloque,
+saltándose colisiones (mismo bloque apuntado dos veces desde el mismo
+inode con distintos offsets — caso de archivo con bloques repetidos
+internamente). Resultado: \invref{inv:block-refcount} violada.
+
+\textbf{Fix.} Decrementar una vez por arista \epointsto, no una vez por
+bloque distinto. \emph{Lección}: contar aristas, no objetos.
+\end{trampa}
+
+\subsection{\oprmdir}
+
+\paragraph{Producción.}
+
+\begin{itemize}
+  \item $L$: el directorio padre $d_{\text{p}}$, el directorio $d$, el
+    inode $i$ pareado a $d$, y \emph{tres aristas}: $d_{\text{p}}
+    \xrightarrow{n} i$, $d \xrightarrow{\,.\,} i$, $d \xrightarrow{\,..\,}
+    d_{\text{p}}.\texttt{inode\_id}$.
+  \item $K = \{d_{\text{p}}\}$: sólo sobrevive el padre.
+  \item $R = K$.
+\end{itemize}
+
+\paragraph{Gluing condition.} ``$d$ está vacío'': no hay aristas
+\econtains{} salientes de $d$ excepto las dos auto-aristas (\texttt{.}
+y \texttt{..}). En POSIX corresponde a \enotempty.
+
+\paragraph{Firma Rust} (\citaLine{sotfs-ops/src/lib.rs}{198}).
+
+\begin{observacion}[Por qué \oprmdir{} es la prueba más difícil en Coq]
+\label{obs:rmdir-coq}
+La preservación del \invref{inv:no-dir-cycles} bajo \oprmdir{} requiere
+un argumento de invariante auxiliar (que \emph{no hay hard links a
+directorios}). Esa propiedad no está formalizada en el modelo Records
+de \citaCoq{SotfsGraph.v}, lo que deja cuatro \texttt{Admitted} en
+\citaCoq{DpoRmdir.v}. El cap.~\ref{cap:coq} los lista uno por uno; el
+ej.~\ref{ej:coq-extension} pide formalizarlos.
+\end{observacion}
+
+\subsection{\oprename}
+
+Es la operación más rica del API POSIX: cubre tres casos según los
+directorios involucrados sean iguales (\emph{same-dir rename}) o
+distintos (\emph{cross-dir rename}), y según haya o no un destino
+ya existente que reemplazar (la semántica POSIX exige que un destino
+existente sea reemplazado atómicamente).
+
+\paragraph{Same-dir, sin destino preexistente.}
+
+\begin{itemize}
+  \item $L$: el directorio $d$, el inode $i$, la arista $d \xrightarrow{n} i$.
+  \item $K = \{d, i\}$.
+  \item $R = K$ \textbf{más} la arista $d \xrightarrow{n'} i$.
+\end{itemize}
+
+Implementación: \texttt{rename\_same\_dir}
+(\citaLine{sotfs-ops/src/lib.rs}{441}); en este caso particular se
+reusa la misma \texttt{EdgeId} y se reescribe sólo el atributo
+\texttt{name}, evitando alocar y liberar.
+
+\paragraph{Cross-dir.} La regla es esencialmente
+\opcreate(d',n') ; \opunlink(d,n) atómica, con dos chequeos extra:
+\begin{itemize}
+  \item Si $i$ es un directorio, \emph{no debe ser ancestro de $d'$}
+    (evita ciclos en la jerarquía). Es una condición no local: requiere
+    seguir las aristas \texttt{..} desde $d'$ hacia arriba y verificar
+    que no aparece $i$.
+  \item Si $i$ es un directorio, su \texttt{..} en $d$ se reescribe para
+    apuntar al inode pareado de $d'$.
+\end{itemize}
+
+\paragraph{Reemplazo de destino existente.} POSIX exige que si $d'/n'$ ya
+existe, \oprename{} \emph{lo reemplace atómicamente}. La regla DPO
+correspondiente expone una arista \esupersedes{} desde el inode nuevo
+hacia el viejo durante el paso intermedio, lo que permite que la
+verificación TLA\textsuperscript{+} \citaTLA{sotfs\_transactions.tla}
+detecte la atomicidad como single-step.
+
+\paragraph{Firma Rust} (\citaLine{sotfs-ops/src/lib.rs}{404}).
+
+\subsection{\opwrite}
+
+\paragraph{Intuición.} Escribir bytes a un archivo. Concretamente, alocar
+(o reusar) bloques que cubran el rango \texttt{[offset, offset+len)}
+y mantener las aristas \epointsto{} con su \texttt{offset}.
+
+\paragraph{Producción (versión simple, un único bloque).}
+
+\begin{itemize}
+  \item $L$: el inode $i$.
+  \item $K = L$.
+  \item $R$: $L$ \textbf{más} un nuevo \NBlk{} $b$ con
+    \texttt{refcount=1} y una arista $i \xrightarrow{\epointsto, \text{off}=k} b$.
+\end{itemize}
+
+Si una arista \epointsto{} ya cubre el rango, se reusa o se splittea
+según el tamaño. La versión completa se descompone en
+\texttt{write\_block} (\citaLine{sotfs-ops/src/lib.rs}{626}) y
+\texttt{write\_data} (\citaLine{sotfs-ops/src/lib.rs}{670}).
+
+\section{Gluing condition vs. invariantes}
+
+Es útil distinguir dos clases de chequeo:
+
+\begin{enumerate}
+  \item \textbf{Gluing condition (pre-mutación).} Se verifica
+    \emph{antes} de aplicar la regla. Su falla resulta en un
+    \texttt{Err(\dots)} que aborta sin tocar el grafo. Codifica el
+    contrato \emph{POSIX-like} (\eexist, \enoent, \enotempty).
+  \item \textbf{Invariante (post-mutación, eventual).} Se verifica
+    \emph{después} de la mutación, en modo paranoid o test, mediante
+    \texttt{check\_invariants()}. Su falla indica un \emph{bug en la
+    regla}, no un input inválido.
+\end{enumerate}
+
+La idea de DPO es \emph{minimizar la segunda lista}: si las gluing
+conditions están bien diseñadas, las reglas preservan los invariantes
+\emph{por construcción}. Los Admitteds en Coq de cap.~\ref{cap:coq}
+existen porque algunas gluing conditions no son aún tan estrictas como
+podrían (concretamente: falta el invariante auxiliar
+\texttt{NoHardLinkToDir}).
+
+\section{Algoritmo genérico de aplicación de una regla DPO}
+
+Aunque el runtime no implementa un motor genérico, la formulación
+abstracta es útil para entender los Coq files de cap.~\ref{cap:coq}.
+
+\begin{algorithm}[H]
+\SetAlgoLined
+\KwIn{Grafo host $G$, regla $\rho: \dpo{L}{K}{R}$, matching candidato $m: L \to G$}
+\KwOut{Grafo $H$ resultado, o \textsc{Fail}}
+\caption{\textsc{ApplyDPO}}
+\label{alg:apply-dpo}
+
+\If{$\neg\;\textsc{IsValidMatching}(m, L, G)$}{
+  \Return{\textsc{Fail}}\;
+}
+\If{$\neg\;\textsc{CheckGluing}(L, K, m, G)$}{
+  \Return{\textsc{Fail}}\;
+}
+
+$D \gets G \setminus m(L \setminus K)$\;
+
+$H \gets D \cup R$\;
+\If{$\neg\;\textsc{CheckInvariants}(H)$}{
+  \Return{\textsc{Fail}}\;
+}
+\Return{$H$}\;
+\end{algorithm}
+
+La línea 4 (``borra lo que vive sólo en $L$'') es donde aparecen los
+\emph{orphan nodes}: si un nodo $v \in m(L) \setminus m(K)$ tiene
+aristas adyacentes en $G$ que no están en $m(L)$, el pushout
+complement no existe y la operación falla. Esto formaliza la noción
+clásica de \emph{dangling edges}.
+
+\begin{algorithm}[H]
+\SetAlgoLined
+\KwIn{$L, K, m, G$}
+\KwOut{\textbf{ok} si la gluing condition se cumple, \textbf{fail} si no}
+\caption{\textsc{CheckGluing}}
+\label{alg:check-gluing}
+
+$\mathrm{ToDelete} \gets m(V_L) \setminus m(V_K)$\;
+\ForEach{$v \in \mathrm{ToDelete}$}{
+  \ForEach{$e \in E_G$ adyacente a $v$}{
+    \If{$e \notin m(E_L)$}{
+      
+      \Return{\textbf{fail}}\;
+    }
+  }
+}
+\Return{\textbf{ok}}\;
+\end{algorithm}
+
+\section{Trampas históricas}
+
+\begin{trampa}[Cross-dir rename que crea un ciclo]
+\label{tr:rename-cycle}
+\citaCommit{(v0.1.x)}. Versión vulnerable: \texttt{rename\_cross\_dir}
+no chequeaba que el inode renombrado no fuera ancestro del directorio
+destino. \texttt{mv /a /a/b/c} convertía $/a$ en su propio
+descendiente, violando \invref{inv:no-dir-cycles}. POSIX manda
+\texttt{EINVAL} en ese caso.
+
+\textbf{Fix.} Pre-condición que recorre los \texttt{..} de $d'$ hacia
+arriba buscando el inode renombrado; si lo encuentra, retorna
+\texttt{InvalidArgument}. Costo $O(\mathrm{depth})$, aceptable.
+\textbf{Lección.} Las gluing conditions no son sólo locales (chequear
+una arista incidente al matching); pueden requerir traversals globales.
+\end{trampa}
+
+\begin{trampa}[Treewidth no acotado por hard links]
+\label{tr:link-treewidth}
+\citaCommit{(v0.2.0)}. Sin un cap superior a \texttt{link\_count},
+\oplink{} permite que un mismo inode acumule miles de aristas
+\econtains{} entrantes. Eso degrada las cotas estructurales del
+cap.~\ref{cap:topologia} (treewidth lineal en el número de hard
+links) y rompe el patrón ``filesystem $\Rightarrow$ tree-like''.
+
+\textbf{Fix.} Constante \texttt{LINK\_MAX = 65535} chequeada en la
+gluing condition de \oplink. \textbf{Lección.} Las propiedades
+estructurales (treewidth acotado) son tan importantes como las
+semánticas; las gluing conditions deben respaldarlas.
+\end{trampa}
+
+\section{Resumen del capítulo}
+
+\begin{itemize}
+  \item Una regla DPO es un span $\dpo{L}{K}{R}$ con matching $m: L \to
+    G$ y gluing condition; el paso construye $H$ vía dos pushouts.
+  \item Cada operación POSIX (\opcreate, \opmkdir, \oplink, \opunlink,
+    \oprmdir, \oprename, \opwrite) tiene su producción explícita y
+    su gluing condition formal.
+  \item La gluing condition se verifica antes de mutar; el chequeo de
+    invariantes \texttt{check\_invariants} (cap.~\ref{cap:typegraph})
+    se verifica después como red de seguridad y como contrato para los
+    tests.
+  \item En el runtime, las reglas son funciones Rust en
+    \citaCrate{sotfs-ops}; en Coq, son teoremas
+    \texttt{X\_preserves\_WellFormed} en \citaCoq{Dpo*.v}; en
+    TLA\textsuperscript{+}, son acciones del módulo
+    \citaTLA{sotfs\_graph.tla}. La correspondencia entre las tres es por
+    inspección; cap.~\ref{cap:coq} y \ref{cap:tla} desarrollan cada
+    una.
+  \item Trampas vistas: orphan blocks bajo unlink hard-linked, ciclo
+    cross-dir rename, treewidth sin cap por hard links. Cada una se
+    cierra ajustando la gluing condition o agregando una constante
+    estructural.
+\end{itemize}
+
+\section*{Ejercicios}
+
+\begin{ejercicio}[\dificultad{$\star$}]
+\label{ej:dpo-1}
+Defina, en una línea, qué es la gluing condition de una regla DPO.
+\end{ejercicio}
+
+\begin{ejercicio}[\dificultad{$\star$}]
+\label{ej:dpo-2}
+Para cada una de las siete operaciones POSIX cubiertas, indique cuál es
+el conjunto $K$ (el glue) en términos del subgrafo que sobrevive.
+\end{ejercicio}
+
+\begin{ejercicio}[\dificultad{$\star\star$}]
+\label{ej:dpo-3}
+Diseñe la regla DPO para \texttt{symlink(target, dir, name)} (crear un
+enlace simbólico). ¿Qué tipo de nodo introduce? ¿Qué arista? ¿Cuál es
+su gluing condition? Compare con \opcreate.
+\end{ejercicio}
+
+\begin{ejercicio}[\dificultad{$\star\star$}]
+\label{ej:dpo-4}
+Lea la regla \texttt{LinkInode} de \citaTLA{sotfs\_graph.tla}. ¿Qué
+pasa si el inode $i$ no existe (\texttt{i \textbackslash notin
+inodes})? ¿Cómo se compara con el comportamiento POSIX de \oplink{}
+sobre un inode borrado?
+\end{ejercicio}
+
+\begin{ejercicio}[\dificultad{$\star\star$}]
+\label{ej:dpo-5}
+Demuestre que \opunlink{} sobre un inode con \texttt{link\_count = 1}
+preserva el \invref{inv:no-dangling}. Pista: razonar qué aristas se
+borran al desaparecer el inode.
+\end{ejercicio}
+
+\begin{ejercicio}[\dificultad{$\star\star$}]
+\label{ej:dpo-6}
+Formule la NAC de \opmkdir{} como una fórmula de primer orden sobre
+$E$. ¿Cuántos chequeos necesita un implementor para verificarla con el
+índice \texttt{dir\_name\_idx}?
+\end{ejercicio}
+
+\begin{ejercicio}[\dificultad{$\star\star\star$}]
+\label{ej:dpo-7}
+Diseñe la regla DPO para \texttt{rmdir} sobre un directorio que tenga
+\emph{sólo} subdirectorios vacíos (rmdir recursivo). ¿Es una sola regla
+DPO? ¿Una secuencia? Justifique en términos de gluing conditions y
+atomicidad.
+\end{ejercicio}
+
+\begin{ejercicio}[\dificultad{$\star\star\star$}]
+\label{ej:dpo-8}
+\trampref{tr:rename-cycle} se cierra con un traversal $O(\mathrm{depth})$
+sobre los \texttt{..}. Diseñe una versión que use el índice
+\texttt{dir\_for\_inode\_idx} para reducir el costo. ¿Sigue siendo
+posible un ataque DoS construyendo cadenas profundas?
+\end{ejercicio}
+
+\begin{ejercicio}[\dificultad{$\star\star\star$}]
+\label{ej:dpo-9}
+Cargue el \citaCoq{DpoCreate.v}, lea el theorem
+\texttt{create\_preserves\_WellFormed} (línea 335) y reproduzca el
+esquema de prueba del lema~\ref{lem:create-preserva} en pseudo-Coq
+(intros, casos, cita de los lemmas auxiliares de
+\citaCoq{SotfsGraph.v}).
+\end{ejercicio}

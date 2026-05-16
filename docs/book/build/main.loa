@@ -1,0 +1,35 @@
+\addvspace {10\p@ }
+\addvspace {10\p@ }
+\addvspace {10\p@ }
+\contentsline {algocf}{\numberline {1}{\ignorespaces \textsc {CheckInvariants}}}{17}{algocf.1}%
+\addvspace {10\p@ }
+\contentsline {algocf}{\numberline {2}{\ignorespaces \textsc {NodeHash}}}{21}{algocf.2}%
+\addvspace {10\p@ }
+\contentsline {algocf}{\numberline {3}{\ignorespaces \textsc {ApplyDPO}}}{32}{algocf.3}%
+\contentsline {algocf}{\numberline {4}{\ignorespaces \textsc {CheckGluing}}}{32}{algocf.4}%
+\addvspace {10\p@ }
+\contentsline {algocf}{\numberline {5}{\ignorespaces \textsc {Arena.Alloc}}}{37}{algocf.5}%
+\contentsline {algocf}{\numberline {6}{\ignorespaces \textsc {RcuGraph.Write}}}{38}{algocf.6}%
+\contentsline {algocf}{\numberline {7}{\ignorespaces \textsc {Esqueleto de cada op DPO en sotfs-ops}}}{39}{algocf.7}%
+\addvspace {10\p@ }
+\contentsline {algocf}{\numberline {8}{\ignorespaces \textsc {Backend.Save}}}{41}{algocf.8}%
+\contentsline {algocf}{\numberline {9}{\ignorespaces \textsc {Backend.Load}}}{41}{algocf.9}%
+\contentsline {algocf}{\numberline {10}{\ignorespaces \textsc {Graph.RebuildDirNameIdx}}}{42}{algocf.10}%
+\addvspace {10\p@ }
+\contentsline {algocf}{\numberline {11}{\ignorespaces \textsc {CheckAccess}}}{47}{algocf.11}%
+\addvspace {10\p@ }
+\contentsline {algocf}{\numberline {12}{\ignorespaces \textsc {WithTransaction}}}{50}{algocf.12}%
+\contentsline {algocf}{\numberline {13}{\ignorespaces \textsc {GtxnCommit} (modelo formal)}}{51}{algocf.13}%
+\addvspace {10\p@ }
+\addvspace {10\p@ }
+\addvspace {10\p@ }
+\contentsline {algocf}{\numberline {14}{\ignorespaces \textsc {GreedyMinDegreeTreewidth}}}{70}{algocf.14}%
+\contentsline {algocf}{\numberline {15}{\ignorespaces \textsc {OllivierRicciLLY}}}{71}{algocf.15}%
+\addvspace {10\p@ }
+\addvspace {10\p@ }
+\contentsline {algocf}{\numberline {16}{\ignorespaces \textsc {Skeleton de un callback FUSE en sotFS}}}{77}{algocf.16}%
+\addvspace {10\p@ }
+\addvspace {10\p@ }
+\addvspace {10\p@ }
+\addvspace {10\p@ }
+\addvspace {10\p@ }

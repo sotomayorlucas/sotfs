@@ -1,0 +1,35 @@
+\begin{titlepage}
+\thispagestyle{empty}
+\begin{center}
+
+\vspace*{2cm}
+
+{\sffamily\Huge\bfseries\color{sotxBlue} sotFS}\\[6pt]
+{\sffamily\Large\color{sotxMuted} un filesystem como grafo}\\[2cm]
+
+{\large
+Modelo, reescritura DPO, transacciones, verificación formal,\\
+adaptador FUSE y monitoreo estructural.
+}\\[3cm]
+
+\begin{tikzpicture}
+  \node[nino] (i1) at (-2,1) {Inode};
+  \node[ndir] (d1) at (0,1.5) {Dir};
+  \node[nblk] (b1) at (2,1) {Block};
+  \node[ncap] (c1) at (-2,-1) {Cap};
+  \node[ntxn] (t1) at (0,-1.5) {Txn};
+  \node[nver] (v1) at (2,-1) {Version};
+  \draw[arr] (d1) -- (i1) node[edgelbl,midway] {contains};
+  \draw[arr-points] (i1) -- (b1);
+  \draw[arr-grant] (c1) -- (i1);
+  \draw[arr-deleg] (c1) to[bend right] (t1);
+  \draw[arr-derives] (v1) -- (b1);
+\end{tikzpicture}
+
+\vfill
+
+{\large\sffamily Lucas Sotomayor}\\[6pt]
+{\small\color{sotxMuted} Versión del libro: \today\ \textbullet\ sotFS \texttt{v0.2.5}}
+
+\end{center}
+\end{titlepage}

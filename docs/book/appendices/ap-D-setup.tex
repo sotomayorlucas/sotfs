@@ -1,0 +1,117 @@
+\chapter{Setup reproducible}
+\label{ap:setup}
+
+Este apéndice documenta cómo levantar de cero un entorno para correr
+todo: build de Rust, fuzzing, TLC, Coq, FUSE mount, y compilación de
+este libro.
+
+\section*{Sistema base}
+
+\textbf{Linux Fedora 40+ recomendado} (todas las instrucciones asumen
+\texttt{dnf}). Adaptaciones para Debian/Ubuntu en una nota al final.
+
+\section*{Rust toolchain}
+
+\begin{lstlisting}[language=shellcmd]
+# Stable + nightly (nightly necesario para cargo-fuzz).
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+rustup install stable nightly
+rustup default stable
+
+# Componentes para coverage.
+rustup component add llvm-tools-preview
+cargo install cargo-llvm-cov cargo-fuzz
+\end{lstlisting}
+
+\section*{FUSE}
+
+\begin{lstlisting}[language=shellcmd]
+sudo dnf install fuse3 fuse3-devel
+# Permitir mounts no-root.
+sudo modprobe fuse
+sudo usermod -aG fuse $USER
+\end{lstlisting}
+
+\section*{TLA\textsuperscript{+}}
+
+\begin{lstlisting}[language=shellcmd]
+sudo dnf install java-17-openjdk
+mkdir -p formal/lib
+curl -L -o formal/lib/tla2tools.jar \
+  https://github.com/tlaplus/tlaplus/releases/latest/\
+download/tla2tools.jar
+\end{lstlisting}
+
+\section*{Coq}
+
+\begin{lstlisting}[language=shellcmd]
+sudo dnf install coq
+# o vía opam para versión más reciente:
+# opam install coq.8.18.0
+\end{lstlisting}
+
+\section*{LaTeX para el libro}
+
+\begin{lstlisting}[language=shellcmd]
+sudo dnf install \
+  texlive-scheme-full \
+  biber chktex
+\end{lstlisting}
+
+\section*{Comandos clave}
+
+\begin{lstlisting}[language=shellcmd]
+# Build entero del workspace.
+cargo build --release --workspace
+
+# Tests (rápido).
+just test
+
+# Tests completos (proptest 10k cases).
+just test-full
+
+# Fuzz 60s por target.
+just fuzz
+
+# Coverage.
+just coverage
+
+# TLC.
+just formal
+
+# Coq.
+cd formal/coq && coq_makefile -f _CoqProject -o Makefile && make
+
+# Mount.
+just mount /tmp/test.redb /tmp/sotfs-mnt
+# ... usar como un FS normal ...
+just unmount /tmp/sotfs-mnt
+
+# Libro PDF.
+just book        # → docs/book/build/main.pdf
+just book-watch  # live preview
+just book-clean
+\end{lstlisting}
+
+\section*{Verificación end-to-end}
+
+Una sesión típica de validación de un PR:
+
+\begin{lstlisting}[language=shellcmd]
+just test-full           # ~3 min
+just formal              # ~5 min (medium configs)
+just fuzz                # ~6 min (60s × 6 targets)
+just book                # ~30 s (PDF)
+\end{lstlisting}
+
+\section*{Notas Debian/Ubuntu}
+
+Mapping de paquetes:
+
+\begin{tabular}{ll}
+  Fedora & Debian/Ubuntu \\
+  \texttt{fuse3 fuse3-devel} & \texttt{fuse3 libfuse3-dev} \\
+  \texttt{java-17-openjdk} & \texttt{default-jdk} \\
+  \texttt{coq} & \texttt{coq} \\
+  \texttt{texlive-scheme-full} & \texttt{texlive-full} \\
+\end{tabular}

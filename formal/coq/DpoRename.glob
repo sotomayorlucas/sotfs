@@ -1,0 +1,120 @@
+DIGEST 07ad050d0afd2b35f00b9fd27f30fb28
+FSotFS.DpoRename
+R1080:1094 Stdlib.Arith.Arith <> <> lib
+R1112:1125 Stdlib.Lists.List <> <> lib
+R1143:1155 Stdlib.Bool.Bool <> <> lib
+R1173:1175 Stdlib.micromega.Lia <> <> lib
+R1185:1197 Stdlib.Lists.List ListNotations <> mod
+R1216:1225 SotFS.SotfsGraph <> <> lib
+rec 1465:1473 <> RenamePre
+proj 1565:1577 <> rp_dir_exists
+proj 1601:1611 <> rp_old_user
+proj 1644:1654 <> rp_new_user
+proj 1687:1699 <> rp_names_diff
+proj 1729:1742 <> rp_edge_exists
+proj 1800:1811 <> rp_new_fresh
+proj 1854:1869 <> rp_target_exists
+R1480:1484 SotFS.SotfsGraph <> Graph rec
+binder 1476:1476 <> g:1
+R1492:1496 SotFS.SotfsGraph <> DirId def
+binder 1488:1488 <> d:2
+R1520:1523 SotFS.SotfsGraph <> Name def
+binder 1500:1507 <> old_name:3
+binder 1509:1516 <> new_name:4
+R1542:1548 SotFS.SotfsGraph <> InodeId def
+binder 1529:1538 <> target_ino:5
+R1583:1592 SotFS.SotfsGraph <> dir_exists def
+R1594:1594 SotFS.DpoRename <> g:1 var
+R1596:1596 SotFS.DpoRename <> d:2 var
+R1619:1630 SotFS.SotfsGraph <> is_user_name def
+R1632:1639 SotFS.DpoRename <> old_name:3 var
+R1662:1673 SotFS.SotfsGraph <> is_user_name def
+R1675:1682 SotFS.DpoRename <> new_name:4 var
+R1713:1716 Corelib.Init.Logic <> ::type_scope:x_'<>'_x not
+R1705:1712 SotFS.DpoRename <> old_name:3 var
+R1717:1724 SotFS.DpoRename <> new_name:4 var
+R1747:1748 Stdlib.Lists.List <> In def
+R1786:1792 SotFS.SotfsGraph <> g_edges proj
+R1794:1794 SotFS.DpoRename <> g:1 var
+R1751:1760 SotFS.SotfsGraph <> mkContains constr
+R1762:1762 SotFS.DpoRename <> d:2 var
+R1764:1773 SotFS.DpoRename <> target_ino:5 var
+R1775:1782 SotFS.DpoRename <> old_name:3 var
+R1842:1844 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R1818:1828 SotFS.SotfsGraph <> name_in_dir def
+R1830:1830 SotFS.DpoRename <> g:1 var
+R1832:1832 SotFS.DpoRename <> d:2 var
+R1834:1841 SotFS.DpoRename <> new_name:4 var
+R1845:1849 Corelib.Init.Datatypes <> false constr
+R1873:1884 SotFS.SotfsGraph <> inode_exists def
+R1886:1886 SotFS.DpoRename <> g:1 var
+R1888:1897 SotFS.DpoRename <> target_ino:5 var
+def 2144:2158 <> rename_same_dir
+R2165:2169 SotFS.SotfsGraph <> Graph rec
+binder 2161:2161 <> g:14
+R2177:2181 SotFS.SotfsGraph <> DirId def
+binder 2173:2173 <> d:15
+R2198:2204 SotFS.SotfsGraph <> InodeId def
+binder 2185:2194 <> target_ino:16
+R2230:2233 SotFS.SotfsGraph <> Name def
+binder 2210:2217 <> old_name:17
+binder 2219:2226 <> new_name:18
+R2238:2242 SotFS.SotfsGraph <> Graph rec
+R2252:2259 SotFS.SotfsGraph <> g_inodes proj
+R2281:2286 SotFS.SotfsGraph <> g_dirs proj
+R2308:2314 SotFS.SotfsGraph <> g_edges proj
+R2264:2271 SotFS.SotfsGraph <> g_inodes proj
+R2273:2273 SotFS.DpoRename <> g:14 var
+R2293:2298 SotFS.SotfsGraph <> g_dirs proj
+R2300:2300 SotFS.DpoRename <> g:14 var
+R2320:2320 Corelib.Init.Datatypes <> ::list_scope:x_'++'_x not
+R2379:2400 Corelib.Init.Datatypes <> ::list_scope:x_'++'_x not
+R2321:2331 SotFS.SotfsGraph <> remove_edge def
+R2334:2343 SotFS.SotfsGraph <> mkContains constr
+R2345:2345 SotFS.DpoRename <> d:15 var
+R2347:2356 SotFS.DpoRename <> target_ino:16 var
+R2358:2365 SotFS.DpoRename <> old_name:17 var
+R2369:2375 SotFS.SotfsGraph <> g_edges proj
+R2377:2377 SotFS.DpoRename <> g:14 var
+R2401:2401 Stdlib.Lists.List ListNotations ::list_scope:'['_x_']' not
+R2434:2434 Stdlib.Lists.List ListNotations ::list_scope:'['_x_']' not
+R2402:2411 SotFS.SotfsGraph <> mkContains constr
+R2413:2413 SotFS.DpoRename <> d:15 var
+R2415:2424 SotFS.DpoRename <> target_ino:16 var
+R2426:2433 SotFS.DpoRename <> new_name:18 var
+prf 2679:2690 <> rename_edges
+binder 2703:2703 <> g:19
+binder 2705:2705 <> d:20
+binder 2707:2716 <> target_ino:21
+binder 2718:2725 <> old_name:22
+binder 2727:2734 <> new_name:23
+binder 2736:2736 <> e:24
+R2808:2817 Corelib.Init.Logic <> ::type_scope:x_'<->'_x not
+R2928:2928 Corelib.Init.Logic <> ::type_scope:x_'<->'_x not
+R2743:2744 Stdlib.Lists.List <> In def
+R2749:2755 SotFS.SotfsGraph <> g_edges proj
+R2758:2772 SotFS.DpoRename <> rename_same_dir def
+R2774:2774 SotFS.DpoRename <> g:19 var
+R2776:2776 SotFS.DpoRename <> d:20 var
+R2778:2787 SotFS.DpoRename <> target_ino:21 var
+R2789:2796 SotFS.DpoRename <> old_name:22 var
+R2798:2805 SotFS.DpoRename <> new_name:23 var
+R2746:2746 SotFS.DpoRename <> e:24 var
+R2883:2891 Corelib.Init.Logic <> ::type_scope:x_'\/'_x not
+R2818:2819 Stdlib.Lists.List <> In def
+R2824:2834 SotFS.SotfsGraph <> remove_edge def
+R2837:2846 SotFS.SotfsGraph <> mkContains constr
+R2848:2848 SotFS.DpoRename <> d:20 var
+R2850:2859 SotFS.DpoRename <> target_ino:21 var
+R2861:2868 SotFS.DpoRename <> old_name:22 var
+R2872:2878 SotFS.SotfsGraph <> g_edges proj
+R2880:2880 SotFS.DpoRename <> g:19 var
+R2821:2821 SotFS.DpoRename <> e:24 var
+R2893:2895 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R2892:2892 SotFS.DpoRename <> e:24 var
+R2896:2905 SotFS.SotfsGraph <> mkContains constr
+R2907:2907 SotFS.DpoRename <> d:20 var
+R2909:2918 SotFS.DpoRename <> target_ino:21 var
+R2920:2927 SotFS.DpoRename <> new_name:23 var
+R2955:2969 SotFS.DpoRename <> rename_same_dir def
+R2989:2998 Stdlib.Lists.List <> in_app_iff thm

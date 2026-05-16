@@ -1,0 +1,24 @@
+\addvspace {10\p@ }
+\addvspace {10\p@ }
+\contentsline {figure}{\numberline {2.1}{\ignorespaces \xpg@aux {}{spanish}\ignorespaces Diagrama universal del pushout. $D$ es el ``más pequeño'' objeto que cierra el cuadrado conmutativo: cualquier otro $D'$ que lo cierre factoriza por $D$ via $u$.}}{6}{figure.2.1}%
+\addvspace {10\p@ }
+\contentsline {figure}{\numberline {3.1}{\ignorespaces \xpg@aux {}{spanish}\ignorespaces Un TypeGraph well-formed mínimo con dos directorios, dos archivos compartiendo el bloque \texttt {B2}, y una cap autorizando lectura de \texttt {I3}. Las aristas \textsf {contains}{} son sólidas (negro); las \textsf {pointsTo}{} verdes; las \textsf {grants}{} violetas dashed.}}{15}{figure.3.1}%
+\addvspace {10\p@ }
+\contentsline {figure}{\numberline {4.1}{\ignorespaces \xpg@aux {}{spanish}\ignorespaces Sharing intrínseco: \texttt {file1.txt} y \texttt {file2.txt} comparten el bloque \texttt {B2} por construcción porque ambos lo producen con el mismo hash. No es un hard link; es la semántica natural del Merkle DAG. El \texttt {refcount} de \texttt {B2} es 2.}}{22}{figure.4.1}%
+\addvspace {10\p@ }
+\contentsline {figure}{\numberline {5.1}{\ignorespaces \xpg@aux {}{spanish}\ignorespaces Diagrama de pushout. $D$ es el menor objeto que cierra el cuadrado conmutativo.}}{26}{figure.5.1}%
+\contentsline {figure}{\numberline {5.2}{\ignorespaces \xpg@aux {}{spanish}\ignorespaces Diagrama de un paso DPO: dos cuadrados pushout (PO) compartiendo el lado central $K \to D$. El de la izquierda \emph {borra} lo que está en $L \setminus K$; el de la derecha \emph {inserta} lo que está en $R \setminus K$.}}{27}{figure.5.2}%
+\addvspace {10\p@ }
+\addvspace {10\p@ }
+\addvspace {10\p@ }
+\addvspace {10\p@ }
+\addvspace {10\p@ }
+\addvspace {10\p@ }
+\addvspace {10\p@ }
+\addvspace {10\p@ }
+\addvspace {10\p@ }
+\addvspace {10\p@ }
+\addvspace {10\p@ }
+\addvspace {10\p@ }
+\addvspace {10\p@ }
+\addvspace {10\p@ }

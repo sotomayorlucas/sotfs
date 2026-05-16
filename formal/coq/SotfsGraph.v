@@ -375,19 +375,22 @@ Qed.
 (* Helper: the init_graph is well-formed *)
 Lemma init_graph_well_formed : WellFormed init_graph.
 Proof.
-  unfold WellFormed, init_graph. simpl.
-  repeat split.
-  (* TypeInvariant *)
-  - (* edges endpoints exist *)
-    intros e Hin.
-    destruct Hin as [He | []]. subst e. simpl.
-    split; left; reflexivity.
-  - (* NoDupInodeIds *)
-    unfold NoDupInodeIds, inode_ids. simpl.
-    constructor. { simpl. auto. } constructor.
-  - (* NoDupDirIds *)
-    unfold NoDupDirIds, dir_ids. simpl.
-    constructor. { simpl. auto. } constructor.
+  unfold WellFormed, init_graph.
+  (* Rocq 9 is stricter about `repeat split` over nested `/\` after `simpl`;
+     destructure WellFormed explicitly so each conjunct gets its own goal. *)
+  split; [| split; [| split; [| split]]].
+  - (* TypeInvariant *)
+    unfold TypeInvariant. split; [| split].
+    + (* edges endpoints exist *)
+      intros e0 Hin. simpl in Hin.
+      destruct Hin as [Heq | Hfalse]; [| destruct Hfalse].
+      subst e0. simpl. split; left; reflexivity.
+    + (* NoDupInodeIds *)
+      unfold NoDupInodeIds, inode_ids. simpl.
+      constructor; [ simpl; auto | constructor ].
+    + (* NoDupDirIds *)
+      unfold NoDupDirIds, dir_ids. simpl.
+      constructor; [ simpl; auto | constructor ].
   - (* LinkCountConsistent *)
     intros ir Hin.
     destruct Hin as [Hir | []]. subst ir. simpl.
@@ -405,7 +408,8 @@ Proof.
     intros e Hin Huser ir Hfind Htype child_dir Hchild.
     destruct Hin as [He | []]. subst e.
     (* The only edge is dot_name = 0, which is not a user name (>= 2) *)
-    unfold is_user_name in Huser. unfold dot_name in Huser. lia.
+    simpl in Huser.
+    unfold is_user_name, dot_name in Huser. lia.
 Qed.
 
 (* ===================================================================== *)
@@ -493,12 +497,15 @@ Proof.
     + (* h <> e: remove_edge returns h :: remove_edge e t *)
       simpl.
       destruct (f h) eqn:Hfh.
-      * simpl. rewrite <- Nat.add_succ_l.
-        f_equal. apply IH.
-        { destruct Hin as [Hh | Ht].
-          - subst h. rewrite ce_eqb_refl in Heq_edge. discriminate.
-          - exact Ht. }
-        { exact Hfe. }
+      * (* Rocq 9: f_equal under Nat.add can't peel S. Use lia + IH. *)
+        assert (HIH : count_occ_pred f (remove_edge e t) + 1
+                        = count_occ_pred f t).
+        { apply IH.
+          - destruct Hin as [Hh | Ht].
+            + subst h. rewrite ce_eqb_refl in Heq_edge. discriminate.
+            + exact Ht.
+          - exact Hfe. }
+        simpl. lia.
       * apply IH.
         { destruct Hin as [Hh | Ht].
           - subst h. rewrite ce_eqb_refl in Heq_edge. discriminate.
@@ -543,13 +550,13 @@ Proof.
       simpl in Hfind.
       destruct (Nat.eqb (ir_id h) ino) eqn:Hid.
       * inversion Hfind. subst. simpl.
-        exists h. split; reflexivity.
+        exists h. simpl. rewrite Hid. split; reflexivity.
       * apply IH in Hfind. destruct Hfind as [ir_old [Hf Hv]].
         exists ir_old. simpl. rewrite Hid. exact (conj Hf Hv).
     + (* h is not the target — passed through unchanged *)
       simpl in Hfind.
       destruct (Nat.eqb (ir_id h) ino) eqn:Hid.
-      * inversion Hfind. subst.
+      * inversion Hfind as [Heq]. subst ir.
         exists h. simpl. rewrite Hid. split; reflexivity.
       * apply IH in Hfind. destruct Hfind as [ir_old [Hf Hv]].
         exists ir_old. simpl. rewrite Hid. exact (conj Hf Hv).

@@ -1,0 +1,615 @@
+\chapter{El TypeGraph de sotFS}
+\label{cap:typegraph}
+
+\emph{Antes de hablar de operaciones, hace falta fijar la ontología sobre la
+que esas operaciones reescriben.} Este capítulo define el \emph{TypeGraph}
+de sotFS: la estructura de datos sobre la que el filesystem entero se
+construye. Después de leerlo, el lector tiene las definiciones formales de
+los seis tipos de nodo, las siete aristas tipadas y los siete invariantes
+que el runtime verifica tras cada reescritura.
+
+Este capítulo y el capítulo~\ref{cap:dpo} son los más densos del libro: si
+algún día hay que reabrir un único capítulo para entender qué objetos viven
+en el grafo, es éste.
+
+\section{Por qué un grafo tipado y no un árbol}
+
+Un filesystem POSIX clásico (\texttt{ext4}, \texttt{XFS}, \texttt{NTFS})
+modela su metadata como un \emph{árbol de inodes}: los directorios son
+nodos internos, los archivos son hojas, y la única manera de \emph{tener
+dos nombres} para un inode es el bolt-on llamado \emph{hard link}, que
+rompe la disciplina arbórea.
+
+sotFS abandona el árbol y modela todo como un \emph{grafo dirigido tipado}.
+Más concretamente:
+
+\begin{itemize}
+  \item Los \emph{vértices} están particionados en seis tipos: inodes,
+    directorios, capabilities, transacciones, versiones y bloques. Cada
+    tipo tiene su propio conjunto de atributos.
+  \item Las \emph{aristas} están particionadas en siete tipos
+    (\econtains, \egrants, \edelegates, \ederivedfrom, \esupersedes,
+    \epointsto, \ehasxattr); cada arista lleva una etiqueta o atributos
+    propios (un nombre de archivo, un bitmask de derechos, un offset).
+  \item Cada operación POSIX se ejecuta como una \emph{reescritura} sobre
+    el grafo, sujeta a un conjunto fijo de \emph{invariantes
+    estructurales} que el sistema verifica después de cada paso.
+\end{itemize}
+
+La elección no es estética. Permite codificar como \emph{aristas tipadas}
+mecanismos que el árbol clásico tiene que codificar como \emph{convenciones
+fuera de banda}: hard links, snapshots, capabilities, dependencias de
+transacciones. Cuando una propiedad de seguridad o de consistencia se
+puede expresar como ``ningún ciclo en cierta sub-relación'' o ``el
+\emph{rights} del hijo es subconjunto del del padre'', tener la relación
+como una arista en un grafo tipado significa que el mecanismo de
+verificación es uniforme: el chequeador de invariantes recorre el grafo,
+no inspecciona estructuras heterogéneas.
+
+\section{Definición formal del TypeGraph}
+
+\begin{defn}[TypeGraph]
+\label{def:typegraph}
+Un \emph{TypeGraph} es una séxtupla
+\[
+  G \;=\; \bigl(V,\; E,\; \mathrm{src},\; \mathrm{tgt},\; \tau_V,\; \tau_E,\; \mathrm{attr}\bigr)
+\]
+donde:
+\begin{itemize}
+  \item $V$ es un conjunto finito de vértices.
+  \item $E$ es un conjunto finito de aristas dirigidas.
+  \item $\mathrm{src}: E \to V$ y $\mathrm{tgt}: E \to V$ asignan extremos a
+    cada arista.
+  \item $\tau_V: V \to T_V$ asigna a cada vértice uno de los seis tipos
+    \[
+      T_V \;=\; \{\NInode,\; \NDir,\; \NCap,\; \NTxn,\; \NVer,\; \NBlk\}.
+    \]
+  \item $\tau_E: E \to T_E$ asigna a cada arista uno de los siete tipos
+    \[
+      T_E \;=\; \{\econtains,\; \egrants,\; \edelegates,\; \ederivedfrom,\; \esupersedes,\; \epointsto,\; \ehasxattr\}.
+    \]
+  \item $\mathrm{attr}$ asigna a cada vértice y cada arista los atributos
+    propios de su tipo (definidos en las secciones~\ref{sec:nodos}
+    y~\ref{sec:aristas}).
+\end{itemize}
+Los pares $(\tau_E, (\tau_V, \tau_V))$ admisibles están restringidos por
+una \emph{signatura} fija $\sigma$ (Tabla~\ref{tab:signature}): no toda
+arista puede unir cualquier par de tipos.
+\end{defn}
+
+\begin{observacion}[Implementación en el runtime]
+La séxtupla anterior se materializa en Rust como la \texttt{struct}
+\texttt{TypeGraph} definida en \citaLine{sotfs-graph/src/graph.rs}{52}. Los
+conjuntos $V$ se almacenan en \emph{arenas} tipadas (una por tipo de
+vértice) con \emph{free-list} de slots reusables; el conjunto $E$ vive en
+una sola arena de aristas. Los índices auxiliares (\texttt{dir\_contains},
+\texttt{cap\_parent}, \texttt{dir\_name\_idx}, \dots) son derivados, no
+parte del estado canónico, y se reconstruyen tras una deserialización
+(cf.\ cap.~\ref{cap:persistencia}).
+\end{observacion}
+
+\section{Los seis tipos de nodo}
+\label{sec:nodos}
+
+\begin{defn}[Inode, Directory, Capability, Transaction, Version, Block]
+\label{def:nodos}
+Cada tipo de nodo tiene los atributos de la
+Tabla~\ref{tab:nodos}.
+\end{defn}
+
+\begin{table}[h]
+\centering
+\renewcommand{\arraystretch}{1.15}
+\begin{tabularx}{\linewidth}{l X}
+  \toprule
+  \textbf{Tipo} & \textbf{Atributos} \\
+  \midrule
+  \NInode & \texttt{id, vtype, permissions, uid, gid, size, link\_count,
+                   ctime, mtime, atime} \\
+  \NDir & \texttt{id, inode\_id} (el inodo que ``.'' apunta) \\
+  \NCap & \texttt{id, rights} (bitmask u8), \texttt{epoch} (generación) \\
+  \NTxn & \texttt{id, tier, state, read\_set, write\_set, begin\_ts} \\
+  \NVer & \texttt{id, timestamp, root\_inode\_id} \\
+  \NBlk & \texttt{id, sector\_start, sector\_count, refcount} \\
+  \bottomrule
+\end{tabularx}
+\caption{Atributos de cada tipo de nodo. Definidos en
+\citaLine{sotfs-graph/src/types.rs}{91} (Inode), \texttt{:142} (Directory),
+\texttt{:174} (Capability), \texttt{:227} (Transaction), \texttt{:238}
+(Version), \texttt{:246} (Block).}
+\label{tab:nodos}
+\end{table}
+
+\subsection*{Notas sobre cada tipo}
+
+\paragraph{\NInode.} Es la metadata POSIX clásica. Notar que el contenido
+de archivos no vive en el inode: vive en \emph{nodos} \NBlk{} a los que el
+inode apunta vía aristas \epointsto. \texttt{link\_count} es la cuenta de
+hard links, sostenida como invariante por el sistema (cf.\
+sec.~\ref{sec:invariantes}).
+
+\paragraph{\NDir.} Lleva sólo dos campos: su \texttt{id} y el
+\texttt{inode\_id} del inodo que el ``.'' del directorio apunta. La
+metadata del directorio (permisos, owner) vive en su \NInode{} pareado, no
+en el \NDir{} mismo. Esta separación es deliberada: el \NDir{} es el
+\emph{namespace} (un conjunto de aristas \econtains{} salientes), y el
+\NInode{} es la \emph{metadata}.
+
+\paragraph{\NCap.} Una \emph{capability} es un nodo de primera clase, no
+una bolt-on de POSIX. Cada cap tiene un \texttt{rights} de 8 bits
+(\texttt{READ}, \texttt{WRITE}, \texttt{EXECUTE}, \texttt{GRANT},
+\texttt{REVOKE}) y un \texttt{epoch} para invalidación. El cap.~\ref{cap:capabilities}
+desarrolla el modelo completo.
+
+\paragraph{\NTxn.} Una transacción es un nodo. Tiene estado
+(\texttt{Active}, \texttt{Preparing}, \texttt{Committed}, \texttt{Aborted}),
+\emph{tier} (Tier~0/1/2 mapean a las jerarquías de SOT) y dos conjuntos
+\texttt{read\_set}/\texttt{write\_set} usados para la detección de
+conflictos.
+
+\paragraph{\NVer.} Una versión es un \emph{snapshot pointer}: un timestamp
+y un \texttt{root\_inode\_id}. La cadena \ederivedfrom{} entre versiones
+forma el linaje de snapshots; es DAG, no árbol.
+
+\paragraph{\NBlk.} Un bloque de datos es un \emph{extent} con
+\texttt{sector\_start}, \texttt{sector\_count} y \texttt{refcount}. El
+refcount es la cuenta de inodes que lo apuntan vía \epointsto; es
+crítico para el GC del backend de almacenamiento
+(cap.~\ref{cap:persistencia}).
+
+\section{Los siete tipos de arista}
+\label{sec:aristas}
+
+\begin{defn}[Aristas tipadas y signatura]
+\label{def:aristas}
+Cada arista pertenece a uno de siete tipos. Su signatura
+$\tau_E \to \tau_V \times \tau_V$ y atributos propios están en la
+Tabla~\ref{tab:signature}.
+\end{defn}
+
+\begin{table}[h]
+\centering
+\renewcommand{\arraystretch}{1.2}
+\begin{tabularx}{\linewidth}{l l l X}
+  \toprule
+  \textbf{Tipo} & \textbf{Origen} & \textbf{Destino} & \textbf{Atributos / sentido} \\
+  \midrule
+  \econtains      & \NDir & \NInode    & \texttt{name}: nombre POSIX bajo el que el inodo aparece en el dir.\\
+  \egrants        & \NCap & \NInode    & \texttt{rights}: subconjunto de los rights de la cap.\\
+  \edelegates     & \NCap & \NCap      & forma el árbol CDT (\emph{capability derivation tree}).\\
+  \ederivedfrom   & \NVer & \NVer      & linaje de snapshots; DAG.\\
+  \esupersedes    & \NInode & \NInode  & reemplazo atómico durante \oprename.\\
+  \epointsto      & \NInode & \NBlk    & \texttt{offset}: posición del bloque dentro del archivo.\\
+  \ehasxattr      & \NInode & \NInode (\textsf{XAttr}) & cada xattr es un nodo de primera clase.\\
+  \bottomrule
+\end{tabularx}
+\caption{Signatura de las siete aristas. La columna \emph{Origen} y
+\emph{Destino} fijan los tipos admisibles; un par fuera de la signatura
+viola el TypeInvariant. El \textsf{XAttr} aparece como séptimo tipo de
+nodo en algunas vistas; en este libro lo tratamos como una variante de
+\NInode{} para mantener el conteo en seis. La definición canónica vive en
+\citaLine{sotfs-graph/src/types.rs}{346}.}
+\label{tab:signature}
+\end{table}
+
+\subsection*{Por qué siete y no menos}
+
+Cada arista codifica una relación que en un FS POSIX clásico está
+\emph{disuelta} en convenciones, en estructuras separadas o en
+\emph{flags}. Cuando se empuja la relación a una arista tipada, dos cosas
+mejoran:
+
+\begin{itemize}
+  \item La verificación es uniforme. ``\textsf{No hay ciclos vía
+    \edelegates}'' es el mismo tipo de propiedad que ``\textsf{No hay
+    ciclos vía \econtains{} excluyendo \texttt{..}}''. Ambas se chequean
+    con el mismo molde.
+  \item La extensión es modular. Un futuro tipo de arista
+    (digamos \textsf{auditedBy}: \NInode{} a un nodo de auditoría) se
+    suma a la signatura sin reescribir todo.
+\end{itemize}
+
+La trampa simétrica es que cada arista nueva amplía la superficie de
+invariantes que hay que probar y mantener. El cap.~\ref{cap:dpo} muestra
+que cada operación POSIX se diseña explícitamente para preservar todas
+las invariantes; el cap.~\ref{cap:coq} muestra hasta dónde esa
+preservación está mecanizada hoy y dónde quedan deudas (los cinco
+\texttt{Admitted}).
+
+\begin{observacion}[Evolución del modelo]
+\label{obs:evolucion-aristas}
+La versión preliminar de sotFS (la que vivía como subsistema de sotX,
+caps.\ 17--18 de su libro) listaba seis aristas:
+\econtains, \texttt{extent}, \texttt{named-as}, \texttt{parent},
+\texttt{captured} y \texttt{owns}. La reorganización de la versión
+\texttt{v0.2.0} colapsó algunas de esas relaciones y agregó otras: la
+arista \texttt{extent} pasó a ser \epointsto{} con \texttt{offset};
+\texttt{named-as} se fundió con \econtains{} (el nombre vive como
+atributo de la arista, no como nodo intermedio); \texttt{parent} se
+suprimió y se deriva por consulta inversa con el índice
+\texttt{dir\_for\_inode\_idx}; \texttt{captured} se generalizó a
+\egrants; \texttt{owns} se reemplazó por el mecanismo de \texttt{domain\_id}
+en el \texttt{CapContext}. Las nuevas \edelegates, \ederivedfrom,
+\esupersedes{} y \ehasxattr{} no existían como aristas: estaban
+codificadas como bolt-ons (snapshots como copias, xattrs como
+diccionarios laterales). El libro adopta el modelo del runtime
+v0.2.5; este recuadro existe sólo para evitar confusión a quien venga
+con la versión vieja en mano.
+\end{observacion}
+
+\section{Diagrama de un TypeGraph mínimo}
+
+La figura~\ref{fig:tg-mini} muestra un TypeGraph well-formed con un
+directorio raíz, un subdirectorio, dos archivos que comparten un bloque
+de datos, y una capability que autoriza acceso a uno de los inodes.
+
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}[node distance=10mm and 14mm]
+  % nodos
+  \node[ndir] (root)      {Dir\\\texttt{D1}};
+  \node[nino, above=4mm of root] (rooti) {Inode\\\texttt{I1}};
+  \node[ndir, right=20mm of root] (sub) {Dir\\\texttt{D2}};
+  \node[nino, above=4mm of sub] (subi) {Inode\\\texttt{I2}};
+  \node[nino, below right=14mm and 6mm of sub] (i3) {Inode\\\texttt{I3}};
+  \node[nino, below=18mm of sub] (i4) {Inode\\\texttt{I4}};
+  \node[nblk, below=10mm of i3] (b1) {Block\\\texttt{B1}};
+  \node[nblk, below=10mm of i4] (b2) {Block\\\texttt{B2 (shared)}};
+  \node[ncap, left=22mm of i4] (c1) {Cap\\\texttt{C1}\\rights=R/W};
+
+  % contains: dir → inode
+  \draw[arr] (root) -- (rooti) node[edgelbl,midway] {.};
+  \draw[arr] (root) -- (sub) node[edgelbl,midway] {sub};
+  \draw[arr] (sub) -- (subi) node[edgelbl,midway] {.};
+  \draw[arr] (sub) to[bend left=10] node[edgelbl, midway] {f1.txt} (i3);
+  \draw[arr] (sub) to[bend right=10] node[edgelbl, near end] {f2.txt} (i4);
+
+  % pointsTo: inode → block
+  \draw[arr-points] (i3) -- (b1) node[edgelbl, midway] {pointsTo};
+  \draw[arr-points] (i3) -- (b2) node[edgelbl, near start, sloped] {pointsTo};
+  \draw[arr-points] (i4) -- (b2) node[edgelbl, midway] {pointsTo};
+
+  % grants
+  \draw[arr-grant] (c1) -- (i3) node[edgelbl, midway, sloped] {grants R};
+\end{tikzpicture}
+\caption{Un TypeGraph well-formed mínimo con dos directorios, dos
+archivos compartiendo el bloque \texttt{B2}, y una cap autorizando lectura
+de \texttt{I3}. Las aristas \econtains{} son sólidas (negro); las
+\epointsto{} verdes; las \egrants{} violetas dashed.}
+\label{fig:tg-mini}
+\end{figure}
+
+Notar tres cosas que el árbol POSIX no expresaría así:
+
+\begin{enumerate}
+  \item \texttt{B2} es un único nodo apuntado por dos inodes distintos;
+    en \texttt{ext4} esa situación requeriría duplicar el bloque (no hay
+    sharing nativo) o hacer reflinks (extensión específica de XFS/btrfs).
+  \item La cap \texttt{C1} es un nodo, no una entrada en una tabla
+    paralela. La autorización a \texttt{I3} es la arista \egrants.
+  \item Cada \NDir{} tiene un \NInode{} pareado (el \texttt{inode\_id} del
+    \NDir, alcanzable por la arista ``\,.\,''). Esa pareja es lo que el
+    \invref{inv:dir-self} obliga a mantener.
+\end{enumerate}
+
+\section{Los siete invariantes verificados tras cada paso}
+\label{sec:invariantes}
+
+El runtime expone una función \texttt{check\_invariants()}
+(\citaLine{sotfs-graph/src/graph.rs}{874}) que se llama tras cada paso DPO
+en el camino de tests, en los fuzzers y, opcionalmente, en producción
+(modo paranoid). Verifica siete invariantes más una consistencia de índice
+secundario.
+
+\begin{invariante}[Link-count consistency, I2 + G3]
+\label{inv:link-count}
+Para todo $i \in \NInode$,
+\[
+  i.\texttt{link\_count}
+  \;=\;
+  \bigl|\{\, e \in E : \tau_E(e) = \econtains \;\wedge\; \mathrm{tgt}(e) = i \;\wedge\; e.\texttt{name} \neq \texttt{".."} \,\}\bigr|.
+\]
+Es decir, la cuenta de hard links almacenada en el inode coincide con la
+cantidad de aristas \econtains{} entrantes, excluyendo las aristas
+``..''. Implementado en
+\citaLine{sotfs-graph/src/graph.rs}{888}.
+\end{invariante}
+
+\begin{invariante}[Unique names per directory, C1 + I4]
+\label{inv:unique-names}
+Para todo $d \in \NDir$ y todo par de aristas $e_1, e_2$ \econtains{} que
+salen de $d$,
+\[
+  e_1 \neq e_2 \;\Longrightarrow\; e_1.\texttt{name} \neq e_2.\texttt{name}.
+\]
+Implementado en \citaLine{sotfs-graph/src/graph.rs}{918}.
+\end{invariante}
+
+\begin{invariante}[Dir self-reference, I3]
+\label{inv:dir-self}
+Para todo directorio $d \in \NDir$ existe una arista \econtains{} desde
+$d$ con \texttt{name = "."} y destino $d.\texttt{inode\_id}$. Es decir,
+la pareja $\NDir/\NInode$ siempre se cierra sobre sí misma vía la entrada
+``.''. Implementado en \citaLine{sotfs-graph/src/graph.rs}{936}.
+\end{invariante}
+
+\begin{invariante}[No dangling edges, G2]
+\label{inv:no-dangling}
+Para toda arista $e \in E$, $\mathrm{src}(e), \mathrm{tgt}(e) \in V$:
+ambos extremos son nodos vivos. La consecuencia operativa es que la
+remoción de un nodo obliga a remover \emph{todas} sus aristas adyacentes
+en el mismo paso DPO. Implementado en
+\citaLine{sotfs-graph/src/graph.rs}{964}.
+\end{invariante}
+
+\begin{invariante}[Block refcount, B1]
+\label{inv:block-refcount}
+Para todo bloque $b \in \NBlk$,
+\[
+  b.\texttt{refcount}
+  \;=\;
+  \bigl|\{\, e \in E : \tau_E(e) = \epointsto \;\wedge\; \mathrm{tgt}(e) = b \,\}\bigr|.
+\]
+Vital para la corrección del GC en el backend de almacenamiento: si el
+refcount divergiera del conjunto real de aristas \epointsto, el GC
+liberaría bloques aún apuntados. Implementado en
+\citaLine{sotfs-graph/src/graph.rs}{996}.
+\end{invariante}
+
+\begin{invariante}[No directory cycles, A1]
+\label{inv:no-dir-cycles}
+La sub-relación inducida por \econtains{} restringida a directorios
+(ignorando ``\,.\,'' y ``\,..\,'') es acíclica: el conjunto de
+directorios alcanzables desde cualquier directorio dado no se vuelve
+sobre sí mismo. Implementado en \citaLine{sotfs-graph/src/graph.rs}{1015}
+con DFS desde cada raíz; cf.\ la trampa~\ref{tr:on-cube}.
+\end{invariante}
+
+\begin{invariante}[Capability monotonicity, G4]
+\label{inv:cap-monotonicity}
+Para todo par de capabilities $c, c' \in \NCap$ unidas por una arista
+\edelegates{} de $c$ a $c'$,
+\[
+  c'.\texttt{rights} \;\subseteq\; c.\texttt{rights}.
+\]
+Una delegación nunca crea derechos; sólo restringe los del padre.
+Implementado en \citaLine{sotfs-graph/src/graph.rs}{1056}.
+\end{invariante}
+
+A las anteriores se suma la consistencia del índice secundario
+\texttt{dir\_name\_idx} (\citaLine{sotfs-graph/src/graph.rs}{528}), que
+no es invariante \emph{semántico} sino correspondencia entre dos
+representaciones del mismo dato y se chequea aparte.
+
+\subsection*{Algoritmo de verificación}
+
+El \texttt{check\_invariants()} ejecuta los siete chequeos en cascada y
+aborta al primer fallo, devolviendo un \texttt{GraphError::InvariantViolation}.
+
+\begin{algorithm}[H]
+\SetAlgoLined
+\KwIn{TypeGraph $G$}
+\KwOut{\textbf{ok} si $G$ es well-formed; error si no.}
+\caption{\textsc{CheckInvariants}}\label{alg:check-invariants}
+
+\textsc{CheckLinkCountConsistency}($G$)\;
+\textsc{CheckUniqueNames}($G$)\;
+\textsc{CheckDirSelfRef}($G$)\;
+\textsc{CheckNoDanglingEdges}($G$)\;
+\textsc{CheckBlockRefcount}($G$)\;
+\textsc{CheckNoDirCycles}($G$)\;
+\textsc{CheckCapMonotonicity}($G$)\;
+\textsc{CheckDirNameIdxConsistency}($G$)\;
+\Return{\textbf{ok}}\;
+\end{algorithm}
+
+\subsection*{Costo}
+
+Sea $N = |V|$ y $M = |E|$. La Tabla~\ref{tab:cost-invariants} resume el
+costo de cada chequeo.
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lll}
+  \toprule
+  \textbf{Chequeo} & \textbf{Costo} & \textbf{Notas} \\
+  \midrule
+  link-count   & $O(N + M)$ & barrido lineal de inodes y \econtains{}. \\
+  unique-names & $O(M \log M)$ & \texttt{BTreeSet} por directorio. \\
+  dir-self-ref & $O(N \log M)$ & lookup por dir. \\
+  no-dangling  & $O(M)$ & barrido de aristas. \\
+  block-refcount & $O(N + M)$ & barrido de bloques y \epointsto. \\
+  no-dir-cycles & $O(N \cdot \mathrm{depth})$ típico, $O(N^3)$ worst-case$^\dagger$ & DFS por dir. \\
+  cap-monotonicity & $O(|\NCap|)$ & barrido de aristas \edelegates. \\
+  dir-name-idx & $O(M \log N)$ & comparar índice contra \econtains. \\
+  \bottomrule
+\end{tabular}
+\caption{Costo de cada chequeo. $^\dagger$ El worst-case $O(N^3)$ del
+chequeo de ciclos viene de un patrón patológico de cadenas de
+\opmkdir{} profundas; está documentado y mitigable con un índice
+adicional. Cf.\ trampa~\ref{tr:cycle-cost}.}
+\label{tab:cost-invariants}
+\end{table}
+
+\begin{trampa}[Costo cúbico del cycle check con \texttt{deep\_mkdir\_chain}]
+\label{tr:cycle-cost}
+\citaCommit{(M4.1.1)}. Versión vulnerable: \texttt{dir\_for\_inode}
+hacía un barrido lineal sobre \texttt{self.dirs.values()} para encontrar
+el \NDir{} cuyo \texttt{inode\_id} coincidiera con el dado. La función se
+llama dentro de \texttt{is\_descendant\_of} y \texttt{has\_cycle\_from},
+una vez por arista durante un DFS. El loop externo del chequeo
+\textsc{CheckNoDirCycles} itera todos los dirs y arranca un DFS desde
+cada uno: el costo se vuelve $O(N^3)$ en peor caso. La proptest
+\texttt{deep\_mkdir\_chain\_no\_cycles} construye cadenas de 20--30
+\opmkdir{} anidados; con 5 cases corre en 0{,}01 s, con 50 cases pasa de
+60 s.
+
+\textbf{Fix} (M4.1.1): un índice \texttt{dir\_for\_inode\_idx:
+BTreeMap<InodeId, DirId>} mantenido junto con \texttt{insert\_dir} y
+\texttt{remove\_dir} reduce \texttt{dir\_for\_inode} a $O(\log N)$ y el
+chequeo entero a $O(N \cdot \mathrm{depth})$ típico
+(\citaLine{sotfs-graph/src/graph.rs}{109}).
+
+\textbf{Lección.} Una invariante puede ser \emph{correcta} y el chequeo
+\emph{insostenible} bajo workload patológico. La proptest sirvió para
+detectar el problema antes de que produciera un timeout en CI; el fix
+fue sumar un índice secundario, no relajar la propiedad.
+\end{trampa}
+
+\begin{trampa}[\texttt{lookup\_name} cuadrático bajo fill hostil]
+\label{tr:on-cube}
+\citaCommit{(v0.2.0 → v0.2.4)}. Versión vulnerable:
+\texttt{lookup\_name(dir, name)} barría linealmente
+\texttt{dir\_contains[dir]} comparando el \texttt{name} de cada arista.
+Bajo un workload donde un usuario llena un directorio compartido con $N$
+nombres, cada \texttt{stat}/\texttt{lookup} contra ese dir era $O(N)$;
+\texttt{perf record} mostró \texttt{lookup\_name + memcmp} a $\sim$92\%
+del CPU del daemon FUSE. Vector de DoS local trivial.
+
+\textbf{Fix.} \texttt{dir\_name\_idx: BTreeMap<(DirId, String), EdgeId>},
+mantenido por \texttt{insert\_edge}, \texttt{remove\_edge} y
+\texttt{rename\_contains\_edge}; \texttt{lookup\_name} pasa a $O(\log N)$
+(\citaLine{sotfs-graph/src/graph.rs}{111}).
+
+\textbf{Lección.} Las propiedades estructurales no se imponen solas en
+runtime: hay que diseñar las índices que las hagan baratas. La
+verificación de la propiedad ``\,$\texttt{stat}$ es flat en tamaño de
+directorio'' es indirecta: el invariante semántico (unicidad de
+nombres) ya estaba probado, pero el costo de chequearlo o de aprovecharlo
+para una lookup era el cuello de botella.
+\end{trampa}
+
+\section{La cara TLA\textsuperscript{+} del TypeGraph}
+
+El \citaTLA{sotfs\_graph.tla} (518 líneas) modela el TypeGraph como una
+máquina de estados sobre los mismos seis tipos de nodo. El estado se
+expresa con variables como las siguientes:
+
+\begin{lstlisting}[language=tla, caption={Extracto del estado en
+\texttt{sotfs\_graph.tla}.}, label={lst:tla-state}]
+VARIABLES
+    inodes,        \* Set of active InodeIds
+    dirs,          \* Set of active DirIds
+    caps,          \* Set of active CapIds
+    blocks,        \* Set of active BlockIds
+    contains,      \* Set of <<DirId, Name, InodeId>> triples
+    grants,        \* Function: CapId -> InodeId
+    delegates,     \* Function: CapId -> CapId (parent)
+    rights         \* Function: CapId -> SUBSET RightsAlphabet
+\end{lstlisting}
+
+Las acciones (\texttt{Mkdir}, \texttt{Unlink}, \texttt{Link},
+\texttt{Rename}, \dots) se enuncian con su \emph{gluing condition} a la
+izquierda del \texttt{/\textbackslash} y la actualización del estado a la
+derecha. El invariante \texttt{TypeOK} restringe los tipos de los
+elementos en cada conjunto; \texttt{NameUniqueness},
+\texttt{LinkCountConsistent} y \texttt{NoDirCycles} son los análogos
+formales de los invariantes~\ref{inv:link-count},
+\ref{inv:unique-names} y \ref{inv:no-dir-cycles}.
+
+El cap.~\ref{cap:tla} cubre cómo correr TLC sobre el spec, qué configs
+small/medium/large se usan y cómo leer un counterexample.
+
+\section{Resumen del capítulo}
+
+\begin{itemize}
+  \item Un \emph{TypeGraph} es una séxtupla
+    $(V, E, \mathrm{src}, \mathrm{tgt}, \tau_V, \tau_E, \mathrm{attr})$
+    con seis tipos de nodo y siete tipos de arista restringidos por una
+    signatura fija.
+  \item Cada nodo tiene atributos POSIX-friendly (Tabla~\ref{tab:nodos});
+    cada arista lleva un atributo propio (nombre, rights, offset).
+  \item Siete invariantes (link-count, unique-names, dir-self-ref,
+    no-dangling, block-refcount, no-dir-cycles, cap-monotonicity) más
+    la consistencia del índice \texttt{dir\_name\_idx} se verifican tras
+    cada paso DPO. Su algoritmo es \textsc{CheckInvariants}
+    (Alg.~\ref{alg:check-invariants}).
+  \item Dos trampas históricas: el chequeo de ciclos en peor caso
+    $O(N^3)$ (mitigado con \texttt{dir\_for\_inode\_idx}) y el
+    \texttt{lookup\_name} lineal (mitigado con \texttt{dir\_name\_idx}).
+    Ambos invariantes \emph{semánticos} eran correctos antes; los fixes
+    fueron \emph{índices secundarios} para hacer el chequeo y la
+    operación baratos en runtime.
+  \item El TypeGraph del runtime y el del \citaTLA{sotfs\_graph.tla} se
+    corresponden por construcción: ambos manipulan los mismos seis
+    tipos y las mismas siete relaciones; la verificación TLC explora un
+    espacio de estados acotado y certifica que las acciones preservan
+    los invariantes (cap.~\ref{cap:tla}).
+\end{itemize}
+
+\section*{Ejercicios}
+
+\begin{ejercicio}[\dificultad{$\star$}]
+\label{ej:tg-1}
+Enuncie los siete invariantes de la sección~\ref{sec:invariantes} en una
+línea cada uno. ¿Cuál depende de un invariante \emph{numérico} (cuenta)
+y no estructural?
+\end{ejercicio}
+
+\begin{ejercicio}[\dificultad{$\star$}]
+\label{ej:tg-2}
+Liste los seis tipos de nodo y los siete tipos de arista. Para cada
+arista, indique los tipos de origen y destino admisibles según la
+signatura $\sigma$ (Tabla~\ref{tab:signature}).
+\end{ejercicio}
+
+\begin{ejercicio}[\dificultad{$\star\star$}]
+\label{ej:tg-3}
+Dibuje el TypeGraph después de las operaciones \texttt{mkdir /a};
+\texttt{create /a/x.txt}; \texttt{create /a/y.txt}; \texttt{ln /a/x.txt
+/a/z.txt}. ¿Cuál es el \texttt{link\_count} del inodo de \texttt{x.txt}
+después de la última operación? ¿Cuántas aristas \econtains{} entran al
+inodo de \texttt{x.txt} (excluyendo ``..'')?
+\end{ejercicio}
+
+\begin{ejercicio}[\dificultad{$\star\star$}]
+\label{ej:tg-4}
+Demuestre que el \invref{inv:link-count} \emph{implica} que un inode
+con \texttt{link\_count = 0} no tiene aristas \econtains{} entrantes
+(salvo ``..''). Use solo la definición.
+\end{ejercicio}
+
+\begin{ejercicio}[\dificultad{$\star\star$}]
+\label{ej:tg-5}
+Considere un TypeGraph con dos directorios $D_1, D_2$ donde
+$D_1.\texttt{inode\_id} = i_1$ y $D_2.\texttt{inode\_id} = i_2$. Si una
+arista \econtains{} con \texttt{name="."} sale de $D_1$ y apunta a
+$i_2$ ($\neq i_1$), ¿cuál invariante se rompe? ¿En qué línea de
+\texttt{check\_invariants} se detecta?
+\end{ejercicio}
+
+\begin{ejercicio}[\dificultad{$\star\star$}]
+\label{ej:tg-6}
+La trampa~\ref{tr:cycle-cost} se cierra agregando
+\texttt{dir\_for\_inode\_idx}. Discuta el costo de mantener ese índice
+\emph{coherente} a lo largo de \texttt{insert\_dir} y \texttt{remove\_dir}.
+¿Bajo qué patrón de operaciones es más caro mantener el índice que
+recorrer linealmente?
+\end{ejercicio}
+
+\begin{ejercicio}[\dificultad{$\star\star$}]
+\label{ej:tg-7}
+Una arista \edelegates{} de $c$ a $c'$ con $c'.\texttt{rights} \not\subseteq
+c.\texttt{rights}$ viola el \invref{inv:cap-monotonicity}. Diseñe el
+test unitario más corto posible que detecte la violación: ¿qué grafo de
+tres nodos hace falta? ¿qué llamada al runtime?
+\end{ejercicio}
+
+\begin{ejercicio}[\dificultad{$\star\star\star$}]
+\label{ej:tg-8}
+Diseñe un octavo invariante para detectar \emph{leaks de bloques}: un
+\NBlk{} cuyo \texttt{refcount > 0} pero cuyo conjunto de aristas
+\epointsto{} entrantes está vacío (caso patológico de divergencia entre
+contador y aristas). Justifique cuándo lo correrías (¿en cada paso DPO?
+¿solo en el GC?). Pista: pensá la asimetría entre el costo de
+mantener y el de chequear.
+\end{ejercicio}
+
+\begin{ejercicio}[\dificultad{$\star\star\star$}]
+\label{ej:tg-9}
+Extienda la signatura $\sigma$ con un octavo tipo de arista
+\textsf{auditedBy} (\NInode{} a un nuevo nodo \textsf{Audit}) que registre
+quién auditó la última escritura. Discuta: ¿qué invariante hay que
+agregar? ¿qué operaciones POSIX hay que modificar para mantenerlo? ¿qué
+spec TLA\textsuperscript{+} hay que extender?
+\end{ejercicio}

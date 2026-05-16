@@ -1,0 +1,269 @@
+\chapter{Implementación: arenas, RCU y motor de reglas}
+\label{cap:implementacion}
+
+Los caps.~\ref{cap:typegraph}--\ref{cap:dpo} fijaron el modelo formal:
+qué tipos viven en el grafo, qué reglas DPO actúan sobre él. Este
+capítulo baja a Rust: cómo el runtime aloja los nodos, cómo los lectores
+ven snapshots consistentes mientras un escritor muta, y cómo cada
+función POSIX en \citaCrate{sotfs-ops} desemboca en una mutación segura.
+
+\section{Arenas: alocación dense con reuso}
+
+\begin{defn}[Arena tipada]
+\label{def:arena}
+Una \emph{arena} \texttt{Arena<T, CAPACITY>} es un pool densamente
+empaquetado de hasta \texttt{CAPACITY} valores de tipo \texttt{T}, con
+un \emph{free-list} de slots reusables después de la liberación.
+Operaciones: \texttt{alloc(v) -> Option<ArenaId>} (O(1)),
+\texttt{free(id)} (O(1)), \texttt{get(id) -> Option<\&T>} (O(1)).
+\end{defn}
+
+El runtime usa una arena por tipo de nodo (inodes, dirs, caps, txns,
+versions, blocks) y una arena para aristas. \texttt{CAPACITY} es
+65\,536 para nodos y 131\,072 para aristas
+(\citaLine{sotfs-graph/src/graph.rs}{31}). Los datos viven en
+\texttt{Box<[MaybeUninit<T>]>} (heap-backed para evitar stack overflow:
+una arena entera son ~35\,MiB).
+
+\paragraph{Estructura interna.}
+
+\begin{itemize}
+  \item \texttt{data}: el array de slots \texttt{MaybeUninit<T>}.
+  \item \texttt{state}: per-slot \texttt{Vacant} o \texttt{Occupied}.
+  \item \texttt{free\_list}: stack de índices liberados, popea LIFO.
+  \item \texttt{next\_bump}: índice del próximo slot bump-allocable.
+\end{itemize}
+
+\paragraph{Algoritmo de alocación.}
+
+\begin{algorithm}[H]
+\SetAlgoLined
+\KwIn{Arena $A$, valor $v$ de tipo $T$}
+\KwOut{\texttt{ArenaId} del slot ocupado, o \texttt{None} si llena}
+\caption{\textsc{Arena.Alloc}}\label{alg:arena-alloc}
+
+\eIf{$A.\textrm{free\_count} > 0$}{
+  $A.\textrm{free\_count} \gets A.\textrm{free\_count} - 1$\;
+  $\textit{slot} \gets A.\textrm{free\_list}[A.\textrm{free\_count}]$\;
+}{
+  \eIf{$A.\textrm{next\_bump} < \texttt{CAPACITY}$}{
+    $\textit{slot} \gets A.\textrm{next\_bump}$\;
+    $A.\textrm{next\_bump} \gets A.\textrm{next\_bump} + 1$\;
+  }{
+    \Return{\texttt{None}}\;
+  }
+}
+$A.\textrm{data}[\textit{slot}] \gets v$\;
+$A.\textrm{state}[\textit{slot}] \gets \texttt{Occupied}$\;
+$A.\textrm{len} \gets A.\textrm{len} + 1$\;
+\Return{\texttt{Some}(\texttt{ArenaId}($\sotxorigmathit{slot}$))}\;
+\end{algorithm}
+
+\begin{lema}[Densidad de la arena]
+\label{lem:arena-densidad}
+Tras una secuencia arbitraria de \textsc{Alloc}/\textsc{Free}, la
+fracción de slots ocupados respecto del rango utilizado
+$[0, \textrm{next\_bump})$ está acotada inferiormente por
+$\textrm{len}/\textrm{next\_bump}$. La arena no fragmenta porque
+\textsc{Free} siempre devuelve el slot al free-list y \textsc{Alloc}
+prefiere ese pool antes de bump-alocar.
+\end{lema}
+
+\paragraph{Por qué importa.} \texttt{ArenaId} es \texttt{u32} (4 bytes)
+y se mapea a un \texttt{u64} typed-id (\texttt{InodeId}, \texttt{DirId},
+\dots) sumando 1 (los IDs en sotFS empiezan en 1; el slot 0 nunca se usa
+como ID, sólo como sentinel). El ratio compacto evita cargar tablas
+grandes en cache cuando se itera el grafo.
+
+\section{Cómo se usa la arena en \texttt{TypeGraph}}
+
+La \texttt{struct TypeGraph} (\citaLine{sotfs-graph/src/graph.rs}{52})
+tiene siete arenas:
+
+\begin{lstlisting}[language=rust]
+pub struct TypeGraph {
+    pub inodes: Arena<Inode, NODE_CAPACITY>,        // 65k
+    pub dirs: Arena<Directory, NODE_CAPACITY>,
+    pub caps: Arena<Capability, NODE_CAPACITY>,
+    pub transactions: Arena<Transaction, NODE_CAPACITY>,
+    pub versions: Arena<Version, NODE_CAPACITY>,
+    pub blocks: Arena<Block, NODE_CAPACITY>,
+    pub edges: Arena<Edge, EDGE_CAPACITY>,           // 131k
+    // ... + índices secundarios BTreeMap
+}
+\end{lstlisting}
+
+Una \texttt{TypeGraph} ocupa $\sim 35$\,MiB en heap por instancia
+(siete arenas $\times 4$\,KiB de header + datos a demanda). Cap.~\ref{cap:transacciones}
+discute por qué eso vuelve costoso \texttt{graph.clone()}.
+
+\section{RCU: lectores lock-free, escritor único}
+
+\begin{defn}[RcuGraph]
+\label{def:rcu-graph}
+\texttt{RcuGraph} mantiene \emph{dos} copias del \texttt{TypeGraph} en
+heap (\texttt{Box<TypeGraph>}). Un índice atómico \texttt{active}
+indica cuál ven los lectores; el escritor muta la inactiva, hace un
+swap atómico, y espera a que los lectores que aún ven la copia vieja
+terminen (\emph{rcu-synchronize}).
+\end{defn}
+
+El protocolo:
+
+\begin{algorithm}[H]
+\SetAlgoLined
+\KwIn{$\textit{rcu}: \texttt{RcuGraph}$, mutador $f: \texttt{TypeGraph} \to ()$}
+\caption{\textsc{RcuGraph.Write}}\label{alg:rcu-write}
+
+\textsc{Acquire}($\textit{rcu}.\textrm{write\_lock}$)
+$\textit{inactive} \gets 1 - \textit{rcu}.\textrm{active}.\textsc{Load}()$\;
+$\textit{rcu}.\textrm{graphs}[\textit{inactive}] \gets \textit{rcu}.\textrm{graphs}[\textit{rcu}.\textrm{active}].\textsc{Clone}()$\;
+$f(\textit{rcu}.\textrm{graphs}[\textit{inactive}])$\;
+$\textit{rcu}.\textrm{active}.\textsc{Store}(\textit{inactive}, \texttt{Release})$\;
+\textsc{RcuSynchronize}($\textit{rcu}$)
+\textsc{Release}($\textit{rcu}.\textrm{write\_lock}$)\;
+\end{algorithm}
+
+\paragraph{Lectores.} Cada lector reclama un slot de
+\texttt{reader\_epochs} (hasta 64 en paralelo, fijo en
+\citaLine{sotfs-graph/src/rcu.rs}{39}), bumpea el global epoch y
+escribe ese epoch en su slot. La sincronización del escritor consiste
+en esperar a que todos los slots con epoch $\le$ swap-epoch retornen a
+\texttt{INACTIVE}. \emph{No bloquea a nuevos lectores}: ellos ya verán
+la copia nueva.
+
+\begin{invariante}[RCU consistency]
+\label{inv:rcu-consistency}
+Un lector que entró antes del swap ve el grafo en su estado pre-swap
+durante toda su lectura, aún si en paralelo otro escritor está mutando
+la copia opuesta.
+\end{invariante}
+
+\paragraph{Trampa subtle.} \texttt{MAX\_READERS} fijo en 64; un
+deployment con más lectores concurrentes que ese número entra a un
+\emph{panic path} (\citaLine{sotfs-graph/src/rcu.rs}{31}). El número
+viene del bump v0.2.1 cuando una FUSE daemon a 16 cores trivialmente
+excedía los 8 originales. El fix definitivo (per-CPU counters o pool
+dinámico) está en post-v0.3.
+
+\section{El motor de reglas: cómo se aplica un paso DPO}
+
+Recapitulando del cap.~\ref{cap:dpo}: el runtime no implementa un motor
+DPO genérico. Cada operación POSIX es una función Rust que en orden
+hace (i) matching, (ii) gluing condition, (iii) mutación. La estructura
+canónica:
+
+\begin{algorithm}[H]
+\SetAlgoLined
+\KwIn{$g: \&\texttt{mut TypeGraph}$, parámetros de la op}
+\KwOut{\texttt{Result<X, GraphError>}}
+\caption{\textsc{Esqueleto de cada op DPO en sotfs-ops}}\label{alg:op-skeleton}
+
+
+$\textit{handles} \gets g.\textsc{Resolve}(\textit{params})$\;
+\If{$\textit{handles} = \texttt{None}$}{\Return{\texttt{Err(NotFound)}}\;}
+
+
+\If{$\neg\;\textsc{CheckPrecond}(g, \textit{handles}, \textit{params})$}{
+  \Return{\texttt{Err(\textit{precond violada})}}\;
+}
+
+
+$\textit{newId} \gets g.\textsc{Alloc}(\dots)$\;
+$g.\textsc{Insert}(\dots)$\;
+$g.\textsc{UpdateIndices}(\dots)$\;
+$g.\textsc{RecordProv}(\dots)$
+\Return{\texttt{Ok}(\textit{newId})}\;
+\end{algorithm}
+
+\paragraph{Punto clave.} La mutación nunca toca un slot ocupado: o
+aloca uno nuevo (vía \textsc{Arena.Alloc}) o libera uno viejo. Esto
+preserva el \invref{inv:no-dangling} \emph{por construcción de la
+arena}: un slot ya liberado no aparece en ningún índice secundario, y
+los nuevos índices apuntan a slots recién alocados.
+
+\section{Provenance log: el sidecar opcional}
+
+Si la GTXN está corriendo bajo \fuse{} con
+\texttt{SOTFS\_PROV\_SIDECAR} configurado
+(cap.~\ref{cap:fuse}), cada op llama a
+\texttt{record\_prov(op, inode\_id, detail)}
+(\citaLine{sotfs-graph/src/graph.rs}{619}) que serializa una entrada
+JSONL con timestamp, tipo de op, inode, cap-id (si presente) y dominio.
+La política se inyecta vía \texttt{set\_cap\_ctx(CapContext)} antes de
+cada op (\citaCommit{61e7faf}).
+
+\section*{Resumen del capítulo}
+
+\begin{itemize}
+  \item Los nodos viven en arenas tipadas \texttt{Arena<T,
+    CAPACITY>} con free-list LIFO; \textsc{Alloc}/\textsc{Free} son
+    O(1) y la arena no fragmenta.
+  \item \texttt{TypeGraph} aglutina siete arenas (seis de nodo + una de
+    arista) más índices secundarios \texttt{BTreeMap}; ocupa
+    $\sim 35$\,MiB en heap por instancia.
+  \item \texttt{RcuGraph} mantiene dos copias y sincroniza a los
+    lectores vía epoch counters; los escritores muta la inactiva y
+    swappea con \texttt{Release}.
+  \item Cada operación POSIX es una función Rust en \citaCrate{sotfs-ops}
+    que sigue el esqueleto matching $\to$ gluing $\to$ mutación.
+  \item Provenance log opcional, drainable, con cap-mediated context.
+\end{itemize}
+
+\section*{Ejercicios}
+
+\begin{ejercicio}[\dificultad{$\star$}]
+\label{ej:impl-1}
+¿Cuál es \texttt{NODE\_CAPACITY} y \texttt{EDGE\_CAPACITY} en sotFS
+v0.2.5?
+\end{ejercicio}
+
+\begin{ejercicio}[\dificultad{$\star$}]
+\label{ej:impl-2}
+¿Cuántos lectores concurrentes admite el RCU? ¿Qué pasa si se excede?
+\end{ejercicio}
+
+\begin{ejercicio}[\dificultad{$\star\star$}]
+\label{ej:impl-3}
+Calcule la ocupación de memoria de un \texttt{TypeGraph} vacío
+(arenas vacías). Pista: \texttt{Box<[MaybeUninit<T>]>} aloca
+\texttt{CAPACITY} entradas pero no las inicializa.
+\end{ejercicio}
+
+\begin{ejercicio}[\dificultad{$\star\star$}]
+\label{ej:impl-4}
+La función \texttt{rcu\_synchronize} es lineal en el número de
+lectores. Diseñá un escenario donde un escritor podría \emph{starvarse}
+si los lectores se renuevan más rápido que la sincronización. ¿Es
+posible bajo carga real?
+\end{ejercicio}
+
+\begin{ejercicio}[\dificultad{$\star\star$}]
+\label{ej:impl-5}
+Mostrá que el algoritmo \textsc{Arena.Alloc} preserva la invariante
+``\texttt{state[i] == Occupied} si y solo si \texttt{data[i]} está
+inicializado''. Identifique los tres puntos de la prueba.
+\end{ejercicio}
+
+\begin{ejercicio}[\dificultad{$\star\star$}]
+\label{ej:impl-6}
+Diseñe un test de stress para la arena: $N$ alocaciones, $N/2$
+liberaciones aleatorias, $N/2$ alocaciones adicionales. ¿Cuáles
+invariantes verificar al final?
+\end{ejercicio}
+
+\begin{ejercicio}[\dificultad{$\star\star$}]
+\label{ej:impl-7}
+\trampref{tr:cycle-cost} habla de cómo un índice secundario
+(\texttt{dir\_for\_inode\_idx}) elimina un O(N\textsuperscript{3}). En
+términos de la arena: ¿podría implementarse el índice como otra arena
+en lugar de \texttt{BTreeMap}? Discuta tradeoffs.
+\end{ejercicio}
+
+\begin{ejercicio}[\dificultad{$\star\star\star$}]
+\label{ej:impl-8}
+Reemplace los \texttt{reader\_epochs} fijos de 64 slots por un
+mecanismo de pool dinámico per-CPU que escale a cualquier número de
+lectores. Bosquejo el diseño en pseudo-Rust + invariantes que se
+preservan.
+\end{ejercicio}

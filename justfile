@@ -105,3 +105,18 @@ release-binaries:
 
 doc:
     cargo doc --workspace --no-deps --open
+
+# ── Libro (LaTeX) ─────────────────────────────────────────────────────
+
+# Build the sotFS book to docs/book/build/main.pdf.
+# Requires lualatex, biber, texlive-scheme-full.
+book:
+    cd docs/book && latexmk -lualatex -outdir=build main.tex
+
+# Watch mode: rebuild on .tex save.
+book-watch:
+    cd docs/book && latexmk -lualatex -pvc -outdir=build main.tex
+
+# Clean auxiliary build files.
+book-clean:
+    cd docs/book && latexmk -C -outdir=build

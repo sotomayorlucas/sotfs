@@ -1,0 +1,98 @@
+\chapter*{Prefacio}
+\addcontentsline{toc}{chapter}{Prefacio}
+
+Este libro es la presentación pedagógica y autocontenida del sistema
+\textbf{sotFS}: un filesystem cuya estructura interna no es un árbol de
+inodos, como en \texttt{ext4} o \texttt{XFS}, sino un grafo dirigido
+tipado, donde cada operación POSIX se modela como una reescritura algebraica
+(DPO, \emph{double pushout}) y donde las propiedades de seguridad,
+consistencia y crash-safety se enuncian como invariantes formales y se
+verifican parcialmente con TLA\textsuperscript{+} y Coq.
+
+\section*{Para quién es este libro}
+
+Tres lectores en mente, en orden de comodidad creciente con el material:
+
+\begin{itemize}
+  \item Un \emph{ingeniero de sistemas} con base en filesystems POSIX,
+    storage e idea de qué hace \texttt{fsync}, pero sin background previo
+    en teoría de categorías ni verificación formal.
+  \item Un \emph{estudiante de posgrado} en sistemas o métodos formales,
+    interesado en cómo se baja un modelo matemático a una implementación
+    Rust real, con tests, fuzzers, benchmarks y CI.
+  \item Un \emph{practitioner de seguridad} interesado en provenance,
+    monitoreo estructural (curvatura de Ricci-Ollivier sobre el grafo
+    del FS) y proyecciones engañosas como mecanismo defensivo.
+\end{itemize}
+
+\section*{Cómo está organizado}
+
+Catorce capítulos organizados en tres bloques:
+
+\begin{description}
+  \item[\sffamily Núcleo (caps. 1–5).] Motivación, preliminares
+    matemáticos, el TypeGraph, hashing de contenido y reescritura DPO de
+    todas las operaciones POSIX.
+  \item[\sffamily Implementación y persistencia (caps. 6–9).] Cómo se baja
+    el modelo a Rust seguro y concurrente; persistencia con \redb;
+    capabilities y delegación; transacciones GTXN y \emph{crash refinement}.
+  \item[\sffamily Verificación, monitoreo y exposición (caps. 10–14).]
+    Specs TLA\textsuperscript{+}, pruebas en Coq con su deuda explícita,
+    métricas estructurales (treewidth y curvatura), el \emph{functor de
+    decepción} \(D_{\mathrm{FS}}\) y el adaptador \fuse{} que expone todo
+    al kernel.
+\end{description}
+
+Cinco apéndices (catálogo de invariantes, tablas DPO, resultados TLC,
+setup reproducible, soluciones a ejercicios ★ y ★★) cierran el volumen.
+
+\section*{Convenciones}
+
+\begin{itemize}
+  \item \textbf{Cajas tipadas} sirven para destacar material verificable o
+    peligroso. Las \emph{invariantes} (en azul) son propiedades que el
+    sistema mantiene siempre. Las \emph{trampas} (en rojo) son errores
+    históricos del proyecto, con su \emph{lección} explícita; muchas
+    están enlazadas a un commit. Los \emph{ejercicios} (en ámbar)
+    aparecen al final de cada capítulo.
+
+  \item \textbf{Algoritmos} se presentan en pseudo-código estilo CLRS con
+    \texttt{algorithm2e}, numerados por capítulo. Su correspondencia
+    con código Rust real se cita por archivo y línea, p.~ej.\
+    \citaLine{sotfs-graph/src/graph.rs}{571}.
+
+  \item \textbf{Citas al repositorio} usan macros: \citaTLA{spec.tla},
+    \citaCoq{archivo.v}, \citaCrate{nombre} y \citaCommit{sha}. Las
+    citas académicas siguen el estilo numérico estándar.
+
+  \item \textbf{Ejercicios graduados.} \dificultad{$\star$} memorística;
+    \dificultad{$\star\star$} aplicación; \dificultad{$\star\star\star$}
+    diseño o extensión. El apéndice~\ref{ap:soluciones} cubre los
+    primeros dos niveles; los \dificultad{$\star\star\star$} llevan
+    sólo una pista.
+\end{itemize}
+
+\section*{Lo que este libro no hace}
+
+\begin{itemize}
+  \item No reemplaza la lectura del código. Documenta y motiva la
+    arquitectura de la versión \texttt{v0.2.5}; la fuente de verdad
+    sigue siendo el repositorio.
+  \item No oculta las debilidades formales. Hay cinco lemas
+    \texttt{Admitted} en Coq (\(4\) en \texttt{DpoRmdir.v}, \(1\) en
+    \texttt{DpoUnlink.v}); el cap.~\ref{cap:coq} los lista uno a uno.
+  \item No cubre el crate \texttt{sotfs-experimental}: es código
+    aspiracional, no integrado al runtime estable.
+\end{itemize}
+
+\section*{Agradecimientos}
+
+A las herramientas que hicieron este libro posible: \LaTeX{} y
+\texttt{algorithm2e}, \texttt{TikZ}, \texttt{biblatex}, TLA Tools,
+\texttt{coqc} y \texttt{coqdoc}, \texttt{cargo-fuzz} y \texttt{cargo-llvm-cov}.
+A la comunidad de teoría de categorías aplicada por insistir en que un
+\emph{pushout} es la cosa más útil que uno aprende en la vida.
+
+\bigskip
+\noindent\hfill \emph{Buenos Aires, \today}
+\clearpage

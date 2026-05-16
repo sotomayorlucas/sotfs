@@ -1,0 +1,316 @@
+\chapter{Preliminares matemáticos}
+\label{cap:prelim}
+
+Este capítulo es la caja de herramientas que el resto del libro usa sin
+volver a justificar. Cubre tres temas: (i) grafos dirigidos tipados, la
+estructura sobre la que vive sotFS; (ii) funciones de hash
+criptográfico, pieza central del direccionamiento por contenido; y
+(iii) pushouts y reescritura DPO, el formalismo en el que se enuncian
+las operaciones POSIX.
+
+Si el lector ya viene con experiencia en estos temas, puede saltearse
+este capítulo y volver a él como referencia. El estilo es deliberadamente
+operativo: definiciones precisas, ejemplos chicos, sin esoterismo
+categórico más allá de lo necesario.
+
+\section{Grafos dirigidos tipados}
+
+\begin{defn}[Grafo dirigido]
+\label{def:grafo-dirigido}
+Un \emph{grafo dirigido} es una tupla $G = (V, E, \mathrm{src},
+\mathrm{tgt})$ donde $V$ y $E$ son conjuntos finitos y
+$\mathrm{src}, \mathrm{tgt}: E \to V$ son funciones que asignan a cada
+arista su origen y destino.
+\end{defn}
+
+\begin{defn}[Morfismo de grafos]
+\label{def:morfismo-grafos}
+Un \emph{morfismo de grafos} $f: G \to H$ es un par de funciones
+$f_V: V_G \to V_H$ y $f_E: E_G \to E_H$ tales que $f_V \circ
+\mathrm{src}_G = \mathrm{src}_H \circ f_E$ y análogamente para
+$\mathrm{tgt}$. Los morfismos preservan la estructura de adyacencia.
+\end{defn}
+
+\begin{defn}[Grafo tipado]
+\label{def:grafo-tipado}
+Un \emph{grafo tipado} sobre una signatura $(T_V, T_E, \sigma)$ es un
+grafo dirigido más dos funciones $\tau_V: V \to T_V$ y $\tau_E: E \to
+T_E$ que respetan $\sigma$: para toda $e \in E$, $\sigma(\tau_E(e)) =
+(\tau_V(\mathrm{src}(e)), \tau_V(\mathrm{tgt}(e)))$. La signatura
+$\sigma: T_E \to T_V \times T_V$ fija qué pares de tipos puede unir cada
+tipo de arista.
+\end{defn}
+
+La categoría de los grafos tipados sobre una signatura fija se denota
+$\TGraph$. Sus objetos son grafos tipados; sus morfismos son los
+morfismos de grafos que además preservan los tipos
+($\tau_V \circ f_V = \tau_V'$ y análogo para $\tau_E$).
+
+\begin{observacion}[$\TGraph$ es completa y co-completa]
+\label{obs:tgraph-cocompleta}
+Para los efectos del libro alcanza con un hecho: $\TGraph$ admite
+todos los pushouts (constructibles componente a componente: la
+construcción en $\Set$, una vez en $V$ y otra vez en $E$, respeta los
+tipos por construcción). Esto es lo que permite definir reescritura DPO
+sobre grafos tipados sin sutilezas adicionales.
+\end{observacion}
+
+\section{Funciones de hash criptográfico}
+
+\begin{defn}[Función de hash criptográfico]
+\label{def:hash}
+Una función $h: \{0,1\}^* \to \{0,1\}^n$ es una \emph{función de hash
+criptográfico} si satisface las siguientes propiedades:
+\begin{description}
+  \item[Resistencia a pre-imagen.] Dado $y \in \{0,1\}^n$, encontrar
+    $x$ tal que $h(x) = y$ requiere esfuerzo $\Theta(2^n)$.
+  \item[Resistencia a segunda pre-imagen.] Dado $x_1$, encontrar
+    $x_2 \neq x_1$ con $h(x_1) = h(x_2)$ requiere esfuerzo
+    $\Theta(2^n)$.
+  \item[Resistencia a colisión.] Encontrar cualquier par $x_1 \neq
+    x_2$ con $h(x_1) = h(x_2)$ requiere esfuerzo $\Theta(2^{n/2})$
+    (cota del paradoja del cumpleaños).
+\end{description}
+\end{defn}
+
+\paragraph{La elección de sotFS: BLAKE3.} sotFS usa \blake{}
+\cite{BLAKE3} con $n = 256$ bits. La probabilidad de colisión accidental
+entre dos contenidos distintos es $\sim 2^{-128}$, valor menor que el
+de un error cósmico no detectado en una RAM ECC. \blake{} además es
+muy rápido (~6\,GiB/s en una CPU moderna single-thread) y paraleliza
+naturalmente sobre la entrada vía un Merkle tree interno: importante
+para el direccionamiento por contenido del cap.~\ref{cap:hashing}.
+
+\section{Pushouts}
+
+\subsection*{En $\Set$}
+
+\begin{defn}[Pushout en $\Set$]
+\label{def:pushout-set-prelim}
+Dadas dos funciones $f: A \to B$ y $g: A \to C$ con dominio común $A$,
+su \emph{pushout} es un objeto $D$ junto con dos funciones $h: B \to
+D$ y $k: C \to D$ tales que $h \circ f = k \circ g$ y, para cualquier
+otro $D'$ con flechas $h', k'$ que satisfagan la misma ecuación, existe
+una única flecha $u: D \to D'$ con $u \circ h = h'$ y $u \circ k = k'$.
+\end{defn}
+
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}[node distance=15mm and 22mm]
+  \node (A) {$A$};
+  \node[right=of A] (B) {$B$};
+  \node[below=of A] (C) {$C$};
+  \node[below=of B] (D) {$D$};
+  \node[below right=of D] (Dp) {$D'$};
+  \draw[arr] (A) -- (B) node[edgelbl, midway] {$f$};
+  \draw[arr] (A) -- (C) node[edgelbl, midway] {$g$};
+  \draw[arr] (B) -- (D) node[edgelbl, midway] {$h$};
+  \draw[arr] (C) -- (D) node[edgelbl, midway] {$k$};
+  \draw[arr, dashed] (D) -- (Dp) node[edgelbl, midway] {$u$};
+  \draw[arr, bend left=25] (B) to (Dp);
+  \draw[arr, bend right=25] (C) to (Dp);
+\end{tikzpicture}
+\caption{Diagrama universal del pushout. $D$ es el ``más pequeño''
+objeto que cierra el cuadrado conmutativo: cualquier otro $D'$ que lo
+cierre factoriza por $D$ via $u$.}
+\label{fig:pushout-prelim}
+\end{figure}
+
+\begin{teorema}[Construcción del pushout en $\Set$]
+\label{teo:pushout-set-construccion}
+$D$ existe siempre y es único salvo isomorfismo. Concretamente,
+$D = (B \sqcup C)/\sim$ donde $\sim$ es la relación de equivalencia
+generada por $f(a) \sim g(a)$ para todo $a \in A$.
+\end{teorema}
+
+\begin{proof}[Esquema]
+La existencia se verifica construyendo $D$ como en el enunciado y
+chequeando la propiedad universal directamente. La unicidad sale del
+hecho de que cualquier otro $D'$ con la misma propiedad universal
+admite una flecha $u: D \to D'$ y una $u': D' \to D$, ambas
+factorizando las inclusiones, y la unicidad de $u, u'$ obliga
+$u' \circ u = \mathrm{id}_D$.
+\end{proof}
+
+\subsection*{En $\Graph$ y $\TGraph$}
+
+La construcción del pushout en $\Graph$ es la misma idea, pero
+duplicada: una vez en el conjunto de vértices y otra en el de aristas.
+Se puede hacer porque las funciones $\mathrm{src}, \mathrm{tgt}: E \to
+V$ son funciones de conjuntos, y los morfismos de grafos las preservan.
+En $\TGraph$ además los tipos se preservan por construcción si la
+signatura $\sigma$ es respetada por los morfismos de partida.
+
+\section{Reescritura DPO (\emph{double-pushout})}
+
+La reescritura DPO es la herramienta para describir transformaciones
+locales de un grafo de manera \emph{algebraica}: una regla especifica
+qué borrar, qué dejar y qué insertar; un \emph{paso DPO} aplica la
+regla a un grafo \emph{host} preservando el resto.
+
+\begin{defn}[Producción / regla DPO]
+\label{def:dpo-prelim}
+Una \emph{producción DPO} es un span en la categoría $\TGraph$:
+\[
+  \rho \;=\; \dpo{L}{K}{R}
+\]
+donde $K \to L$ y $K \to R$ son inclusiones (morfismos inyectivos).
+$L$ es el patrón a remover; $R$ el patrón a insertar; $K$ el
+\emph{glue} que sobrevive.
+\end{defn}
+
+\begin{defn}[Paso DPO]
+\label{def:dpo-step-prelim}
+Dado un grafo host $G$ y un \emph{matching} $m: L \to G$, un paso DPO
+$G \xRightarrow{\rho, m} H$ existe si y sólo si:
+\begin{enumerate}
+  \item Existe un grafo $D$ y un morfismo $D \to G$ tal que el cuadrado
+    izquierdo (con $L \to G$, $K \to L$ y $K \to D$) sea un pushout.
+    Este $D$ es el \emph{pushout complement} y existe si y sólo si se
+    cumple la \emph{gluing condition} (def.~\ref{def:gluing-prelim}).
+  \item El cuadrado derecho (con $R$, $K \to R$, $K \to D$) tiene un
+    pushout, que es $H$.
+\end{enumerate}
+\end{defn}
+
+\begin{defn}[Gluing condition]
+\label{def:gluing-prelim}
+La \emph{gluing condition} para $\rho = \dpo{L}{K}{R}$ y matching $m: L
+\to G$ exige dos cosas:
+\begin{description}
+  \item[\textsf{Identification.}] Si dos elementos distintos de $L$
+    (nodos o aristas) se mapean al mismo elemento de $G$ vía $m$,
+    deben ambos pertenecer a la imagen de $K \to L$.
+  \item[\textsf{Dangling.}] Para todo nodo $v \in m(L) \setminus
+    m(K)$ (un nodo que la regla quiere borrar), no debe haber aristas
+    en $G$ incidentes a $v$ que no provengan de $m(L)$.
+\end{description}
+La condición Dangling es la responsable de los errores POSIX que
+veremos en el cap.~\ref{cap:dpo}: ``no podés borrar un directorio que
+todavía tiene entradas''.
+\end{defn}
+
+\begin{teorema}[Existencia y unicidad del paso DPO]
+\label{teo:dpo-existencia}
+Dada una producción $\rho$ y un matching $m$ que satisface la gluing
+condition, existen $D$ y $H$ únicos salvo isomorfismo, y son los
+construidos vía pushout complement y pushout final.
+\end{teorema}
+
+La prueba completa vive en el clásico \cite{Ehrig2006}; es una
+aplicación directa de las propiedades universales del pushout.
+
+\section{Por qué DPO y no SPO o ARS}
+
+Existen otros formalismos para reescritura de grafos: SPO
+(\emph{single-pushout}, \cite{Corradini2006}), term rewriting con
+\emph{attribute systems}, sistemas de reescritura abstracta (ARS).
+\emph{¿Por qué DPO en sotFS?}
+
+\begin{itemize}
+  \item DPO requiere la gluing condition explícita; un paso ``ilegal''
+    \emph{no existe}, no es ``hace algo raro''. En SPO, el paso siempre
+    existe pero puede dejar el grafo en un estado degenerado (aristas
+    colgando que se reinterpretan). DPO es \emph{conservador} en el
+    sentido de Hippocratic: si no se puede hacer bien, no se hace.
+  \item DPO es la formulación más cercana a las pre-condiciones POSIX:
+    \texttt{EEXIST}, \texttt{ENOTEMPTY} y \texttt{ENOTDIR} son
+    instancias literales de gluing conditions o NACs.
+  \item Las pruebas formales en Coq se simplifican porque cada paso
+    requiere un certificado (la gluing condition explícita), lo que
+    hace los teoremas de preservación de invariantes más directos.
+\end{itemize}
+
+\section{Notación que se usa todo el libro}
+
+\begin{itemize}
+  \item $G, H$: grafos tipados (instancias de $\TGraph$). $G$ típicamente
+    es un host; $H$ un resultado tras un paso.
+  \item $L, K, R$: los tres componentes de una producción DPO.
+  \item $m: L \to G$ un matching.
+  \item $\hashof{x}$: el hash \blake{} de $x$, 256 bits.
+  \item $\tau_V, \tau_E$: las funciones de tipado.
+  \item $\NInode, \NDir, \NCap, \NTxn, \NVer, \NBlk$: los seis tipos de nodo
+    de sotFS (cap.~\ref{cap:typegraph}).
+  \item $\econtains, \egrants, \edelegates, \ederivedfrom,
+    \esupersedes, \epointsto, \ehasxattr$: los siete tipos de arista.
+\end{itemize}
+
+\section*{Resumen del capítulo}
+
+\begin{itemize}
+  \item Un grafo tipado es un grafo dirigido con tipos asignados a
+    nodos y aristas, sujetos a una signatura.
+  \item Una función de hash criptográfico tiene tres propiedades de
+    resistencia; \blake{} con 256 bits es la elección de sotFS.
+  \item Un pushout en $\Set$ es el cociente de la unión disjunta por la
+    relación inducida por las flechas; en $\TGraph$ se construye
+    componente a componente.
+  \item Una producción DPO es un span $\dpo{L}{K}{R}$; un paso requiere
+    matching y gluing condition; produce un grafo $H$ único salvo
+    isomorfismo.
+  \item DPO se elige sobre SPO porque la gluing condition explícita
+    cuadra con las pre-condiciones POSIX y simplifica las pruebas.
+\end{itemize}
+
+\section*{Ejercicios}
+
+\begin{ejercicio}[\dificultad{$\star$}]
+\label{ej:prelim-1}
+Defina ``morfismo de grafos'' en una línea.
+\end{ejercicio}
+
+\begin{ejercicio}[\dificultad{$\star$}]
+\label{ej:prelim-2}
+¿Cuál es la cota del paradoja del cumpleaños para una función de hash
+de 256 bits? Exprese el resultado como una potencia de 2.
+\end{ejercicio}
+
+\begin{ejercicio}[\dificultad{$\star\star$}]
+\label{ej:prelim-3}
+Calcule el pushout en $\Set$ de $f: \{a,b\} \to \{1,2,3\}$ con $f(a) = 1$,
+$f(b) = 2$, y $g: \{a,b\} \to \{x,y,z\}$ con $g(a) = x$, $g(b) = y$.
+Liste explícitamente los elementos de $D$ y las funciones $h, k$.
+\end{ejercicio}
+
+\begin{ejercicio}[\dificultad{$\star\star$}]
+\label{ej:prelim-4}
+Dé un ejemplo de producción DPO sobre $\Graph$ (sin tipar) que añada
+una arista entre dos nodos existentes. Especifique $L$, $K$, $R$ con
+diagramas o conjuntos.
+\end{ejercicio}
+
+\begin{ejercicio}[\dificultad{$\star\star$}]
+\label{ej:prelim-5}
+Construya un caso donde la gluing condition Dangling falle: un host
+$G$ con tres nodos y dos aristas, un matching $m$ que selecciona uno
+de los nodos para borrarlo, y la arista incidente sobreviviente que
+hace fallar la condición.
+\end{ejercicio}
+
+\begin{ejercicio}[\dificultad{$\star\star$}]
+\label{ej:prelim-6}
+Dé un ejemplo en sotFS donde la condición Identification de la gluing
+condition es relevante. Pista: ¿qué pasa si una regla DPO mapea dos
+\NDir{} distintos al mismo \NDir{} del host?
+\end{ejercicio}
+
+\begin{ejercicio}[\dificultad{$\star\star$}]
+\label{ej:prelim-7}
+Compare DPO y SPO en términos de qué pasa con un \opunlink{} de un
+inode hard-linked múltiples veces.
+\end{ejercicio}
+
+\begin{ejercicio}[\dificultad{$\star\star\star$}]
+\label{ej:prelim-8}
+Demuestre que el pushout complement, cuando existe, es único salvo
+isomorfismo. Pista: aplicar la propiedad universal del pushout
+izquierdo dos veces.
+\end{ejercicio}
+
+\begin{ejercicio}[\dificultad{$\star\star\star$}]
+\label{ej:prelim-9}
+Lea el cap.~3 de \cite{Ehrig2006}. Encuentre dos teoremas (con número
+y página) que justifiquen por qué $\TGraph$ es una categoría adecuada
+para reescritura DPO.
+\end{ejercicio}

@@ -1,0 +1,166 @@
+DIGEST 01b01fd9df5f4b5ebf29b6b6ad346357
+FSotFS.DpoLink
+R1236:1250 Stdlib.Arith.Arith <> <> lib
+R1268:1281 Stdlib.Lists.List <> <> lib
+R1299:1311 Stdlib.Bool.Bool <> <> lib
+R1329:1331 Stdlib.micromega.Lia <> <> lib
+R1341:1353 Stdlib.Lists.List ListNotations <> mod
+R1372:1381 SotFS.SotfsGraph <> <> lib
+rec 1621:1627 <> LinkPre
+proj 1706:1718 <> lp_dir_exists
+proj 1743:1754 <> lp_user_name
+proj 1783:1795 <> lp_name_fresh
+proj 1834:1849 <> lp_target_exists
+proj 1882:1894 <> lp_is_regular
+R1634:1638 SotFS.SotfsGraph <> Graph rec
+binder 1630:1630 <> g:1
+R1646:1650 SotFS.SotfsGraph <> DirId def
+binder 1642:1642 <> d:2
+R1661:1664 SotFS.SotfsGraph <> Name def
+binder 1654:1657 <> name:3
+R1683:1689 SotFS.SotfsGraph <> InodeId def
+binder 1670:1679 <> target_ino:4
+R1725:1734 SotFS.SotfsGraph <> dir_exists def
+R1736:1736 SotFS.DpoLink <> g:1 var
+R1738:1738 SotFS.DpoLink <> d:2 var
+R1762:1773 SotFS.SotfsGraph <> is_user_name def
+R1775:1778 SotFS.DpoLink <> name:3 var
+R1822:1824 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R1802:1812 SotFS.SotfsGraph <> name_in_dir def
+R1814:1814 SotFS.DpoLink <> g:1 var
+R1816:1816 SotFS.DpoLink <> d:2 var
+R1818:1821 SotFS.DpoLink <> name:3 var
+R1825:1829 Corelib.Init.Datatypes <> false constr
+R1853:1864 SotFS.SotfsGraph <> inode_exists def
+R1866:1866 SotFS.DpoLink <> g:1 var
+R1868:1877 SotFS.DpoLink <> target_ino:4 var
+binder 1908:1909 <> ir:10
+R1945:1972 Corelib.Init.Notations <> ::type_scope:x_'->'_x not
+R1935:1937 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R1912:1921 SotFS.SotfsGraph <> find_inode def
+R1923:1923 SotFS.DpoLink <> g:1 var
+R1925:1934 SotFS.DpoLink <> target_ino:4 var
+R1938:1941 Corelib.Init.Datatypes <> Some constr
+R1943:1944 SotFS.DpoLink <> ir:10 var
+R1984:1986 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R1973:1980 SotFS.SotfsGraph <> ir_vtype proj
+R1982:1983 SotFS.DpoLink <> ir:10 var
+R1987:1993 SotFS.SotfsGraph <> Regular constr
+def 2240:2253 <> increment_link
+R2265:2268 Corelib.Init.Datatypes <> list ind
+R2270:2277 SotFS.SotfsGraph <> InodeRec rec
+binder 2256:2261 <> inodes:12
+R2287:2293 SotFS.SotfsGraph <> InodeId def
+binder 2281:2283 <> ino:13
+R2300:2303 Corelib.Init.Datatypes <> list ind
+R2305:2312 SotFS.SotfsGraph <> InodeRec rec
+R2319:2321 Corelib.Lists.ListDef <> map def
+R2445:2450 SotFS.DpoLink <> inodes:12 var
+binder 2328:2329 <> ir:14
+R2341:2347 Stdlib.Arith.PeanoNat Nat eqb def
+R2350:2354 SotFS.SotfsGraph <> ir_id proj
+R2356:2357 SotFS.DpoLink <> ir:14 var
+R2360:2362 SotFS.DpoLink <> ino:13 var
+R2438:2439 SotFS.DpoLink <> ir:14 var
+R2373:2379 SotFS.SotfsGraph <> mkInode constr
+R2382:2386 SotFS.SotfsGraph <> ir_id proj
+R2388:2389 SotFS.DpoLink <> ir:14 var
+R2393:2400 SotFS.SotfsGraph <> ir_vtype proj
+R2402:2403 SotFS.DpoLink <> ir:14 var
+R2407:2407 Corelib.Init.Datatypes <> S constr
+R2410:2422 SotFS.SotfsGraph <> ir_link_count proj
+R2424:2425 SotFS.DpoLink <> ir:14 var
+prf 2460:2487 <> increment_link_preserves_ids
+binder 2500:2505 <> inodes:15
+binder 2507:2509 <> ino:16
+R2553:2555 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R2516:2518 Corelib.Lists.ListDef <> map def
+R2527:2540 SotFS.DpoLink <> increment_link def
+R2542:2547 SotFS.DpoLink <> inodes:15 var
+R2549:2551 SotFS.DpoLink <> ino:16 var
+R2520:2524 SotFS.SotfsGraph <> ir_id proj
+R2556:2558 Corelib.Lists.ListDef <> map def
+R2566:2571 SotFS.DpoLink <> inodes:15 var
+R2560:2564 SotFS.SotfsGraph <> ir_id proj
+R2598:2611 SotFS.DpoLink <> increment_link def
+R2624:2630 Stdlib.Lists.List <> map_map thm
+R2639:2645 Stdlib.Lists.List <> map_ext thm
+R2676:2682 Stdlib.Arith.PeanoNat Nat eqb def
+R2685:2689 SotFS.SotfsGraph <> ir_id proj
+prf 2725:2741 <> increment_link_In
+binder 2754:2759 <> inodes:17
+binder 2761:2763 <> ino:18
+binder 2765:2766 <> ir:19
+R2785:2792 Corelib.Init.Notations <> ::type_scope:x_'->'_x not
+R2773:2774 Stdlib.Lists.List <> In def
+R2779:2784 SotFS.DpoLink <> inodes:17 var
+R2776:2777 SotFS.DpoLink <> ir:19 var
+R2808:2815 Corelib.Init.Notations <> ::type_scope:x_'->'_x not
+R2801:2804 Corelib.Init.Logic <> ::type_scope:x_'<>'_x not
+R2793:2797 SotFS.SotfsGraph <> ir_id proj
+R2799:2800 SotFS.DpoLink <> ir:19 var
+R2805:2807 SotFS.DpoLink <> ino:18 var
+R2816:2817 Stdlib.Lists.List <> In def
+R2823:2836 SotFS.DpoLink <> increment_link def
+R2838:2843 SotFS.DpoLink <> inodes:17 var
+R2845:2847 SotFS.DpoLink <> ino:18 var
+R2819:2820 SotFS.DpoLink <> ir:19 var
+R2900:2913 SotFS.DpoLink <> increment_link def
+R2922:2931 Stdlib.Lists.List <> in_map_iff thm
+R2968:2974 Stdlib.Arith.PeanoNat Nat eqb def
+R2977:2981 SotFS.SotfsGraph <> ir_id proj
+R3013:3022 Stdlib.Arith.PeanoNat Nat eqb_eq thm
+prf 3143:3167 <> increment_link_find_vtype
+binder 3180:3185 <> inodes:20
+binder 3187:3189 <> ino:21
+binder 3191:3200 <> target_ino:22
+binder 3202:3203 <> ir:23
+R3420:3427 Corelib.Init.Notations <> ::type_scope:x_'->'_x not
+R3410:3412 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R3210:3213 Stdlib.Lists.List <> find def
+R3258:3260 Corelib.Lists.ListDef <> map def
+R3403:3408 SotFS.DpoLink <> inodes:20 var
+binder 3267:3267 <> x:24
+R3286:3292 Stdlib.Arith.PeanoNat Nat eqb def
+R3295:3299 SotFS.SotfsGraph <> ir_id proj
+R3301:3301 SotFS.DpoLink <> x:24 var
+R3304:3313 SotFS.DpoLink <> target_ino:22 var
+R3400:3400 SotFS.DpoLink <> x:24 var
+R3331:3337 SotFS.SotfsGraph <> mkInode constr
+R3340:3344 SotFS.SotfsGraph <> ir_id proj
+R3346:3346 SotFS.DpoLink <> x:24 var
+R3350:3357 SotFS.SotfsGraph <> ir_vtype proj
+R3359:3359 SotFS.DpoLink <> x:24 var
+R3363:3363 Corelib.Init.Datatypes <> S constr
+R3366:3378 SotFS.SotfsGraph <> ir_link_count proj
+R3380:3380 SotFS.DpoLink <> x:24 var
+binder 3220:3220 <> x:25
+R3225:3231 Stdlib.Arith.PeanoNat Nat eqb def
+R3234:3238 SotFS.SotfsGraph <> ir_id proj
+R3240:3240 SotFS.DpoLink <> x:25 var
+R3243:3245 SotFS.DpoLink <> ino:21 var
+R3413:3416 Corelib.Init.Datatypes <> Some constr
+R3418:3419 SotFS.DpoLink <> ir:23 var
+R3428:3434 Corelib.Init.Logic <> ::type_scope:'exists'_x_'..'_x_','_x not
+R3441:3448 Corelib.Init.Logic <> ::type_scope:'exists'_x_'..'_x_','_x not
+binder 3435:3440 <> ir_old:26
+R3507:3516 Corelib.Init.Logic <> ::type_scope:x_'/\'_x not
+R3493:3495 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R3449:3452 Stdlib.Lists.List <> find def
+R3487:3492 SotFS.DpoLink <> inodes:20 var
+binder 3459:3459 <> x:27
+R3464:3470 Stdlib.Arith.PeanoNat Nat eqb def
+R3473:3477 SotFS.SotfsGraph <> ir_id proj
+R3479:3479 SotFS.DpoLink <> x:27 var
+R3482:3484 SotFS.DpoLink <> ino:21 var
+R3496:3499 Corelib.Init.Datatypes <> Some constr
+R3501:3506 SotFS.DpoLink <> ir_old:26 var
+R3528:3530 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R3517:3524 SotFS.SotfsGraph <> ir_vtype proj
+R3526:3527 SotFS.DpoLink <> ir:23 var
+R3531:3538 SotFS.SotfsGraph <> ir_vtype proj
+R3540:3545 SotFS.DpoLink <> ir_old:26 var
+R3705:3711 Stdlib.Arith.PeanoNat Nat eqb def
+R3714:3718 SotFS.SotfsGraph <> ir_id proj
+R3783:3789 Stdlib.Arith.PeanoNat Nat eqb def
+R3792:3796 SotFS.SotfsGraph <> ir_id proj

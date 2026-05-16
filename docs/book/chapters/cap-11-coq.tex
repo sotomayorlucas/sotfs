@@ -1,0 +1,300 @@
+\chapter{Verificación con Coq}
+\label{cap:coq}
+
+Mientras que TLA\textsuperscript{+} explora modelos finitos por
+enumeración, Coq es un \emph{asistente de pruebas} que verifica
+teoremas universalmente cuantificados de manera inductiva. La
+verificación con Coq en sotFS apunta a probar que cada regla DPO del
+cap.~\ref{cap:dpo} preserva la well-formedness del TypeGraph, sin
+acotar el tamaño del grafo.
+
+Este capítulo explica la estructura de los archivos Coq, los teoremas
+centrales, y --- crítico para la honestidad del proyecto --- los tres
+lemmas \texttt{Admitted} que quedan pendientes en \citaCoq{DpoRmdir.v}.
+
+\section{El modelo Records: \texttt{SotfsGraph.v}}
+
+\citaCoq{SotfsGraph.v} (585 LOC) define el universo formal sobre el
+que se prueban las reglas. Las estructuras centrales:
+
+\begin{lstlisting}[language=coq, caption={Records principales en
+\texttt{SotfsGraph.v}.}, label={lst:coq-records}]
+Record InodeRec := {
+  ir_id : InodeId;
+  ir_vtype : VnodeType;
+  ir_link_count : nat
+}.
+
+Record DirRec := {
+  dr_id : DirId;
+  dr_inode : InodeId
+}.
+
+Record ContainsEdge := {
+  ce_dir : DirId;
+  ce_ino : InodeId;
+  ce_name : Name
+}.
+
+Record Graph := {
+  g_inodes : list InodeRec;
+  g_dirs : list DirRec;
+  g_edges : list ContainsEdge
+}.
+\end{lstlisting}
+
+\paragraph{Por qué Records (no inductivos).} Records permiten una
+representación operacional muy cercana al runtime Rust: el grafo es
+una tripleta de listas. Las pruebas resultan más concretas (less
+case-splitting sobre constructores) y la traducción mental con el
+código es directa.
+
+\subsection*{Well-formedness}
+
+\begin{lstlisting}[language=coq]
+Definition WellFormed (g : Graph) : Prop :=
+  TypeInvariant g
+  /\ LinkCountConsistent g
+  /\ UniqueNamesPerDir g
+  /\ NoDanglingEdges g
+  /\ NoDirCycles g.
+\end{lstlisting}
+
+Cinco cláusulas; las dos invariantes adicionales del runtime
+(\texttt{DirHasSelfRef}, \texttt{BlockRefcountConsistent}) no están
+formalizadas en el modelo Coq de v0.2.5 porque viven en el subsistema
+de bloques que no aparece en estos archivos. La extensión es trabajo
+abierto.
+
+\section{Los teoremas de preservación}
+
+Para cada operación POSIX (excepto \opwrite, todavía no formalizado
+en Coq), el archivo \citaCoq{DpoX.v} prueba seis teoremas: uno por
+cada cláusula del \texttt{WellFormed} y uno que los combina.
+
+\begin{table}[h]
+\centering
+\renewcommand{\arraystretch}{1.15}
+\begin{tabularx}{\linewidth}{l r X}
+  \toprule
+  \textbf{Archivo} & \textbf{LOC} & \textbf{Teorema final} \\
+  \midrule
+  \citaCoq{DpoCreate.v} & 348 & \texttt{create\_preserves\_WellFormed} (línea 335) \\
+  \citaCoq{DpoMkdir.v}  & 586 & \texttt{mkdir\_preserves\_WellFormed}  (línea 572) \\
+  \citaCoq{DpoLink.v}   & 382 & \texttt{link\_preserves\_WellFormed}   (línea 369) \\
+  \citaCoq{DpoUnlink.v} & 314 & \texttt{unlink\_keep\_preserves\_WellFormed} (línea 300) \\
+  \citaCoq{DpoRmdir.v}  & 513 & \texttt{rmdir\_preserves\_WellFormed}  (línea 492) \\
+  \citaCoq{DpoRename.v} & 317 & \texttt{rename\_preserves\_WellFormed} (línea 304) \\
+  \bottomrule
+\end{tabularx}
+\caption{Los seis archivos de prueba DPO. Para cada uno, el teorema
+final es de la forma ``$\forall g, \text{precond} \Rightarrow
+\text{WellFormed}(g) \Rightarrow \text{WellFormed}(\text{op}\,g)$''.}
+\label{tab:coq-files}
+\end{table}
+
+\subsection*{Estructura de una prueba típica}
+
+Tomemos \texttt{create\_preserves\_WellFormed} en \citaCoq{DpoCreate.v}
+línea 335 como ejemplo. La forma:
+
+\begin{lstlisting}[language=coq]
+Theorem create_preserves_WellFormed :
+  forall g d n uid gid,
+    WellFormed g ->
+    name_unique_in g d n ->
+    contains_dir g d ->
+    WellFormed (create g d n uid gid).
+Proof.
+  intros g d n uid gid Hwf Huniq Hd.
+  destruct Hwf as [Hti [Hlcc [Hun [Hnd Hndc]]]].
+  unfold WellFormed; repeat split.
+  - apply create_preserves_TypeInvariant; assumption.
+  - apply create_preserves_LinkCountConsistent;
+    assumption.
+  - apply create_preserves_UniqueNamesPerDir;
+    assumption.
+  - apply create_preserves_NoDanglingEdges; assumption.
+  - apply create_preserves_NoDirCycles; assumption.
+Qed.
+\end{lstlisting}
+
+La descomposición es modular: el teorema final invoca cinco lemmas
+auxiliares, uno por cláusula del \texttt{WellFormed}, cada uno probado
+arriba en el mismo archivo. Esto hace el código de prueba navegable y
+re-usable entre operaciones (\texttt{TypeInvariant} es similar entre
+\opcreate{} y \oplink, por ejemplo).
+
+\section{Deuda formal: los tres \texttt{Admitted}}
+
+\begin{trampa}[Tres lemmas \texttt{Admitted} en \texttt{DpoRmdir.v}]
+\label{tr:coq-admitted}
+En la versión \texttt{v0.2.5}, el archivo \citaCoq{DpoRmdir.v} contiene
+tres ocurrencias de \texttt{Admitted} (líneas 349, 405, 505). Todas
+están bloqueadas por la misma deficiencia del modelo: la propiedad de
+que \emph{los directorios no pueden ser hard-linked} (\texttt{GC-LINK-2}
+en la nomenclatura del proyecto) no está enunciada como un lemma
+auxiliar de \texttt{WellFormed}, lo que impide cerrar la prueba en los
+sub-casos donde habría que saber que el inode removido no es target de
+ninguna otra arista \econtains{} sobreviviente.
+
+\textbf{Cómo se ve.} Los tres \texttt{Admitted} aparecen al final de
+los sub-casos donde el contexto requiere algo como
+\texttt{forall ce \textbackslash in g.edges, ce.ino <> removed\_inode}.
+Sin un invariante explícito \texttt{NoHardLinkToDir}, esa hipótesis no
+está en scope; el comentario adyacente lo dice:
+
+\begin{lstlisting}[language=coq]
+(* NOTE: The proof is complete except for one
+   sub-case: showing that no surviving edge targets
+   the removed inode ti. This requires the
+   additional fact that directories cannot be
+   hard-linked (GC-LINK-2), which is not yet part
+   of WellFormed. We state the theorem with
+   Admitted for transparency. *)
+\end{lstlisting}
+
+\textbf{Status declarado.} Los teoremas
+\texttt{rmdir\_preserves\_WellFormed} y
+\texttt{rmdir\_preserves\_NoDanglingEdges} \emph{no están probados}
+en la versión actual. Las pruebas \emph{están casi completas}; el
+gap es estructural.
+
+\textbf{Roadmap.} Tres pasos:
+\begin{enumerate}
+  \item Extender \texttt{WellFormed} con una sexta cláusula
+    \texttt{NoHardLinkToDir : Prop} que diga ``ningún directorio es
+    target de más de una arista \econtains{} viva (excluyendo
+    \texttt{..})''.
+  \item Re-probar \texttt{create\_preserves\_WellFormed},
+    \texttt{mkdir\_preserves\_WellFormed},
+    \texttt{link\_preserves\_WellFormed} y los demás incluyendo el
+    nuevo invariante. Es trabajo mecánico: las reglas ya respetan
+    la propiedad, sólo falta probarlo formalmente.
+  \item Cerrar los tres \texttt{Admitted} usando
+    \texttt{NoHardLinkToDir} como hipótesis auxiliar.
+\end{enumerate}
+
+\textbf{Lección.} La verificación mecánica obliga a hacer explícitos
+invariantes que el código respeta ``por construcción'' pero que el
+modelo formal no enuncia. Los \texttt{Admitted} son la deuda visible;
+cerrar la deuda significa hacer crecer el modelo, no el código.
+\end{trampa}
+
+\section{Cómo correr las pruebas Coq}
+
+\begin{lstlisting}[language=shellcmd]
+cd formal/coq
+coq_makefile -f _CoqProject -o Makefile
+make
+\end{lstlisting}
+
+La compilación verifica todos los teoremas; un \texttt{Admitted}
+\emph{no} interrumpe la compilación (Coq sí lo loguea como warning).
+Para ver los Admitteds y otros warnings:
+
+\begin{lstlisting}[language=shellcmd]
+make 2>&1 | grep -E "Admitted|Warning"
+\end{lstlisting}
+
+Tiempo total de compilación en una CPU moderna: $\sim$\,2 minutos.
+
+\section{Lo que Coq prueba (y lo que no)}
+
+\paragraph{Lo que prueba.} Para cada regla DPO (salvo
+\texttt{rmdir\_preserves\_WellFormed}, \texttt{rmdir\_preserves\_NoDanglingEdges},
+y \texttt{rmdir\_preserves\_TypeInvariant}), que la aplicación de la
+regla preserva las cinco cláusulas del \texttt{WellFormed} para
+\emph{todo} grafo y \emph{todos} los parámetros admisibles.
+
+\paragraph{Lo que no prueba.}
+\begin{itemize}
+  \item \texttt{rmdir} con sus tres \texttt{Admitted}.
+  \item Los invariantes del runtime que no están en el modelo Coq
+    (\texttt{DirHasSelfRef}, \texttt{BlockRefcountConsistent},
+    \texttt{NoHardLinkToDir}).
+  \item La correspondencia entre las funciones \texttt{create},
+    \texttt{mkdir}, \dots de Coq y las funciones Rust de
+    \citaCrate{sotfs-ops}. Esa correspondencia es por inspección
+    humana; no hay extracción Coq~$\to$~Rust.
+  \item Las propiedades concurrentes (RCU, GTXN). Las pruebas Coq
+    asumen serial; concurrencia se cubre con TLA\textsuperscript{+} y
+    tests \texttt{loom}.
+\end{itemize}
+
+\section*{Resumen del capítulo}
+
+\begin{itemize}
+  \item Coq verifica que cada regla DPO preserva
+    \texttt{WellFormed} para grafos arbitrarios; complementa la
+    enumeración finita de TLC con prueba inductiva.
+  \item \citaCoq{SotfsGraph.v} define los Records \texttt{InodeRec},
+    \texttt{DirRec}, \texttt{ContainsEdge}, \texttt{Graph} y la
+    proposición \texttt{WellFormed} con cinco cláusulas.
+  \item Seis archivos \texttt{Dpo*.v} prueban
+    \texttt{X\_preserves\_WellFormed} para create, mkdir, link, unlink,
+    rmdir, rename.
+  \item \textbf{Deuda formal explícita}: tres \texttt{Admitted} en
+    \texttt{DpoRmdir.v} bloqueados por el invariante auxiliar
+    \texttt{NoHardLinkToDir} faltante.
+  \item Limitaciones: el modelo Coq omite varios invariantes del
+    runtime y no hay extracción Coq $\to$ Rust.
+\end{itemize}
+
+\section*{Ejercicios}
+
+\begin{ejercicio}[\dificultad{$\star$}]
+\label{ej:coq-1}
+¿Cuántos archivos \texttt{.v} tiene la verificación Coq de sotFS?
+Liste sus nombres.
+\end{ejercicio}
+
+\begin{ejercicio}[\dificultad{$\star$}]
+\label{ej:coq-2}
+¿Cuáles son las cinco cláusulas de \texttt{WellFormed}? ¿Cuál falta
+respecto del runtime?
+\end{ejercicio}
+
+\begin{ejercicio}[\dificultad{$\star\star$}]
+\label{ej:coq-3}
+Lea el \texttt{Theorem create\_preserves\_WellFormed} en
+\citaCoq{DpoCreate.v} línea 335. Identifique los cinco lemmas
+auxiliares que se invocan y la línea donde cada uno se prueba.
+\end{ejercicio}
+
+\begin{ejercicio}[\dificultad{$\star\star$}]
+\label{ej:coq-4}
+¿Por qué un \texttt{Admitted} no interrumpe la compilación de Coq?
+Discuta los pros y contras de esa decisión de diseño.
+\end{ejercicio}
+
+\begin{ejercicio}[\dificultad{$\star\star$}]
+\label{ej:coq-5}
+Enuncie en Coq el invariante \texttt{NoHardLinkToDir} faltante. Pista:
+una proposición \texttt{forall ce1 ce2 \textbackslash in g.edges,
+ce1.tgt is a directory inode -> ce1.name = ".." \textbackslash/
+ce2.name = "."}.
+\end{ejercicio}
+
+\begin{ejercicio}[\dificultad{$\star\star$}]
+\label{ej:coq-6}
+La trampa~\ref{tr:coq-admitted} dice que cerrar los tres
+\texttt{Admitted} requiere ``re-probar'' los otros teoremas con la
+invariante nueva. ¿Cuáles teoremas exactamente hay que tocar? Pista:
+recorrer la tabla~\ref{tab:coq-files}.
+\end{ejercicio}
+
+\begin{ejercicio}[\dificultad{$\star\star\star$}]
+\label{ej:coq-extension}
+Formalice \texttt{NoHardLinkToDir} en Coq como una sexta cláusula de
+\texttt{WellFormed} y pruebe que \opcreate{} la preserva. Para
+\opmkdir, escriba el statement (no es necesario completar la prueba).
+\end{ejercicio}
+
+\begin{ejercicio}[\dificultad{$\star\star\star$}]
+\label{ej:coq-extract}
+Investigue cómo se haría la extracción Coq $\to$ Rust de las funciones
+\texttt{create}, \texttt{mkdir}, \dots. ¿Qué plugins existen? ¿Cuál
+sería el costo de mantenibilidad de tener dos implementaciones (Coq y
+Rust) en sincronía vs.\ una sola (Rust) con prueba externa?
+\end{ejercicio}

@@ -1,0 +1,314 @@
+\chapter{Verificación con TLA\textsuperscript{+}}
+\label{cap:tla}
+
+Los caps.~\ref{cap:typegraph}--\ref{cap:transacciones} fijaron el modelo
+algebraico de sotFS. Este capítulo explica cómo se modela ese sistema en
+TLA\textsuperscript{+}, cómo se ejecuta TLC sobre los specs, cómo se
+interpretan los resultados y, sobre todo, qué \emph{no} prueba este
+método.
+
+\section{La biblioteca de specs}
+
+sotFS ships con seis specs TLA\textsuperscript{+} en \texttt{formal/}:
+
+\begin{table}[h]
+\centering
+\renewcommand{\arraystretch}{1.2}
+\begin{tabularx}{\linewidth}{l r X}
+  \toprule
+  \textbf{Spec} & \textbf{LOC} & \textbf{Propiedad} \\
+  \midrule
+  \citaTLA{sotfs\_graph.tla}                & 518 & Well-formedness del TypeGraph; los 7 invariantes (cap.~\ref{cap:typegraph}). \\
+  \citaTLA{sotfs\_transactions.tla}         & 317 & GTXN atomicidad; \texttt{commit} $\Rightarrow$ \emph{visible} $\wedge$ invariantes; \texttt{rollback} $\Rightarrow$ restaurado. \\
+  \citaTLA{sotfs\_capabilities.tla}         & 291 & Cap monotonicity, revoke transitivo, epoch invalida stale handles. \\
+  \citaTLA{sotfs\_crash.tla}                & 287 & WAL-based crash recovery; cualquier prefijo del log replays a un estado válido. \\
+  \citaTLA{sotfs\_crash\_refinement.tla}    & 395 & Refinement: el modelo concreto con crashes implementa el abstracto bajo stuttering. \\
+  \citaTLA{sotfs\_curvature.tla}            & 301 & Curvatura estructural acotada bajo mutaciones adversariales. \\
+  \bottomrule
+\end{tabularx}
+\caption{Los seis specs TLA\textsuperscript{+} de sotFS y la propiedad que
+cada uno verifica.}
+\label{tab:tla-specs}
+\end{table}
+
+Cada spec tiene tres configs (\texttt{*.cfg}, \texttt{*\_medium.cfg},
+\texttt{*\_large.cfg}) para acotar el espacio de estados. La
+configuración \texttt{small} es la que pasa CI; \texttt{medium} es la
+del nightly; \texttt{large} se corre manualmente y puede excederse en
+RAM dependiendo del host.
+
+\section{Anatomía de un spec: \texttt{sotfs\_graph}}
+
+Cualquier spec TLA\textsuperscript{+} tiene la misma estructura:
+constantes, variables, init, next, fairness y propiedades.
+
+\subsection*{Constantes y variables}
+
+\begin{lstlisting}[language=tla, caption={Estado del spec
+\texttt{sotfs\_graph}.}, label={lst:sotfs-graph-vars}]
+CONSTANTS
+    InodeIds,    DirIds,    BlockIds,
+    Names,       MaxOps
+
+VARIABLES
+    inodes,           \* Set of active inode IDs
+    dirs,             \* Set of active dir IDs
+    blocks,           \* Set of active block IDs
+    inodeType,        \* InodeId -> {"regular", "directory"}
+    linkCount,        \* InodeId -> Nat
+    containsEdges,    \* Set of <<dir, inode, name>> triples
+    pointsToEdges,    \* Set of <<inode, block, offset>> triples
+    dirInode,         \* DirId -> InodeId (the inode `.` points to)
+    blockRefcount,    \* BlockId -> Nat
+    ops               \* counter, bounds state space
+\end{lstlisting}
+
+Las \texttt{CONSTANTS} se instancian en el \texttt{.cfg}:
+
+\begin{lstlisting}[language=tla, caption={\texttt{sotfs\_graph.cfg}: la
+config \texttt{small}.}]
+CONSTANTS
+    InodeIds = {I1, I2, I3}
+    DirIds   = {D1, D2}
+    BlockIds = {B1, B2}
+    Names    = {a, b}
+    MaxOps   = 4
+\end{lstlisting}
+
+Esos cuatro inodes, dos dirs, dos bloques, dos nombres y traza máxima
+de cuatro pasos producen un espacio de estados de $\sim$\,$10^5$
+estados explorables en segundos. La config \texttt{medium} sube a
+$\{I1\ldots I5\}$, $\{D1, D2, D3\}$, etc., y produce $\sim$\,$10^7$
+estados.
+
+\subsection*{Acciones (operaciones POSIX)}
+
+Cada acción del spec es la versión TLA de una operación POSIX. Por
+ejemplo, \texttt{LinkInode}:
+
+\begin{lstlisting}[language=tla]
+LinkInode(d, i, name) ==
+    /\ d \in dirs
+    /\ i \in inodes
+    /\ ~\E e \in containsEdges :
+          e[1] = d /\ e[3] = name   \* gluing condition
+    /\ containsEdges' = containsEdges
+                          \cup {<<d, i, name>>}
+    /\ linkCount' = [linkCount EXCEPT
+                       ![i] = @ + 1]
+    /\ ops' = ops + 1
+    /\ UNCHANGED <<inodes, dirs, blocks, ..., dirInode>>
+\end{lstlisting}
+
+La cláusula \texttt{\textasciitilde\textbackslash E e \textbackslash in
+containsEdges : e[1] = d /\textbackslash e[3] = name} es la gluing
+condition: ``no existe una arista \econtains{} desde \texttt{d} con
+\texttt{name}''. Es la versión TLA del \eexist{} POSIX, pero \emph{no}
+como un chequeo \emph{ad hoc}: emerge del estilo DPO del spec.
+
+\subsection*{El predicado \texttt{Next}}
+
+\begin{lstlisting}[language=tla]
+Next ==
+    \/ \E d \in dirs, i \in inodes, n \in Names : LinkInode(d, i, n)
+    \/ \E d \in dirs, n \in Names : CreateFile(d, n)
+    \/ \E d \in dirs, n \in Names : Mkdir(d, n)
+    \/ \E d \in dirs, n \in Names : Unlink(d, n)
+    \/ \E d \in dirs, n \in Names, n2 \in Names :
+           Rename(d, n, n2)
+    \/ ops >= MaxOps /\ UNCHANGED vars   \* stutter at bound
+\end{lstlisting}
+
+Cada disyunción es una acción posible en un paso. TLC explorará el
+producto cartesiano de todas las maneras de instanciar los parámetros
+existenciales.
+
+\subsection*{Invariantes}
+
+\begin{lstlisting}[language=tla]
+INVARIANTS
+    TypeInvariant
+    LinkCountConsistent
+    UniqueNamesPerDir
+    DirHasSelfRef
+    NoDanglingEdges
+    BlockRefcountConsistent
+    NoDirCycles
+    ReachableHaveLinks
+\end{lstlisting}
+
+Estos son la versión TLA de los siete invariantes del
+cap.~\ref{cap:typegraph}, más \texttt{ReachableHaveLinks} (todo inode
+alcanzable desde la raíz tiene $\texttt{linkCount} \geq 1$). TLC evalúa
+cada uno en \emph{cada estado alcanzable}; si alguno falla, se imprime
+el contraejemplo (la traza que llegó al estado violatorio).
+
+\section{Cómo correr TLC}
+
+\begin{lstlisting}[language=shellcmd]
+# Setup (una vez).
+mkdir -p formal/lib
+curl -L -o formal/lib/tla2tools.jar \
+  https://github.com/tlaplus/tlaplus/releases/latest/\
+download/tla2tools.jar
+
+# Todos los specs, todos los tamaños.
+just formal
+
+# O directamente:
+cd formal && bash run_tlc.sh
+
+# Un solo tamaño.
+bash run_tlc.sh small
+bash run_tlc.sh medium
+
+# Un solo spec, todos los tamaños.
+bash run_tlc.sh graph
+\end{lstlisting}
+
+Salida: por cada combinación spec $\times$ config, un log en
+\texttt{formal/tlc\_output/} y una tabla resumen en stdout.
+
+\section{Cómo leer un contraejemplo de TLC}
+
+Si una invariante falla, TLC imprime la \emph{traza mínima} que llevó al
+estado violatorio:
+
+\begin{lstlisting}[language=shellcmd]
+Error: Invariant LinkCountConsistent is violated.
+The behavior up to this point is:
+  State 0:
+    inodes = {I1}
+    linkCount = (I1 :> 1)
+    ...
+  State 1: Action `Mkdir(D1, "a")`
+    inodes = {I1, I2}
+    linkCount = (I1 :> 1 @@ I2 :> 2)
+    ...
+  State 2: Action `Unlink(D1, "a")`
+    inodes = {I1, I2}              <-- bug: I2 todavía vivo
+    linkCount = (I1 :> 1 @@ I2 :> 1)  <-- pero linkCount=1
+\end{lstlisting}
+
+La traza tiene tres elementos clave: (i) el estado inicial; (ii) cada
+acción aplicada con sus parámetros instanciados; (iii) el estado final
+donde la invariante falla. El diagnóstico es directo: \texttt{Unlink}
+no decrementó \texttt{linkCount} consistentemente con la remoción de
+la arista \econtains.
+
+\section{Crash refinement: el spec más sofisticado}
+
+\citaTLA{sotfs\_crash\_refinement.tla} no es un spec con sus propios
+estados nuevos: es un \emph{spec de refinement} que mapea el estado
+del modelo concreto (con \texttt{Crash} y \texttt{Recover}) al estado
+del modelo abstracto (sin crashes), y verifica el teorema:
+
+\begin{lstlisting}[language=tla]
+THEOREM Spec_Concrete => Spec_Abstract
+\end{lstlisting}
+
+El mapping (cap.~\ref{cap:transacciones}) lleva un estado concreto
+\texttt{<<diskState, walState, memState, crashed>>} a un estado
+abstracto que es o bien \texttt{memState} (si no crasheado) o bien
+\texttt{ReplayWAL(walState, diskState)} (si crasheado). TLC verifica
+exhaustivamente que toda traza concreta es traza abstracta.
+
+\section{Status TLC v0.2.5}
+
+Reporte oficial (\citaCommit{de} \texttt{formal/README.md}):
+\textbf{14/14 PASS} en \texttt{small} y \texttt{medium}. La config
+\texttt{large} puede agotar RAM dependiendo del host; el gating de CI
+es \texttt{medium}.
+
+\section{Lo que TLA\textsuperscript{+} no prueba}
+
+\begin{itemize}
+  \item No prueba el código Rust. La correspondencia spec $\to$ código
+    es por inspección humana, no por extracción mecánica.
+  \item No es prueba inductiva. TLC verifica modelos finitos por
+    enumeración exhaustiva. Modelos más grandes podrían tener bugs no
+    detectados.
+  \item No verifica timing. Las propiedades de fairness y de
+    \emph{eventually} usan el modelo lineal estándar; latencias reales
+    no aparecen.
+  \item No reemplaza a Coq. Las pruebas Coq del cap.~\ref{cap:coq}
+    son inductivas y cubren modelos infinitos (universalmente
+    cuantificados). TLC y Coq son complementarios.
+\end{itemize}
+
+\section*{Resumen del capítulo}
+
+\begin{itemize}
+  \item sotFS tiene seis specs TLA\textsuperscript{+} (graph,
+    transactions, capabilities, crash, crash refinement, curvature),
+    ejecutables con TLC bajo configs small / medium / large.
+  \item Cada spec sigue la estructura
+    \texttt{CONSTANTS}, \texttt{VARIABLES}, \texttt{Init}, \texttt{Next},
+    \texttt{Spec}, \texttt{INVARIANTS}; las acciones son la versión TLA
+    de las reglas DPO.
+  \item Status v0.2.5: 14/14 PASS en small y medium.
+  \item El crash refinement es un meta-spec que prueba que el modelo
+    concreto refina al abstracto: \texttt{Spec\_Concrete \(\Rightarrow\)
+    Spec\_Abstract}.
+  \item Limitaciones: TLC explora modelos finitos; la correspondencia
+    spec-código es por inspección.
+\end{itemize}
+
+\section*{Ejercicios}
+
+\begin{ejercicio}[\dificultad{$\star$}]
+\label{ej:tla-1}
+Liste los seis specs TLA\textsuperscript{+} de sotFS con la propiedad
+que cada uno verifica.
+\end{ejercicio}
+
+\begin{ejercicio}[\dificultad{$\star$}]
+\label{ej:tla-2}
+¿Cuáles son las constantes que se instancian en \texttt{sotfs\_graph.cfg}
+en la config \texttt{small}?
+\end{ejercicio}
+
+\begin{ejercicio}[\dificultad{$\star\star$}]
+\label{ej:tla-3}
+Lea la acción \texttt{LinkInode} del listado~\ref{lst:sotfs-graph-vars}.
+Identifique (a) la gluing condition, (b) la mutación, (c) las
+variables \texttt{UNCHANGED}. ¿Qué invariante TLA podría romperse si
+se omitiera el incremento de \texttt{linkCount}?
+\end{ejercicio}
+
+\begin{ejercicio}[\dificultad{$\star\star$}]
+\label{ej:tla-4}
+Diseñe una acción TLA \texttt{Rmdir(d)} para sotFS, con su gluing
+condition explícita. Compare con la regla DPO del cap.~\ref{cap:dpo}.
+\end{ejercicio}
+
+\begin{ejercicio}[\dificultad{$\star\star$}]
+\label{ej:tla-5}
+Estime el espacio de estados de \citaTLA{sotfs\_graph.tla} con la
+config \texttt{medium} (5 inodes, 3 dirs, 3 bloques, 3 nombres,
+\texttt{MaxOps}=6). Pista: razonar sobre el número de estados
+alcanzables de \texttt{containsEdges}.
+\end{ejercicio}
+
+\begin{ejercicio}[\dificultad{$\star\star$}]
+\label{ej:tla-6}
+Lea el último contraejemplo en \texttt{formal/tlc\_output/}
+(si TLC nunca falló, simule uno: borre el incremento de \texttt{linkCount}
+en \texttt{LinkInode} y vuelva a correr). Reproduzca el bug y explíquelo
+en términos del cap.~\ref{cap:typegraph}.
+\end{ejercicio}
+
+\begin{ejercicio}[\dificultad{$\star\star$}]
+\label{ej:tla-7}
+\citaTLA{sotfs\_crash\_refinement.tla} prueba un teorema:
+\texttt{Spec\_Concrete \(\Rightarrow\) Spec\_Abstract}. ¿Qué propiedad
+formal del cap.~\ref{cap:transacciones} se sigue de ese teorema?
+\end{ejercicio}
+
+\begin{ejercicio}[\dificultad{$\star\star\star$}]
+\label{ej:tla-8}
+Extienda \citaTLA{sotfs\_capabilities.tla} con una acción
+\texttt{TemporalRevoke(c, t\_end)} que suspende una cap hasta un
+timestamp futuro. ¿Qué invariante nuevo hay que agregar? ¿Cambia
+\texttt{MonotonicAttenuation}?
+\end{ejercicio}

@@ -1,0 +1,146 @@
+\chapter{Catálogo completo de invariantes}
+\label{ap:invariantes}
+
+Este apéndice consolida \emph{todos} los invariantes que aparecen en
+el libro, en un solo lugar de consulta rápida. Cada entrada lista:
+nombre canónico, fórmula resumida, capítulo donde se introduce, dónde
+se chequea en el runtime, y la prueba formal correspondiente
+(TLA\textsuperscript{+} y/o Coq).
+
+\section*{Invariantes del TypeGraph (cap.~\ref{cap:typegraph})}
+
+\begin{longtable}{p{0.18\linewidth} p{0.36\linewidth} p{0.13\linewidth} p{0.17\linewidth}}
+  \toprule
+  \textbf{Nombre} & \textbf{Enunciado} & \textbf{Runtime} & \textbf{Formal} \\
+  \midrule
+  \endfirsthead
+
+  \toprule
+  \textbf{Nombre} & \textbf{Enunciado} & \textbf{Runtime} & \textbf{Formal} \\
+  \midrule
+  \endhead
+
+  Link-count consistency
+   & $i.\texttt{link\_count} = |\{e : \tau_E(e) = \econtains, \mathrm{tgt}(e) = i, e.\texttt{name} \neq \texttt{".."}\}|$
+   & \citaLine{sotfs-graph/src/graph.rs}{888}
+   & TLA\,\citaTLA{sotfs\_graph.tla}; Coq \texttt{LinkCountConsistent} \\
+
+  Unique names per dir
+   & $\forall d \in \Dir, \forall e_1 \neq e_2 \in E_d^{\econtains}: e_1.\texttt{name} \neq e_2.\texttt{name}$
+   & \citaLine{sotfs-graph/src/graph.rs}{918}
+   & TLA \texttt{UniqueNamesPerDir}; Coq idem \\
+
+  Dir self-reference
+   & $\forall d \in \Dir, \exists e: \mathrm{src}(e)=d, e.\texttt{name}=\texttt{"."}, \mathrm{tgt}(e) = d.\texttt{inode\_id}$
+   & \citaLine{sotfs-graph/src/graph.rs}{936}
+   & TLA \texttt{DirHasSelfRef}; (no en Coq) \\
+
+  No dangling edges
+   & $\forall e \in E: \mathrm{src}(e), \mathrm{tgt}(e) \in V$
+   & \citaLine{sotfs-graph/src/graph.rs}{964}
+   & TLA \texttt{NoDanglingEdges}; Coq idem \\
+
+  Block refcount
+   & $b.\texttt{refcount} = |\{e : \tau_E(e) = \epointsto, \mathrm{tgt}(e) = b\}|$
+   & \citaLine{sotfs-graph/src/graph.rs}{996}
+   & TLA \texttt{BlockRefcountConsistent}; (no en Coq) \\
+
+  No dir cycles
+   & La sub-relación $\econtains$ restringida a directorios (sin \texttt{.}/\texttt{..}) es acíclica
+   & \citaLine{sotfs-graph/src/graph.rs}{1015}
+   & TLA \texttt{NoDirCycles}; Coq idem \\
+
+  Cap monotonicity
+   & $\forall c, c' \in \Cap$ con $\edelegates(c, c')$: $c'.\texttt{rights} \subseteq c.\texttt{rights}$
+   & \citaLine{sotfs-graph/src/graph.rs}{1056}
+   & TLA \texttt{MonotonicAttenuation}; (no en Coq) \\
+
+  \bottomrule
+\end{longtable}
+
+\section*{Invariantes de transacciones (cap.~\ref{cap:transacciones})}
+
+\begin{longtable}{p{0.18\linewidth} p{0.36\linewidth} p{0.13\linewidth} p{0.17\linewidth}}
+  \toprule
+  \textbf{Nombre} & \textbf{Enunciado} & \textbf{Runtime} & \textbf{Formal} \\
+  \midrule
+  \endfirsthead
+
+  Persistencia tras \fsync
+   & Tras \fsync\texttt{(loc)} exitoso, los bytes están en NAND
+   & (asumido del backend) & --- \\
+
+  Read isolation
+   & Un \texttt{read} concurrente con un commit ve o el estado pre-tx o el post-tx, nunca intermedio
+   & RCU (\citaLine{sotfs-graph/src/rcu.rs}{117}) & TLA \citaTLA{sotfs\_transactions.tla} \\
+
+  No partial application
+   & Tras \texttt{Recover}: toda op de una GTXN aplicada o ninguna
+   & N/A (modelo) & TLA \citaTLA{sotfs\_crash.tla} \\
+
+  Durability
+   & Si \texttt{gtxn\_commit} retornó \texttt{Ok}, sobrevive cualquier crash
+   & N/A (modelo) & TLA idem \\
+
+  Recovery consistency
+   & Tras \texttt{Recover}, los 7 invariantes del TypeGraph se preservan
+   & N/A (modelo) & TLA idem \\
+
+  WAL integrity
+   & El \wal{} no se modifica entre commit marker y GC; GC borra sólo entradas aplicadas
+   & N/A (modelo) & TLA idem \\
+
+  \bottomrule
+\end{longtable}
+
+\section*{Invariantes de hashing (cap.~\ref{cap:hashing})}
+
+\begin{longtable}{p{0.18\linewidth} p{0.36\linewidth} p{0.13\linewidth} p{0.17\linewidth}}
+  \toprule
+  Identidad por contenido
+   & Dos nodos con el mismo $\hashof{\cdot}$ son el mismo nodo
+   & Por construcción & --- \\
+
+  Acíclico (Merkle)
+   & Las referencias entre nodos son por hash; ciclo accidental con probabilidad $2^{-256}$
+   & Por construcción & --- \\
+
+  Inmutabilidad estructural
+   & Un nodo nunca se modifica in-place; las mutaciones crean nodos nuevos
+   & DPO + cap.~\ref{cap:dpo} & --- \\
+
+  \bottomrule
+\end{longtable}
+
+\section*{Invariantes de topología (cap.~\ref{cap:topologia})}
+
+\begin{longtable}{p{0.18\linewidth} p{0.36\linewidth} p{0.13\linewidth} p{0.17\linewidth}}
+  \toprule
+  Treewidth acotado
+   & $\mathrm{tw}(G) \leq \texttt{LINK\_MAX} + O(1)$
+   & \citaLine{sotfs-monitor/src/treewidth.rs}{33} & --- \\
+
+  Curvature bounded
+   & $|\kappa(u,v)| \leq \max(\deg u, \deg v)$
+   & \citaLine{sotfs-monitor/src/curvature.rs}{75} & TLA \citaTLA{sotfs\_curvature.tla} \\
+
+  Kappa consistent
+   & $\kappa$ es función determinista del estado
+   & idem & TLA idem \\
+
+  Curvature drop $\Rightarrow$ fan-out
+   & $\Delta\kappa(u,v) < -T \Rightarrow$ fan-out en el mismo paso
+   & idem & TLA idem \\
+
+  \bottomrule
+\end{longtable}
+
+\section*{Deudas formales explícitas}
+
+\begin{itemize}
+  \item \texttt{NoHardLinkToDir} \emph{no} está formalizada en
+    \citaCoq{SotfsGraph.v} (cap.~\ref{cap:coq}). Bloquea tres
+    \texttt{Admitted} en \citaCoq{DpoRmdir.v}.
+  \item \texttt{DirHasSelfRef} y \texttt{BlockRefcountConsistent}
+    están en TLA pero \emph{no} en Coq.
+\end{itemize}

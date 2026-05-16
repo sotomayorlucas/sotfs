@@ -1,0 +1,8 @@
+$pdf_mode = 4;          # lualatex
+$lualatex = 'lualatex --interaction=nonstopmode --halt-on-error --shell-escape %O %S';
+$bibtex_use = 2;        # always run biber if .bib exists
+$biber = 'biber %O %S';
+$out_dir = 'build';
+$pdf_previewer = 'xdg-open';
+$clean_ext = 'bbl run.xml synctex.gz';
+@default_files = ('main.tex');

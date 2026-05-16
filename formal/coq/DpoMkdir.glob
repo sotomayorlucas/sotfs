@@ -1,0 +1,254 @@
+DIGEST 90738a0b1e5bd9f6f146a284530e04ae
+FSotFS.DpoMkdir
+R1546:1560 Stdlib.Arith.Arith <> <> lib
+R1578:1591 Stdlib.Lists.List <> <> lib
+R1609:1621 Stdlib.Bool.Bool <> <> lib
+R1639:1641 Stdlib.micromega.Lia <> <> lib
+R1651:1663 Stdlib.Lists.List ListNotations <> mod
+R1682:1691 SotFS.SotfsGraph <> <> lib
+rec 1931:1938 <> MkdirPre
+proj 2066:2078 <> mp_dir_exists
+proj 2111:2122 <> mp_user_name
+proj 2150:2162 <> mp_name_fresh
+proj 2209:2220 <> mp_ino_fresh
+proj 2255:2266 <> mp_dir_fresh
+proj 2299:2311 <> mp_parent_ino
+proj 2346:2359 <> mp_parent_link
+proj 2426:2438 <> mp_new_dir_ne
+R1945:1949 SotFS.SotfsGraph <> Graph rec
+binder 1941:1941 <> g:1
+R1966:1970 SotFS.SotfsGraph <> DirId def
+binder 1953:1962 <> parent_dir:2
+R1981:1984 SotFS.SotfsGraph <> Name def
+binder 1974:1977 <> name:3
+R2000:2006 SotFS.SotfsGraph <> InodeId def
+binder 1990:1996 <> new_ino:4
+R2020:2024 SotFS.SotfsGraph <> DirId def
+binder 2010:2016 <> new_dir:5
+R2041:2047 SotFS.SotfsGraph <> InodeId def
+binder 2028:2037 <> parent_ino:6
+R2084:2093 SotFS.SotfsGraph <> dir_exists def
+R2095:2095 SotFS.DpoMkdir <> g:1 var
+R2097:2106 SotFS.DpoMkdir <> parent_dir:2 var
+R2129:2140 SotFS.SotfsGraph <> is_user_name def
+R2142:2145 SotFS.DpoMkdir <> name:3 var
+R2197:2199 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R2168:2178 SotFS.SotfsGraph <> name_in_dir def
+R2180:2180 SotFS.DpoMkdir <> g:1 var
+R2182:2191 SotFS.DpoMkdir <> parent_dir:2 var
+R2193:2196 SotFS.DpoMkdir <> name:3 var
+R2200:2204 Corelib.Init.Datatypes <> false constr
+R2227:2228 Corelib.Init.Logic <> ::type_scope:'~'_x not
+R2229:2240 SotFS.SotfsGraph <> inode_exists def
+R2242:2242 SotFS.DpoMkdir <> g:1 var
+R2244:2250 SotFS.DpoMkdir <> new_ino:4 var
+R2273:2274 Corelib.Init.Logic <> ::type_scope:'~'_x not
+R2275:2284 SotFS.SotfsGraph <> dir_exists def
+R2286:2286 SotFS.DpoMkdir <> g:1 var
+R2288:2294 SotFS.DpoMkdir <> new_dir:5 var
+R2317:2328 SotFS.SotfsGraph <> inode_exists def
+R2330:2330 SotFS.DpoMkdir <> g:1 var
+R2332:2341 SotFS.DpoMkdir <> parent_ino:6 var
+R2385:2387 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R2364:2371 SotFS.SotfsGraph <> find_dir def
+R2373:2373 SotFS.DpoMkdir <> g:1 var
+R2375:2384 SotFS.DpoMkdir <> parent_dir:2 var
+R2388:2391 Corelib.Init.Datatypes <> Some constr
+R2394:2398 SotFS.SotfsGraph <> mkDir constr
+R2400:2409 SotFS.DpoMkdir <> parent_dir:2 var
+R2411:2420 SotFS.DpoMkdir <> parent_ino:6 var
+R2451:2454 Corelib.Init.Logic <> ::type_scope:x_'<>'_x not
+R2444:2450 SotFS.DpoMkdir <> new_dir:5 var
+R2455:2464 SotFS.DpoMkdir <> parent_dir:2 var
+def 2711:2715 <> mkdir
+R2722:2726 SotFS.SotfsGraph <> Graph rec
+binder 2718:2718 <> g:16
+R2743:2747 SotFS.SotfsGraph <> DirId def
+binder 2730:2739 <> parent_dir:17
+R2758:2761 SotFS.SotfsGraph <> Name def
+binder 2751:2754 <> name:18
+R2777:2783 SotFS.SotfsGraph <> InodeId def
+binder 2767:2773 <> new_ino:19
+R2797:2801 SotFS.SotfsGraph <> DirId def
+binder 2787:2793 <> new_dir:20
+R2818:2824 SotFS.SotfsGraph <> InodeId def
+binder 2805:2814 <> parent_ino:21
+R2829:2833 SotFS.SotfsGraph <> Graph rec
+R2843:2850 SotFS.SotfsGraph <> g_inodes proj
+R2909:2914 SotFS.SotfsGraph <> g_dirs proj
+R2963:2969 SotFS.SotfsGraph <> g_edges proj
+R2865:2868 Corelib.Init.Datatypes <> ::list_scope:x_'++'_x not
+R2855:2862 SotFS.SotfsGraph <> g_inodes proj
+R2864:2864 SotFS.DpoMkdir <> g:16 var
+R2869:2869 Stdlib.Lists.List ListNotations ::list_scope:'['_x_']' not
+R2901:2901 Stdlib.Lists.List ListNotations ::list_scope:'['_x_']' not
+R2870:2876 SotFS.SotfsGraph <> mkInode constr
+R2878:2884 SotFS.DpoMkdir <> new_ino:19 var
+R2886:2898 SotFS.SotfsGraph <> DirectoryType constr
+R2929:2932 Corelib.Init.Datatypes <> ::list_scope:x_'++'_x not
+R2921:2926 SotFS.SotfsGraph <> g_dirs proj
+R2928:2928 SotFS.DpoMkdir <> g:16 var
+R2933:2933 Stdlib.Lists.List ListNotations ::list_scope:'['_x_']' not
+R2955:2955 Stdlib.Lists.List ListNotations ::list_scope:'['_x_']' not
+R2934:2938 SotFS.SotfsGraph <> mkDir constr
+R2940:2946 SotFS.DpoMkdir <> new_dir:20 var
+R2948:2954 SotFS.DpoMkdir <> new_ino:19 var
+R2984:2987 Corelib.Init.Datatypes <> ::list_scope:x_'++'_x not
+R2975:2981 SotFS.SotfsGraph <> g_edges proj
+R2983:2983 SotFS.DpoMkdir <> g:16 var
+R2988:2988 Stdlib.Lists.List ListNotations ::list_scope:'['_x_';'_x_';'_'..'_';'_x_']' not
+R3023:3056 Stdlib.Lists.List ListNotations ::list_scope:'['_x_';'_x_';'_'..'_';'_x_']' not
+R3092:3125 Stdlib.Lists.List ListNotations ::list_scope:'['_x_';'_x_';'_'..'_';'_x_']' not
+R3167:3167 Stdlib.Lists.List ListNotations ::list_scope:'['_x_';'_x_';'_'..'_';'_x_']' not
+R2989:2998 SotFS.SotfsGraph <> mkContains constr
+R3000:3009 SotFS.DpoMkdir <> parent_dir:17 var
+R3011:3017 SotFS.DpoMkdir <> new_ino:19 var
+R3019:3022 SotFS.DpoMkdir <> name:18 var
+R3057:3066 SotFS.SotfsGraph <> mkContains constr
+R3068:3074 SotFS.DpoMkdir <> new_dir:20 var
+R3076:3082 SotFS.DpoMkdir <> new_ino:19 var
+R3084:3091 SotFS.SotfsGraph <> dot_name def
+R3126:3135 SotFS.SotfsGraph <> mkContains constr
+R3137:3143 SotFS.DpoMkdir <> new_dir:20 var
+R3145:3154 SotFS.DpoMkdir <> parent_ino:21 var
+R3156:3166 SotFS.SotfsGraph <> dotdot_name def
+prf 3412:3427 <> mkdir_new_ino_in
+binder 3440:3440 <> g:22
+binder 3442:3443 <> pd:23
+binder 3445:3448 <> name:24
+binder 3450:3451 <> ni:25
+binder 3453:3454 <> nd:26
+binder 3456:3457 <> pi:27
+R3464:3475 SotFS.SotfsGraph <> inode_exists def
+R3478:3482 SotFS.DpoMkdir <> mkdir def
+R3484:3484 SotFS.DpoMkdir <> g:22 var
+R3486:3487 SotFS.DpoMkdir <> pd:23 var
+R3489:3492 SotFS.DpoMkdir <> name:24 var
+R3494:3495 SotFS.DpoMkdir <> ni:25 var
+R3497:3498 SotFS.DpoMkdir <> nd:26 var
+R3500:3501 SotFS.DpoMkdir <> pi:27 var
+R3504:3505 SotFS.DpoMkdir <> ni:25 var
+R3532:3543 SotFS.SotfsGraph <> inode_exists def
+R3546:3554 SotFS.SotfsGraph <> inode_ids def
+R3557:3561 SotFS.DpoMkdir <> mkdir def
+R3581:3587 Stdlib.Lists.List <> map_app thm
+R3596:3604 Stdlib.Lists.List <> in_or_app thm
+prf 3652:3673 <> mkdir_preserves_inodes
+binder 3686:3686 <> g:28
+binder 3688:3689 <> pd:29
+binder 3691:3694 <> name:30
+binder 3696:3697 <> ni:31
+binder 3699:3700 <> nd:32
+binder 3702:3703 <> pi:33
+binder 3705:3706 <> id:34
+R3730:3733 Corelib.Init.Notations <> ::type_scope:x_'->'_x not
+R3713:3724 SotFS.SotfsGraph <> inode_exists def
+R3726:3726 SotFS.DpoMkdir <> g:28 var
+R3728:3729 SotFS.DpoMkdir <> id:34 var
+R3734:3745 SotFS.SotfsGraph <> inode_exists def
+R3748:3752 SotFS.DpoMkdir <> mkdir def
+R3754:3754 SotFS.DpoMkdir <> g:28 var
+R3756:3757 SotFS.DpoMkdir <> pd:29 var
+R3759:3762 SotFS.DpoMkdir <> name:30 var
+R3764:3765 SotFS.DpoMkdir <> ni:31 var
+R3767:3768 SotFS.DpoMkdir <> nd:32 var
+R3770:3771 SotFS.DpoMkdir <> pi:33 var
+R3774:3775 SotFS.DpoMkdir <> id:34 var
+R3802:3813 SotFS.SotfsGraph <> inode_exists def
+R3816:3824 SotFS.SotfsGraph <> inode_ids def
+R3827:3831 SotFS.DpoMkdir <> mkdir def
+R3856:3862 Stdlib.Lists.List <> map_app thm
+R3871:3879 Stdlib.Lists.List <> in_or_app thm
+prf 3909:3924 <> mkdir_new_dir_in
+binder 3937:3937 <> g:35
+binder 3939:3940 <> pd:36
+binder 3942:3945 <> name:37
+binder 3947:3948 <> ni:38
+binder 3950:3951 <> nd:39
+binder 3953:3954 <> pi:40
+R3961:3970 SotFS.SotfsGraph <> dir_exists def
+R3973:3977 SotFS.DpoMkdir <> mkdir def
+R3979:3979 SotFS.DpoMkdir <> g:35 var
+R3981:3982 SotFS.DpoMkdir <> pd:36 var
+R3984:3987 SotFS.DpoMkdir <> name:37 var
+R3989:3990 SotFS.DpoMkdir <> ni:38 var
+R3992:3993 SotFS.DpoMkdir <> nd:39 var
+R3995:3996 SotFS.DpoMkdir <> pi:40 var
+R3999:4000 SotFS.DpoMkdir <> nd:39 var
+R4027:4036 SotFS.SotfsGraph <> dir_exists def
+R4039:4045 SotFS.SotfsGraph <> dir_ids def
+R4048:4052 SotFS.DpoMkdir <> mkdir def
+R4072:4078 Stdlib.Lists.List <> map_app thm
+R4087:4095 Stdlib.Lists.List <> in_or_app thm
+prf 4143:4162 <> mkdir_preserves_dirs
+binder 4175:4175 <> g:41
+binder 4177:4178 <> pd:42
+binder 4180:4183 <> name:43
+binder 4185:4186 <> ni:44
+binder 4188:4189 <> nd:45
+binder 4191:4192 <> pi:46
+binder 4194:4195 <> id:47
+R4217:4220 Corelib.Init.Notations <> ::type_scope:x_'->'_x not
+R4202:4211 SotFS.SotfsGraph <> dir_exists def
+R4213:4213 SotFS.DpoMkdir <> g:41 var
+R4215:4216 SotFS.DpoMkdir <> id:47 var
+R4221:4230 SotFS.SotfsGraph <> dir_exists def
+R4233:4237 SotFS.DpoMkdir <> mkdir def
+R4239:4239 SotFS.DpoMkdir <> g:41 var
+R4241:4242 SotFS.DpoMkdir <> pd:42 var
+R4244:4247 SotFS.DpoMkdir <> name:43 var
+R4249:4250 SotFS.DpoMkdir <> ni:44 var
+R4252:4253 SotFS.DpoMkdir <> nd:45 var
+R4255:4256 SotFS.DpoMkdir <> pi:46 var
+R4259:4260 SotFS.DpoMkdir <> id:47 var
+R4287:4296 SotFS.SotfsGraph <> dir_exists def
+R4299:4305 SotFS.SotfsGraph <> dir_ids def
+R4308:4312 SotFS.DpoMkdir <> mkdir def
+R4337:4343 Stdlib.Lists.List <> map_app thm
+R4352:4360 Stdlib.Lists.List <> in_or_app thm
+prf 4390:4400 <> mkdir_edges
+binder 4413:4413 <> g:48
+binder 4415:4416 <> pd:49
+binder 4418:4421 <> name:50
+binder 4423:4424 <> ni:51
+binder 4426:4427 <> nd:52
+binder 4429:4430 <> pi:53
+binder 4432:4432 <> e:54
+R4480:4488 Corelib.Init.Logic <> ::type_scope:x_'<->'_x not
+R4439:4440 Stdlib.Lists.List <> In def
+R4445:4451 SotFS.SotfsGraph <> g_edges proj
+R4454:4458 SotFS.DpoMkdir <> mkdir def
+R4460:4460 SotFS.DpoMkdir <> g:48 var
+R4462:4463 SotFS.DpoMkdir <> pd:49 var
+R4465:4468 SotFS.DpoMkdir <> name:50 var
+R4470:4471 SotFS.DpoMkdir <> ni:51 var
+R4473:4474 SotFS.DpoMkdir <> nd:52 var
+R4476:4477 SotFS.DpoMkdir <> pi:53 var
+R4442:4442 SotFS.DpoMkdir <> e:54 var
+R4505:4512 Corelib.Init.Logic <> ::type_scope:x_'\/'_x not
+R4489:4490 Stdlib.Lists.List <> In def
+R4495:4501 SotFS.SotfsGraph <> g_edges proj
+R4503:4503 SotFS.DpoMkdir <> g:48 var
+R4492:4492 SotFS.DpoMkdir <> e:54 var
+R4538:4545 Corelib.Init.Logic <> ::type_scope:x_'\/'_x not
+R4514:4516 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R4513:4513 SotFS.DpoMkdir <> e:54 var
+R4517:4526 SotFS.SotfsGraph <> mkContains constr
+R4528:4529 SotFS.DpoMkdir <> pd:49 var
+R4531:4532 SotFS.DpoMkdir <> ni:51 var
+R4534:4537 SotFS.DpoMkdir <> name:50 var
+R4575:4582 Corelib.Init.Logic <> ::type_scope:x_'\/'_x not
+R4547:4549 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R4546:4546 SotFS.DpoMkdir <> e:54 var
+R4550:4559 SotFS.SotfsGraph <> mkContains constr
+R4561:4562 SotFS.DpoMkdir <> nd:52 var
+R4564:4565 SotFS.DpoMkdir <> ni:51 var
+R4567:4574 SotFS.SotfsGraph <> dot_name def
+R4584:4586 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R4583:4583 SotFS.DpoMkdir <> e:54 var
+R4587:4596 SotFS.SotfsGraph <> mkContains constr
+R4598:4599 SotFS.DpoMkdir <> nd:52 var
+R4601:4602 SotFS.DpoMkdir <> pi:53 var
+R4604:4614 SotFS.SotfsGraph <> dotdot_name def
+R4641:4645 SotFS.DpoMkdir <> mkdir def
+R4663:4672 Stdlib.Lists.List <> in_app_iff thm

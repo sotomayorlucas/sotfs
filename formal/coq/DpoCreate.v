@@ -81,7 +81,10 @@ Lemma create_edges :
     In e (g_edges g) \/ e = mkContains d new_ino name.
 Proof.
   intros. unfold create_file. simpl. rewrite in_app_iff. simpl.
-  tauto.
+  (* Rocq 9: tauto doesn't symmetrize `=`; do it manually. *)
+  split.
+  - intros [H | [H | []]]; [left; assumption | right; symmetry; assumption].
+  - intros [H | H]; [left; assumption | right; left; symmetry; assumption].
 Qed.
 
 (* The new inode record can be found *)
@@ -117,9 +120,10 @@ Proof.
   rewrite find_app_iff.
   destruct (find (fun ir => Nat.eqb (ir_id ir) id) (g_inodes g)) eqn:Hf.
   - reflexivity.
-  - simpl. destruct (Nat.eqb id new_ino) eqn:Heq.
-    + apply Nat.eqb_eq in Heq. contradiction.
-    + reflexivity.
+  - simpl.
+    assert (Hsym : Nat.eqb new_ino id = false).
+    { apply Nat.eqb_neq. auto. }
+    rewrite Hsym. reflexivity.
 Qed.
 
 (* incoming_count for inodes other than new_ino is unchanged *)
@@ -150,14 +154,14 @@ Proof.
   destruct HWF as [HTI [HLC [HUN [HND HNC]]]].
   destruct HTI as [Hedge [HnodupI HnodupD]].
   destruct Hpre as [Hdir Huser Hfresh Hino_fresh].
-  unfold TypeInvariant. repeat split.
+  unfold TypeInvariant. split; [| split].
   - (* edges endpoints exist *)
-    intros e Hin.
+    intros e0 Hin.
     apply create_edges in Hin. destruct Hin as [Hold | Hnew].
-    + destruct (Hedge e Hold) as [Hd Hi]. split.
+    + destruct (Hedge e0 Hold) as [Hd Hi]. split.
       * apply create_preserves_dirs. exact Hd.
       * apply create_preserves_inodes. exact Hi.
-    + subst e. simpl. split.
+    + subst e0. simpl. split.
       * apply create_preserves_dirs. exact Hdir.
       * apply create_new_ino_in.
   - (* NoDupInodeIds *)
@@ -335,7 +339,7 @@ Theorem create_preserves_WellFormed :
     WellFormed (create_file g d name new_ino).
 Proof.
   intros g d name new_ino HWF Hpre.
-  unfold WellFormed. repeat split.
+  unfold WellFormed. split; [| split; [| split; [| split]]].
   - exact (create_preserves_TypeInvariant g d name new_ino HWF Hpre).
   - exact (create_preserves_LinkCountConsistent g d name new_ino HWF Hpre).
   - exact (create_preserves_UniqueNamesPerDir g d name new_ino HWF Hpre).

@@ -1,0 +1,284 @@
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{preamble}[2026/05/13 sotFS book preamble]
+
+% --- idioma ---
+\RequirePackage{polyglossia}
+\setdefaultlanguage{spanish}
+\setotherlanguage{english}
+
+% --- fuentes (LuaLaTeX/XeLaTeX) ---
+\RequirePackage{fontspec}
+\RequirePackage{unicode-math}
+\setmainfont{TeX Gyre Pagella}[
+  Ligatures=TeX,
+  Numbers=OldStyle
+]
+\setmonofont{Latin Modern Mono}[
+  Scale=MatchLowercase,
+  Ligatures=NoCommon
+]
+\setmathfont{TeX Gyre Pagella Math}
+
+% --- amsmath y geometría ---
+% nota: NO cargamos amssymb porque unicode-math ya provee todos los símbolos
+% y se produce conflicto con \eth.
+\RequirePackage{amsmath, amsthm, mathtools}
+
+% --- mapeo de caracteres Unicode no presentes en Pagella (texto) ---
+\RequirePackage{newunicodechar}
+\newunicodechar{★}{$\star$}
+
+% --- \mathit / \mathrm autoswitch a math mode si están en texto ---
+% Útil para usarlos dentro de algorithm2e \Return{} sin envolver en $...$.
+% unicode-math redefine estos como \protected\def, así que necesitamos
+% wrappers nuevos para envolver en $...$ cuando se usan en text mode.
+\AtBeginDocument{%
+  \let\sotxorigmathit\mathit
+  \let\sotxorigmathrm\mathrm
+  \let\sotxorigmathsf\mathsf
+  \let\sotxorigmathbf\mathbf
+  \DeclareRobustCommand{\mathit}[1]{\ensuremath{\sotxorigmathit{##1}}}%
+  \DeclareRobustCommand{\mathrm}[1]{\ensuremath{\sotxorigmathrm{##1}}}%
+  \DeclareRobustCommand{\mathsf}[1]{\ensuremath{\sotxorigmathsf{##1}}}%
+  \DeclareRobustCommand{\mathbf}[1]{\ensuremath{\sotxorigmathbf{##1}}}%
+}
+\RequirePackage[a4paper, margin=2.5cm, includehead, includefoot]{geometry}
+
+% --- tipografía fina ---
+\RequirePackage{microtype}
+
+% --- color, gráficos y diagramas ---
+\RequirePackage{graphicx}
+\RequirePackage{tikz}
+\usetikzlibrary{
+  arrows.meta,
+  positioning,
+  calc,
+  fit,
+  shapes.geometric,
+  shapes.symbols,
+  decorations.pathreplacing,
+  decorations.pathmorphing,
+  decorations.markings,
+  matrix,
+  backgrounds,
+  patterns,
+  through
+}
+
+% --- TikZ: estilos base reutilizados en todo el libro ---
+\tikzset{
+  every picture/.style={font=\small},
+  node base/.style={
+    rounded corners=2pt,
+    draw,
+    line width=0.5pt,
+    inner sep=4pt,
+    align=center,
+    minimum height=8mm
+  },
+  nino/.style={node base, fill=sotxBlueL!60, draw=sotxBlue!80, text=sotxFg},
+  ndir/.style={node base, fill=sotxAmberL!60, draw=sotxAmber!80, text=sotxFg},
+  nblk/.style={node base, fill=sotxGreenL!60, draw=sotxGreen!80, text=sotxFg},
+  ncap/.style={node base, fill=sotxVioletL!60, draw=sotxViolet!80, text=sotxFg},
+  ntxn/.style={node base, fill=sotxRedL!60, draw=sotxRed!80, text=sotxFg},
+  nver/.style={node base, fill=sotxTealL!60, draw=sotxTeal!80, text=sotxFg},
+  arr/.style={-{Stealth[length=2.0mm,width=1.6mm]}, draw=sotxFg, line width=0.5pt},
+  arr-grant/.style={arr, draw=sotxViolet!80, dashed},
+  arr-deleg/.style={arr, draw=sotxViolet!60, densely dotted},
+  arr-derives/.style={arr, draw=sotxTeal!80, dashed},
+  arr-points/.style={arr, draw=sotxGreen!80},
+  hazard/.style={
+    text=sotxRed,
+    font=\small\itshape,
+    align=left
+  },
+  edgelbl/.style={
+    fill=sotxBg,
+    inner sep=1pt,
+    font=\scriptsize\ttfamily,
+    text=sotxFg
+  },
+  ghost/.style={draw=sotxRule, dashed, fill=none}
+}
+
+% --- listings con estilos para Rust, TLA+, Coq ---
+\RequirePackage{listings}
+
+\lstdefinelanguage{rust}{
+  morekeywords={fn, let, mut, pub, struct, impl, enum, match, if, else, for,
+    while, loop, return, use, mod, crate, self, Self, as, where, trait, type,
+    move, ref, async, await, dyn, in, true, false, const, static, unsafe,
+    extern},
+  morekeywords=[2]{u8, u16, u32, u64, usize, i8, i16, i32, i64, isize, bool,
+    str, String, Vec, Option, Result, Box, Arc, Rc, BTreeMap, HashMap},
+  morecomment=[l]{//},
+  morecomment=[s]{/*}{*/},
+  morestring=[b]",
+  sensitive=true
+}
+
+\lstdefinelanguage{tla}{
+  morekeywords={EXTENDS, VARIABLE, VARIABLES, CONSTANT, CONSTANTS, MODULE,
+    LET, IN, IF, THEN, ELSE, CHOOSE, EXCEPT, DOMAIN, SUBSET, UNION, ENABLED,
+    ASSUME, THEOREM, LEMMA, INSTANCE, WITH, RECURSIVE, UNCHANGED},
+  morekeywords=[2]{Init, Next, Spec, Inv, Invariant, TypeOK, Liveness},
+  morekeywords=[3]{TRUE, FALSE, BOOLEAN, Nat, Int, Seq, Cardinality},
+  morestring=[b]",
+  morecomment=[l]{\\\*},
+  morecomment=[s]{(*}{*)},
+  literate={\\E}{{$\exists$}}1
+           {\\A}{{$\forall$}}1
+           {\\in}{{$\in$}}1
+           {\\notin}{{$\notin$}}1
+           {\\cup}{{$\cup$}}1
+           {\\cap}{{$\cap$}}1
+           {\\subseteq}{{$\subseteq$}}1
+           {\\subset}{{$\subset$}}1
+           {/\\}{{$\wedge$}}1
+           {\\/}{{$\vee$}}1
+           {=>}{{$\Rightarrow$}}1
+           {<=>}{{$\Leftrightarrow$}}1
+           {/=}{{$\neq$}}1
+           {->}{{$\to$}}1,
+  sensitive=true
+}
+
+\lstdefinelanguage{coq}{
+  morekeywords={Theorem, Lemma, Proof, Qed, Admitted, Definition, Fixpoint,
+    Inductive, Record, Variable, Hypothesis, Parameter, Section, End, Module,
+    Require, Import, Export, From, Notation, forall, exists, fun, match,
+    with, end, if, then, else, let, in, return, as, Set, Prop, Type, intros,
+    induction, destruct, apply, exact, reflexivity, simpl, unfold, rewrite,
+    auto, omega, lia, contradiction, discriminate, inversion, split, left,
+    right, exists, eauto, firstorder, congruence, subst, assert, pose, fix,
+    cofix, struct},
+  morecomment=[s]{(*}{*)},
+  morestring=[b]",
+  sensitive=true
+}
+
+\lstdefinelanguage{shellcmd}{
+  morecomment=[l]{\#},
+  morestring=[b]",
+  morestring=[b]'
+}
+
+\lstset{
+  basicstyle=\ttfamily\small,
+  keywordstyle=\color{sotxBlue}\bfseries,
+  keywordstyle=[2]\color{sotxTeal},
+  keywordstyle=[3]\color{sotxAmber},
+  commentstyle=\color{sotxMuted}\itshape,
+  stringstyle=\color{sotxGreen},
+  numberstyle=\color{sotxMuted}\tiny,
+  numbers=none,
+  numbersep=8pt,
+  frame=single,
+  framerule=0.4pt,
+  rulecolor=\color{sotxRule},
+  backgroundcolor=\color{sotxBg!60},
+  tabsize=2,
+  breaklines=true,
+  breakatwhitespace=true,
+  showstringspaces=false,
+  captionpos=b,
+  belowcaptionskip=4pt,
+  abovecaptionskip=4pt,
+  xleftmargin=2pt,
+  xrightmargin=2pt
+}
+
+% --- algorithm2e ---
+\RequirePackage[ruled, vlined, linesnumbered, algonl]{algorithm2e}
+\SetAlFnt{\small\sffamily}
+\SetAlCapFnt{\bfseries\sffamily}
+\SetAlCapNameFnt{\sffamily}
+\SetCommentSty{\itshape\color{sotxMuted}}
+\renewcommand{\algorithmcfname}{Algoritmo}
+\renewcommand{\listalgorithmcfname}{Índice de algoritmos}
+% Castellanizar palabras clave (algorithm2e no trae locale español)
+\SetKwInput{KwIn}{Entrada}
+\SetKwInput{KwOut}{Salida}
+\SetKw{KwAnd}{y}
+\SetKw{KwOr}{o}
+\SetKw{KwNot}{no}
+\SetKwIF{If}{ElseIf}{Else}{si}{entonces}{sino si}{sino}{fin si}
+\SetKwFor{For}{para}{hacer}{fin para}
+\SetKwFor{ForEach}{para cada}{hacer}{fin para}
+\SetKwFor{While}{mientras}{hacer}{fin mientras}
+\SetKwFor{Loop}{repetir}{}{fin repetir}
+\SetKwRepeat{Repeat}{repetir}{hasta}
+\SetKwBlock{Begin}{inicio}{fin}
+\SetKw{Return}{retornar}
+\SetKw{KwTo}{a}
+\SetKw{KwBy}{paso}
+% comentarios fáciles
+\newcommand{\comm}[1]{\(\triangleright\) \emph{#1}}
+
+% --- tablas ---
+\RequirePackage{booktabs}
+\RequirePackage{array}
+\RequirePackage{tabularx}
+\RequirePackage{longtable}
+\RequirePackage{multirow}
+
+% --- biblatex ---
+\RequirePackage[
+  backend=biber,
+  style=numeric-comp,
+  sorting=nyt,
+  maxbibnames=99,
+  doi=true,
+  isbn=false,
+  url=false
+]{biblatex}
+
+% --- hyperref + cleveref deben ir casi al final ---
+\RequirePackage[
+  colorlinks=true,
+  linkcolor=sotxBlue,
+  citecolor=sotxGreen,
+  urlcolor=sotxTeal,
+  bookmarksopen=true,
+  bookmarksnumbered=true
+]{hyperref}
+
+% --- encabezados de capítulo limpios ---
+\RequirePackage{titlesec}
+\titleformat{\chapter}[display]
+  {\sffamily\Huge\bfseries\color{sotxBlue}}
+  {\filright\sffamily\Large\color{sotxMuted}Capítulo \thechapter}
+  {1ex}
+  {\titlerule[0.5pt]\vspace{1ex}\filright}
+\titlespacing*{\chapter}{0pt}{-30pt}{20pt}
+
+\titleformat{\section}{\sffamily\Large\bfseries\color{sotxFg}}{\thesection}{1em}{}
+\titleformat{\subsection}{\sffamily\large\bfseries\color{sotxFg}}{\thesubsection}{1em}{}
+\titleformat{\subsubsection}{\sffamily\normalsize\bfseries\color{sotxFg}}{}{0pt}{}
+
+% --- header/footer simple ---
+\RequirePackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[LE,RO]{\thepage}
+\fancyhead[RE]{\nouppercase{\leftmark}}
+\fancyhead[LO]{\nouppercase{\rightmark}}
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\headrule}{\hbox to\headwidth{\color{sotxRule}\leaders\hrule height \headrulewidth\hfill}}
+
+\fancypagestyle{plain}{%
+  \fancyhf{}%
+  \fancyfoot[C]{\thepage}%
+  \renewcommand{\headrulewidth}{0pt}%
+}
+
+% --- otras utilidades ---
+\RequirePackage{enumitem}
+\setlist{itemsep=2pt, topsep=4pt, parsep=0pt}
+
+\RequirePackage{csquotes}
+
+% --- evitar widows y orphans ---
+\widowpenalty=10000
+\clubpenalty=10000

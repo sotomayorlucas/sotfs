@@ -1,0 +1,438 @@
+\chapter{Transacciones y crash refinement}
+\label{cap:transacciones}
+
+Un filesystem que vive en disco tiene que sobrevivir \emph{crashes}: el
+power-cut, el kernel panic, el hot-yank del SSD. La pregunta no es ``¿se
+rompe?'' sino ``¿en qué estado queda?''. Hay tres respuestas posibles,
+en orden creciente de garantías:
+
+\begin{description}
+  \item[\emph{Inconsistent}.] El FS queda corrupto; \texttt{fsck}
+    intenta repararlo con heurísticas. Bueno hasta el primer archivo
+    crítico que no se recuperó.
+  \item[\emph{Eventually consistent}.] Tras el reboot, una secuencia de
+    pasos automáticos (replay del journal, reconciliación) llega a un
+    estado consistente \emph{eventualmente}. \texttt{ext4} con
+    \texttt{data=journal} entra acá.
+  \item[\emph{Always consistent}.] El FS está \emph{en todo momento} en
+    un estado consistente. Tras el crash, la primera lectura ya retorna
+    datos correctos. Es a lo que sotFS apunta.
+\end{description}
+
+Este capítulo presenta la herramienta para llegar a la tercera: las
+\emph{transacciones de grafo} (GTXN), su modelo formal con
+\emph{crash refinement} en TLA\textsuperscript{+}, y su implementación
+en el runtime, que difiere honestamente del modelo en un punto
+importante.
+
+\section{Modelo formal vs.\ implementación}
+
+\begin{table}[h]
+\centering
+\renewcommand{\arraystretch}{1.25}
+\begin{tabularx}{\linewidth}{l X X}
+  \toprule
+   & \textbf{Modelo formal (TLA\textsuperscript{+})} & \textbf{Implementación (Rust)} \\
+  \midrule
+  Spec / módulo & \citaTLA{sotfs\_transactions.tla} + \citaTLA{sotfs\_crash.tla} & \citaCrate{sotfs-tx} sobre \citaCrate{sotfs-storage} \\
+  Mecanismo & \wal{} explícito + commit marker & snapshot in-memory + redb txn \\
+  Atomicidad & 2-phase commit modelado paso a paso & \texttt{with\_transaction} closure \\
+  Durabilidad & \fsync{} sobre \wal & \texttt{redb::Database::commit} (interno: \fsync) \\
+  Crash safety & teorema \texttt{Spec\_Concrete \(\Rightarrow\) Spec\_Abstract} & confiada al backend redb \\
+  Refinement & \citaTLA{sotfs\_crash\_refinement.tla} & por inspección \\
+  \bottomrule
+\end{tabularx}
+\caption{Modelo formal vs.\ implementación. El modelo describe un \wal{}
+explícito; el runtime delega la durabilidad al backend redb. La
+correspondencia es por \emph{inspección humana}, no por \emph{extracción
+mecánica}; cap.~\ref{cap:tla} discute las consecuencias de esa elección.}
+\label{tab:modelo-vs-impl}
+\end{table}
+
+Es importante que esto se enuncie en el primer párrafo del capítulo, no
+en una nota al pie: el \wal{} de los specs es una construcción
+\emph{teórica} para razonar sobre crashes; el runtime no escribe un
+\wal{} propio sino que confía en las garantías del backend redb. La
+prueba formal \texttt{Spec\_Concrete \(\Rightarrow\) Spec\_Abstract} habla
+del \wal{} teórico, no del código de producción. La virtud de la
+separación: si mañana cambia el backend (de redb a otro KV embebido), la
+prueba formal sigue valiendo siempre que el backend nuevo dé las mismas
+garantías de atomicidad y durabilidad.
+
+\section{La GTXN del runtime}
+
+La unidad de trabajo en \citaCrate{sotfs-tx} es la \emph{Graph
+Transaction} (GTXN). Su API es minimalista
+(\citaLine{sotfs-tx/src/lib.rs}{22}):
+
+\begin{lstlisting}[language=rust, caption={GTXN como wrapper sobre el TypeGraph.}, label={lst:gtxn}]
+pub struct Gtxn {
+    pub state: GtxnState,
+    snapshot: TypeGraph,
+}
+
+impl Gtxn {
+    pub fn begin(graph: &TypeGraph) -> Self { ... }
+    pub fn commit(&mut self) -> Result<(), GraphError> { ... }
+    pub fn rollback(self, graph: &mut TypeGraph) { ... }
+}
+
+pub fn with_transaction<F, T>(
+    graph: &mut TypeGraph, f: F
+) -> Result<T, GraphError>
+where F: FnOnce(&mut TypeGraph) -> Result<T, GraphError>;
+\end{lstlisting}
+
+El patrón canónico es la closure \texttt{with\_transaction}, que
+\emph{snapshotea} el grafo al inicio, ejecuta la closure, y o bien
+verifica los invariantes y commitea, o rollbackea sobre cualquier error
+o violación de invariante.
+
+\begin{algorithm}[H]
+\SetAlgoLined
+\KwIn{Grafo $G$, closure $f: G \to \textrm{Result}$}
+\KwOut{Resultado de $f$ con $G$ commiteado, o $G$ restaurado al snapshot}
+\caption{\textsc{WithTransaction}}\label{alg:with-tx}
+
+
+$\textrm{snap} \gets \textrm{clone}(G)$\;
+$r \gets f(G)$\;
+\If{$r = \texttt{Ok}(\cdot)$}{
+  \If{$G.\textsc{CheckInvariants}() = \texttt{Err}$}{
+    $G \gets \textrm{snap}$\;
+    \Return{\texttt{Err(invariante violada)}}\;
+  }
+  
+  \Return{$r$}\;
+}
+
+$G \gets \textrm{snap}$\;
+\Return{$r$}\;
+\end{algorithm}
+
+Notas críticas sobre la implementación actual:
+
+\begin{itemize}
+  \item El \emph{snapshot} es una copia completa del \texttt{TypeGraph}
+    (\texttt{graph.clone()}). Para grafos pequeños es barato; para grafos
+    de millones de nodos, el costo es prohibitivo. La estructura RCU
+    del cap.~\ref{cap:implementacion} mitiga esto en lectura, pero la
+    snapshot de transacción todavía clona.
+  \item No hay todavía un mecanismo de \emph{commit en dos fases} entre
+    objetos: GTXN es siempre single-host. La extensión Tier-2 (multi-host
+    2PC) está en el roadmap (\citaCrate{sotfs-experimental}).
+  \item La durabilidad llega cuando el caller invoca
+    \texttt{RedbBackend::save(graph)}, no en el commit de la GTXN. La
+    GTXN garantiza atomicidad in-memory, no durabilidad on-disk.
+\end{itemize}
+
+\section{El protocolo abstracto del modelo TLA: GTXN con WAL}
+
+Aunque el runtime no escriba \wal{} propio, el modelo formal del
+\citaTLA{sotfs\_crash.tla} sí lo hace, y razonar sobre crash safety
+requiere conocerlo. El protocolo de cuatro fases:
+
+\begin{algorithm}[H]
+\SetAlgoLined
+\KwIn{Transacción $\textit{tx}$ con conjunto de cambios
+$\mathit{tx.changes}$}
+\caption{\textsc{GtxnCommit} (modelo formal)}\label{alg:gtxn-commit}
+
+
+$\textit{rec} \gets \textsc{Serialize}(\mathit{tx.changes})$\;
+$\textsc{Disk.Write}(\textit{wal\_log}, \textit{rec})$\;
+
+$\textsc{Disk.Fsync}(\textit{wal\_log})$\;
+
+
+$\textsc{Disk.Write}(\textit{wal\_log}, \texttt{COMMIT\_MARKER})$\;
+
+$\textsc{Disk.Fsync}(\textit{wal\_log})$\;
+
+
+\ForEach{cambio $c \in \mathit{tx.changes}$}{
+  $\textsc{Disk.Write}(\textit{graph\_store}, c)$\;
+}
+$\textsc{Disk.Fsync}(\textit{graph\_store})$\;
+
+
+$\textsc{Wal.Truncate}(\textit{tx})$\;
+\end{algorithm}
+
+El \emph{commit point} es el segundo \fsync{} (línea 5).
+\emph{Antes} del commit point, el crash deja \wal{} parcial sin marker
+$\Rightarrow$ el recovery descarta las operaciones (vuelve al estado
+pre-tx). \emph{Después} del commit point, el crash deja \wal{} con
+marker $\Rightarrow$ el recovery re-aplica las operaciones (continúa al
+estado post-tx). Nunca un estado intermedio.
+
+\section{Crash refinement}
+
+El spec abstracto \citaTLA{sotfs\_transactions.tla} modela GTXN
+\emph{sin} crashes; el spec concreto \citaTLA{sotfs\_crash.tla}
+\emph{con} crashes. La técnica de \emph{crash refinement}
+\cite{Sigurbjarnarson2016} prueba que toda traza concreta es traza
+abstracta vía un \emph{refinement mapping}.
+
+\begin{lstlisting}[language=tla, caption={Acciones \texttt{Crash} y
+\texttt{Recover} en \citaTLA{sotfs\_crash.tla} (extracto).}, label={lst:tla-crash}]
+\* Crash puede ocurrir en cualquier momento.
+Crash ==
+    /\ ~crashed
+    /\ crashed' = TRUE
+    /\ memState' = NULL                  \* memoria volátil borrada
+    /\ UNCHANGED <<diskState, walState, gtxnState>>
+
+\* Recovery: replay del WAL desde el último commit marker.
+Recover ==
+    /\ crashed
+    /\ memState' = ReplayWAL(walState, diskState)
+    /\ crashed' = FALSE
+    /\ UNCHANGED <<diskState, walState>>
+\end{lstlisting}
+
+\subsection*{El refinement mapping}
+
+\begin{lstlisting}[language=tla, caption={Mapping de refinement
+concreto $\to$ abstracto.}, label={lst:tla-refinement}]
+RefinementMapping ==
+    LET
+        ConcreteState == <<diskState, walState, memState>>
+        AbstractState ==
+            IF crashed THEN
+                \* mapeamos al estado abstracto "como si la última
+                \* committed tx fuera la actual"
+                ReplayWAL(walState, diskState)
+            ELSE
+                memState
+    IN
+        \A op \in TxOps :
+            ConcreteOp(op) => AbstractOp(op)
+
+THEOREM Spec_Concrete => Spec_Abstract
+\end{lstlisting}
+
+Bajo TLC con configuración \texttt{small}, el teorema se verifica
+exhaustivamente sobre estados acotados (cap.~\ref{cap:tla} lo desarrolla).
+
+\section{Las propiedades verificadas}
+
+\begin{description}
+  \item[\textbf{No partial application.}] Tras \texttt{Recover},
+    \emph{toda} operación de una GTXN está aplicada o \emph{ninguna}.
+    Nunca ``se aplicaron 3 de 5''.
+  \item[\textbf{Durability.}] Si \texttt{gtxn\_commit} retornó
+    \texttt{Ok}, la transacción sobrevive cualquier crash posterior.
+  \item[\textbf{Recovery consistency.}] Tras \texttt{Recover}, el estado
+    de memoria satisface \emph{todas} las invariantes del
+    cap.~\ref{cap:typegraph} (los siete + el de índice).
+  \item[\textbf{WAL integrity.}] Una vez escrito el commit marker, el
+    contenido del \wal{} no se modifica hasta el GC; el GC sólo borra
+    entradas \emph{ya aplicadas}.
+\end{description}
+
+\section{El protocolo de fsync}
+
+La barrera de durabilidad es \fsync: pide al SSD que flushee sus cachés
+volátiles a flash NAND. Sin \fsync, una escritura puede quedarse en el
+caché del controlador y perderse en un power-cut.
+
+\begin{lstlisting}[language=shellcmd, caption={Pipeline conceptual de
+\fsync.}]
+disk.write(buf)         # bytes a kernel page cache
+disk.fsync()            # kernel page cache -> driver buffer
+                        # driver buffer -> SSD controller
+                        # SSD controller -> NAND
+                        # ack al kernel
+\end{lstlisting}
+
+\begin{invariante}[Persistencia tras \fsync]
+\label{inv:fsync-persist}
+Tras \fsync\texttt{(loc)} retornar exitosamente, los bytes escritos antes
+de la llamada a \texttt{loc} están persistidos en NAND y sobrevivirán
+cualquier power-cut posterior.
+\end{invariante}
+
+La invariante depende del SSD respetar el comando \texttt{FUA} (\emph{Force
+Unit Access}). SSDs consumer-grade malos lo ignoran; SSDs enterprise-grade
+lo respetan. Verificar esto en runtime con un test de power-cut físico es
+la única vía; el modelo asume \fsync{} honesto.
+
+\section{Trampas históricas}
+
+\begin{trampa}[\texttt{write A; write B; fsync} no garantiza orden]
+\label{tr:write-reorder}
+Versión vulnerable: el código asume que dos \texttt{write} seguidos por
+un \fsync{} se persisten en orden $A, B$. \emph{No es así}. El SSD puede
+reordenar internamente; \fsync{} sólo garantiza que \emph{ambos} están
+persistidos al retornar, no el orden.
+
+Si el código depende de que $A$ esté en disco antes que $B$ (e.g.\ $B$
+es el commit marker que valida $A$), un crash entre los dos \fsync{}
+puede dejar $B$ en disco sin $A$.
+
+\textbf{Fix.} \texttt{write A; fsync; write B; fsync}. Dos \fsync{}
+explícitos. Costo: latencia, especialmente en HDD. Justificable cuando
+el orden importa (commit marker), no cuando no (datos paralelos).
+
+\textbf{Lección.} \fsync{} es una barrera de \emph{durabilidad puntual},
+no de \emph{ordering entre operaciones}. Cada barrier tiene su propio
+\fsync.
+\end{trampa}
+
+\begin{trampa}[GC del WAL antes del fsync del graph]
+\label{tr:wal-truncate-early}
+\citaCommit{4775904}. Versión vulnerable: el orden de Fase 3 y Fase 4
+estaba invertido. El \wal{} se truncaba (Fase 4) \emph{antes} de que el
+graph store hiciera \fsync{} (Fase 3 incompleta).
+
+Si crash ocurre después del \wal{} truncate pero antes del graph
+\fsync: el \wal{} no tiene la transacción (truncado), el graph no la
+tiene (no \fsync-eado). \emph{Pérdida silenciosa}.
+
+\textbf{Fix.} El orden estricto Fase 1 $\to$ Fase 2 $\to$ Fase 3 $\to$
+Fase 4. Cada fase termina con su \fsync{} correspondiente. \wal{}
+truncate sólo tras graph \fsync{} exitoso.
+
+\textbf{Lección.} La durabilidad es un pipeline ordenado de barreras.
+Una operación de \emph{cleanup} (truncate del \wal) DEBE preceder de
+todas las operaciones que dependen de los datos cleaned-up. Caer en la
+tentación de hacer cleanup \emph{en paralelo} para ``ahorrar latencia''
+rompe la cadena de durabilidad.
+\end{trampa}
+
+\section{La invariante de \emph{readers see committed-or-pre-tx}}
+
+\begin{invariante}[Read isolation]
+\label{inv:read-iso}
+Un \texttt{read} concurrente con un \texttt{gtxn\_commit} en progreso ve
+\emph{o} el estado anterior a la transacción \emph{o} el estado posterior;
+nunca un estado intermedio. La elección depende de cuándo se linealiza el
+read respecto del commit point.
+\end{invariante}
+
+Implementación: los readers usan el Tier 0 \rcu{}
+(cap.~\ref{cap:implementacion}); toman snapshot de la \emph{época
+global} del FS al iniciar la lectura, leen consistentemente de esa
+snapshot. Los writers (gtxn) bumpean la época sólo después del commit
+point, de modo que los readers con snapshot vieja siguen viendo el
+estado pre-tx, los nuevos ven el post-tx.
+
+\section{Origen del diseño}
+
+\wal{} viene de bases de datos (\textsc{Aries} \cite{Mohan1992}); su
+aplicación a filesystems es de \texttt{ext3} y \texttt{XFS}. La idea de
+\emph{crash refinement} (modelo concreto con crashes refinando un modelo
+abstracto sin) es de Yggdrasil \cite{Sigurbjarnarson2016}. La
+combinación con un grafo tipado es contribución de sotFS; la dificultad
+es mantener la \emph{inmutabilidad estructural} del grafo bajo crashes
+(los nodos viejos sobreviven, los nuevos pueden estar parciales).
+
+\section{Resumen del capítulo}
+
+\begin{itemize}
+  \item GTXN protocoliza la mutación durable en el modelo formal:
+    \wal{} $\to$ commit marker $\to$ graph apply $\to$ \wal{} GC, con
+    \fsync{} en cada paso.
+  \item En el runtime v0.2.5 la GTXN es snapshot-based in-memory;
+    la durabilidad se delega al backend redb.
+  \item El \emph{commit point} es el \fsync{} del marker en el modelo;
+    antes, crash descarta; después, crash re-aplica.
+  \item Crash refinement (\citaTLA{sotfs\_crash\_refinement.tla})
+    prueba que toda traza concreta con crashes es traza abstracta sin
+    ellos.
+  \item Read isolation: los readers usan Tier 0 \rcu{} sobre la época
+    FS; ven o pre-tx o post-tx, nunca intermedio.
+  \item Trampas: write reordering sin \fsync{} intermedio rompe la
+    durabilidad ordenada; \wal{} truncate antes del graph \fsync{}
+    causa pérdida silenciosa.
+\end{itemize}
+
+\section*{Ejercicios}
+
+\begin{ejercicio}[\dificultad{$\star$}]
+\label{ej:tx-1}
+Diga el orden \emph{correcto} de los cuatro \fsync{} en una GTXN del
+modelo formal. ¿Cuál es el commit point? ¿Qué pasa si un crash ocurre
+entre el \fsync{} 1 y el \fsync{} 2?
+\end{ejercicio}
+
+\begin{ejercicio}[\dificultad{$\star$}]
+\label{ej:tx-2}
+Enuncie en una línea cada una de las cuatro propiedades verificadas en
+sec.~``Las propiedades verificadas''. ¿Cuál es la \emph{más difícil} de
+demostrar? Justifique brevemente.
+\end{ejercicio}
+
+\begin{ejercicio}[\dificultad{$\star\star$}]
+\label{ej:tx-3}
+Lea la propiedad \emph{Recovery consistency}. ¿Qué propiedades del
+cap.~\ref{cap:typegraph} están en juego? ¿Bastaría verificar sólo el
+\invref{inv:link-count} para garantizar consistencia?
+\end{ejercicio}
+
+\begin{ejercicio}[\dificultad{$\star\star$}]
+\label{ej:tx-4}
+La GTXN del runtime usa \texttt{graph.clone()} como snapshot. Estime el
+costo en bytes y en tiempo para un grafo de \(10^6\) inodes. ¿En qué
+operaciones se nota más?
+\end{ejercicio}
+
+\begin{ejercicio}[\dificultad{$\star\star$}]
+\label{ej:tx-5}
+Un atacante con acceso físico al SSD puede inyectar power-cuts
+controlados. ¿Puede forzar pérdida de datos en una GTXN correctamente
+implementada (modelo formal)? Justifique en términos del
+\invref{inv:fsync-persist} y los assumptions sobre el SSD.
+\end{ejercicio}
+
+\begin{ejercicio}[\dificultad{$\star\star$}]
+\label{ej:tx-6}
+La \trampref{tr:wal-truncate-early} se cierra con un orden estricto.
+Explique por qué un \emph{commit en dos fases} entre el \wal{} y el
+graph store es necesario aún cuando ambos viven en el mismo SSD.
+\end{ejercicio}
+
+\begin{ejercicio}[\dificultad{$\star\star$}]
+\label{ej:tx-7}
+Lea \citaLine{sotfs-tx/src/lib.rs}{55} (\texttt{with\_transaction}).
+¿Qué pasa si la closure $f$ commitea el grafo en estado consistente pero
+\emph{no} llamó a \texttt{check\_invariants}? Pista: revisar el orden de
+las líneas.
+\end{ejercicio}
+
+\begin{ejercicio}[\dificultad{$\star\star$}]
+\label{ej:tx-8}
+Tabla~\ref{tab:modelo-vs-impl}: explique por qué la fila ``Durabilidad''
+no es estrictamente una correspondencia (el runtime no escribe \wal{}
+propio). ¿Qué garantías del backend redb son necesarias para que el
+runtime herede las propiedades del modelo?
+\end{ejercicio}
+
+\begin{ejercicio}[\dificultad{$\star\star$}]
+\label{ej:tx-9}
+Enuncie la \invref{inv:read-iso} sin usar la palabra ``snapshot''.
+Pista: hablar de visibilidad y orden lineal de eventos.
+\end{ejercicio}
+
+\begin{ejercicio}[\dificultad{$\star\star\star$}]
+\label{ej:tx-10}
+Diseñe un test de \emph{crash injection}: una herramienta que mata el
+proceso del runtime FUSE en momentos aleatorios y verifica que el FS está
+en un estado consistente tras boot. Pista: \texttt{fork(2)} + \texttt{kill -9}
+hijo a tiempo random + script de assertion.
+\end{ejercicio}
+
+\begin{ejercicio}[\dificultad{$\star\star\star$}]
+\label{ej:tx-11}
+Compare las garantías de crash safety de sotFS contra \texttt{ext4}
+(con \texttt{data=journal}), \texttt{btrfs} y ZFS. ¿Qué ofrece sotFS
+que los otros no? ¿Qué ofrecen los otros que sotFS no?
+\end{ejercicio}
+
+\begin{ejercicio}[\dificultad{$\star\star\star$}]
+\label{ej:tx-12}
+Diseñe la extensión Tier-2 (multi-host 2PC) de GTXN. ¿Qué nodos del
+TypeGraph hacen falta agregar (un nodo coordinator)? ¿Qué aristas? ¿Qué
+spec TLA\textsuperscript{+} hay que extender?
+\end{ejercicio}

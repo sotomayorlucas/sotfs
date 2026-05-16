@@ -1,0 +1,227 @@
+\chapter{Capabilities y delegación}
+\label{cap:capabilities}
+
+POSIX clásico tiene un modelo de control de acceso por usuario / grupo /
+otros: cada inode lleva tres tripletes \texttt{rwx}. Para escenarios
+multi-tenant o sandboxing fino, ese modelo es insuficiente: no soporta
+delegación (``dale a $X$ sólo permiso de lectura sobre este inode, sin
+derecho a delegar más''), revocación masiva (``invalide todas las caps
+derivadas de $C$''), ni atribución (``¿qué cap autorizó esta lectura?'').
+
+sotFS modela las capabilities como \emph{nodos del TypeGraph}. Cada
+operación POSIX se ejecuta bajo un \texttt{CapContext} explícito que
+identifica la cap y el dominio del operador. Las invariantes de
+monotonicidad las preserva el sistema de reescritura por construcción.
+
+\section{El nodo \NCap}
+
+Recordando el cap.~\ref{cap:typegraph}:
+
+\begin{lstlisting}[language=rust]
+pub struct Capability {
+    pub id: CapId,
+    pub rights: Rights,   // bitmask u8
+    pub epoch: u64,       // generación, invalida on revoke
+}
+\end{lstlisting}
+
+El bitmask \texttt{Rights} ocupa 8 bits
+(\citaLine{sotfs-graph/src/types.rs}{150}):
+
+\begin{tabular}{ll}
+  \texttt{READ}    & $0x01$ \\
+  \texttt{WRITE}   & $0x02$ \\
+  \texttt{EXECUTE} & $0x04$ \\
+  \texttt{GRANT}   & $0x08$ \\
+  \texttt{REVOKE}  & $0x10$ \\
+\end{tabular}
+
+\paragraph{Aristas asociadas.}
+
+\begin{itemize}
+  \item \egrants{}: \NCap{} $\to$ \NInode. Una cap tiene exactamente una
+    arista \egrants{} a un inode (la cap \emph{autoriza} ese inode).
+  \item \edelegates{}: \NCap{} $\to$ \NCap. Forma el árbol CDT
+    (\emph{capability derivation tree}): cada cap (excepto las raíz)
+    tiene un padre.
+\end{itemize}
+
+\section{El invariante central: monotonicidad}
+
+\begin{invariante}[Cap monotonicity, G4]
+\label{inv:cap-mono}
+Para todo par $c, c' \in \NCap$ con arista \edelegates{} de $c$ a $c'$,
+\[
+  c'.\texttt{rights} \;\subseteq\; c.\texttt{rights}.
+\]
+Una delegación nunca crea derechos; sólo restringe los del padre.
+\end{invariante}
+
+\section{Acciones formales en el spec TLA}
+
+\citaTLA{sotfs\_capabilities.tla} (291 LOC) modela cuatro acciones:
+
+\begin{description}
+  \item[\textsc{Derive}.] Aloca una cap nueva con $\texttt{rights}
+    \subseteq \mathit{parent}.\texttt{rights}$, crea arista
+    \edelegates{} desde el padre. Nuevo \texttt{epoch} unique.
+  \item[\textsc{Revoke}.] Remueve una cap y \emph{recursivamente todo
+    su subárbol} \edelegates{}. Es la acción que justifica el
+    \texttt{epoch}: stale handles a la cap revocada se detectan al
+    chequear que el \texttt{epoch} corresponde a una cap viva.
+  \item[\textsc{Grant}.] Transfiere una cap entre dominios. No afecta
+    \texttt{rights} ni el árbol; sólo cambia la atribución.
+  \item[\textsc{Access}.] Registra una operación
+    \texttt{(cap, inode, right)} en un log de auditoría.
+\end{description}
+
+El invariante TLA correspondiente:
+
+\begin{lstlisting}[language=tla]
+MonotonicAttenuation ==
+    \A c \in caps :
+        delegatesParent[c] # NULL =>
+            (delegatesParent[c] \in caps =>
+                capRights[c] \subseteq capRights[delegatesParent[c]])
+\end{lstlisting}
+
+TLC verifica este invariante exhaustivamente bajo configuración
+\texttt{small} (3 caps, 3 derives, 1 revoke).
+
+\section{El \texttt{CapContext}: cap-mediated context}
+
+Cada operación POSIX en \citaCrate{sotfs-ops} se ejecuta bajo un
+contexto que dice ``qué cap autorizó esto y qué dominio lo emitió''.
+La estructura (\citaLine{sotfs-graph/src/types.rs}{189}):
+
+\begin{lstlisting}[language=rust]
+pub struct CapContext {
+    pub cap_id: Option<CapId>,
+    pub domain_id: u64,
+}
+\end{lstlisting}
+
+\texttt{cap\_id = None} es el path \emph{anonymous} (no se presentó cap;
+e.g.\ tarea de admin interna); \texttt{domain\_id = 0} es el dominio
+\emph{kernel} privilegiado.
+
+\paragraph{Cómo lo setean los callers.}
+
+\begin{itemize}
+  \item \fuse{} callbacks: derivan \texttt{CapContext} del \texttt{Request}
+    de FUSE (uid / gid del proceso que invocó la syscall). Ver
+    \citaLine{sotfs-fuse/src/fs.rs}{59}.
+  \item Tests: setean explícitamente con \texttt{g.set\_cap\_ctx(\dots)}.
+  \item \texttt{sotfsctl}: corre con \texttt{CapContext::anonymous()}.
+\end{itemize}
+
+\paragraph{El plumbing de v0.2.5} (\citaCommit{61e7faf}). Pre-v0.2.5 el
+runtime exponía la API de caps pero \emph{descartaba el contexto en
+tiempo de operación}. Cada \texttt{record\_prov} guardaba
+\texttt{(cap=None, domain=0)} aunque la regla DPO se hubiera
+ejecutado bajo una cap real. El commit cierra ese gap:
+\texttt{set\_cap\_ctx} se llama al inicio de cada callback FUSE,
+\texttt{record\_prov} lee el contexto vivo y lo serializa al sidecar
+JSONL (cap.~\ref{cap:fuse}).
+
+\section{Algoritmo de chequeo de acceso}
+
+\begin{algorithm}[H]
+\SetAlgoLined
+\KwIn{Grafo $g$, cap $c$, inode objetivo $i$, derecho $r$ requerido}
+\KwOut{\textbf{ok} si la cap autoriza la op, \textbf{fail} si no}
+\caption{\textsc{CheckAccess}}\label{alg:check-access}
+
+\If{$c \notin g.\mathrm{caps}$}{\Return{\textbf{fail (cap no existe)}}\;}
+\If{$r \not\in c.\texttt{rights}$}{\Return{\textbf{fail (rights insuficientes)}}\;}
+$\mathit{tgt} \gets g.\mathrm{cap\_grants}[c]$\;
+\If{$\mathit{tgt} \neq i$}{\Return{\textbf{fail (cap no autoriza este inode)}}\;}
+\Return{\textbf{ok}}\;
+\end{algorithm}
+
+\paragraph{Costo.} $O(\log |\NCap|)$ — todo es lookup en BTreeMap. La
+complejidad real está en la cadena \edelegates: para verificar que la
+cap proviene de un origen confiable, hay que recorrer al padre hasta una
+raíz, lo cual es O(profundidad del CDT) en peor caso. En la práctica
+las cadenas son cortas (3-4 niveles).
+
+\section{Revocación y el rol del \texttt{epoch}}
+
+Cuando \textsc{Revoke} se ejecuta sobre una cap $c$:
+
+\begin{enumerate}
+  \item Calcular el subárbol $\mathrm{Desc}(c)$ siguiendo \edelegates.
+  \item Para cada $c' \in \{c\} \cup \mathrm{Desc}(c)$, remover el nodo
+    de la arena de caps y todas sus aristas adyacentes.
+  \item Las \emph{handles externas} a esas caps (e.g.\ un cliente que
+    cacheó un \texttt{CapId}) detectan la revocación al hacer un check
+    de \texttt{epoch}: el \texttt{epoch} corriente del cap activo es
+    distinto del cacheado, o la cap no existe.
+\end{enumerate}
+
+\begin{lema}[Revocación es transitiva]
+\label{lem:revoke-transitivo}
+Si $c \in \NCap$ es revocada, ninguna cap derivada de $c$ (vía
+\edelegates) sobrevive en el grafo. Toda invocación posterior con
+cualquier $c' \in \mathrm{Desc}(c)$ falla en \textsc{CheckAccess} en su
+primera línea.
+\end{lema}
+
+\section*{Resumen del capítulo}
+
+\begin{itemize}
+  \item Las capabilities son nodos \NCap{} con \texttt{rights} (bitmask
+    u8), \texttt{epoch} y aristas \egrants{} (a \NInode) y \edelegates{}
+    (a otra \NCap).
+  \item Invariante monotónica: \texttt{rights} de hijos delegados es
+    subset del padre. Verificada en \citaLine{sotfs-graph/src/graph.rs}{1056}
+    y en \citaTLA{sotfs\_capabilities.tla}.
+  \item Cuatro acciones: \textsc{Derive}, \textsc{Revoke},
+    \textsc{Grant}, \textsc{Access}.
+  \item \texttt{CapContext} se plumbea desde \fuse{} a través de
+    \texttt{set\_cap\_ctx} antes de cada op (\citaCommit{61e7faf}); el
+    provenance log atribuye cada op a su cap y dominio.
+  \item Revocación es transitiva: borrar una cap remueve todo su
+    subárbol \edelegates.
+\end{itemize}
+
+\section*{Ejercicios}
+
+\begin{ejercicio}[\dificultad{$\star$}]
+\label{ej:cap-1}
+Liste los cinco bits del \texttt{Rights} bitmask de sotFS.
+\end{ejercicio}
+
+\begin{ejercicio}[\dificultad{$\star$}]
+\label{ej:cap-2}
+¿Cuál es la diferencia entre \texttt{cap\_id = None} y \texttt{cap\_id
+= Some(0)}? Pista: revisar \texttt{CapContext::anonymous()}.
+\end{ejercicio}
+
+\begin{ejercicio}[\dificultad{$\star\star$}]
+\label{ej:cap-3}
+Demuestre el \lemref{lem:revoke-transitivo} usando inducción sobre la
+profundidad del subárbol \edelegates.
+\end{ejercicio}
+
+\begin{ejercicio}[\dificultad{$\star\star$}]
+\label{ej:cap-4}
+Considere un atacante que obtuvo una \texttt{CapId} cacheada antes de
+una revocación. Mostrá cómo el campo \texttt{epoch} hace inútil ese
+handle.
+\end{ejercicio}
+
+\begin{ejercicio}[\dificultad{$\star\star$}]
+\label{ej:cap-5}
+Diseñe la prueba TLA correspondiente a la \invref{inv:cap-mono} (sin
+mirar \citaTLA{sotfs\_capabilities.tla}). ¿Cuál es la propiedad de
+inducción y cuál el estado base?
+\end{ejercicio}
+
+\begin{ejercicio}[\dificultad{$\star\star\star$}]
+\label{ej:cap-6}
+Extienda el modelo a \emph{revocación temporal}: una cap puede
+suspenderse por un intervalo $[t_0, t_1]$ y reactivarse después.
+Discutí qué nuevos invariantes hay que agregar y qué TLA spec hay que
+cambiar.
+\end{ejercicio}

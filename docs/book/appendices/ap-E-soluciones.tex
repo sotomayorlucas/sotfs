@@ -1,0 +1,429 @@
+\chapter{Soluciones a ejercicios seleccionados}
+\label{ap:soluciones}
+
+Este apéndice da soluciones cortas a los ejercicios de dificultad
+\dificultad{$\star$} y \dificultad{$\star\star$}. Para los
+\dificultad{$\star\star\star$} se ofrece sólo un \emph{hint} de 2-3
+líneas; las pruebas y diseños completos se dejan al lector.
+
+\section*{Capítulo \ref{cap:intro}}
+
+\paragraph{\ref{ej:intro-1}.} Inode, Directory, Capability, Transaction,
+Version, Block.
+
+\paragraph{\ref{ej:intro-2}.} (i) Hard links como bolt-on, no parte del
+modelo. (ii) Deduplicación post-escritura es cara. (iii) Snapshots
+requieren COW/shadow paging.
+
+\paragraph{\ref{ej:intro-3}.} En el árbol POSIX, las hard links son una
+extensión: dos entradas de directorio apuntan al mismo inode. En sotFS,
+emergen del modelo: el mismo nodo \Inode{} es target de varias aristas
+\econtains{} con \texttt{name} distintos.
+
+\paragraph{\ref{ej:intro-4}.} Si dos archivos de 1\,MiB tienen 80\% en
+común, son ${\sim}\,205$ bloques de 4\,KiB cada uno. En \texttt{ext4}
+ocupan 2\,MiB = 512 bloques. En sotFS, los 205 bloques compartidos se
+deduplican: total $205 + 51 + 51 = 307$ bloques. Ahorro: $\sim$\,40\%.
+
+\paragraph{\ref{ej:intro-5}.} \emph{Hint.} Tres ejemplos: (i) preservación
+de los 7 invariantes tras cada op (TLA\textsuperscript{+} y Coq); (ii)
+crash refinement (TLA\textsuperscript{+}); (iii) cap monotonicity (TLA
+o Coq). \texttt{ext4} no formaliza ninguna.
+
+\section*{Capítulo \ref{cap:prelim}}
+
+\paragraph{\ref{ej:prelim-1}.} Un morfismo $f: G \to H$ es un par
+$(f_V, f_E)$ que conmuta con $\mathrm{src}$ y $\mathrm{tgt}$.
+
+\paragraph{\ref{ej:prelim-2}.} $2^{128}$ (cumpleaños).
+
+\paragraph{\ref{ej:prelim-3}.} $D = \{[1=x], [2=y], 3, z\}$ con cuatro
+elementos. $h(1) = [1=x]$, $h(2) = [2=y]$, $h(3) = 3$; $k(x) = [1=x]$,
+$k(y) = [2=y]$, $k(z) = z$.
+
+\paragraph{\ref{ej:prelim-4}.} $L = \{v_1, v_2\}$ (dos nodos),
+$K = \{v_1, v_2\}$, $R = \{v_1, v_2\}$ + arista $e: v_1 \to v_2$.
+$K \hookrightarrow L$ y $K \hookrightarrow R$ son las inclusiones de
+nodos.
+
+\paragraph{\ref{ej:prelim-5}.} Sea $G = \{a, b, c\}$ con aristas
+$(a,b)$ y $(b,c)$. Sea $L = \{x\}$ con $m(x) = b$, $K = \emptyset$.
+La gluing condition Dangling falla porque $b$ tiene dos aristas
+incidentes y ninguna está en $m(L)$.
+
+\paragraph{\ref{ej:prelim-6}.} Si dos \Dir{} distintos del LHS se
+mapean al mismo \Dir{} del host, la regla quiere borrar y mantener el
+mismo nodo simultáneamente, violando Identification.
+
+\paragraph{\ref{ej:prelim-7}.} DPO con \opunlink{} sobre un hard-linked
+con \texttt{link\_count} > 1: el inode no se borra; SPO podría dejar
+aristas colgando si la regla no las maneja explícitamente. En sotFS la
+regla DPO maneja ambos casos en su lógica.
+
+\section*{Capítulo \ref{cap:typegraph}}
+
+\paragraph{\ref{ej:tg-1}.} Link-count, unique-names, dir-self-ref,
+no-dangling, block-refcount, no-dir-cycles, cap-monotonicity. El
+numérico (cuenta) es link-count y block-refcount.
+
+\paragraph{\ref{ej:tg-2}.} Ver tabla~\ref{tab:signature} del
+cap.~\ref{cap:typegraph}.
+
+\paragraph{\ref{ej:tg-3}.} Después de \texttt{ln /a/x.txt /a/z.txt},
+$i_x.\texttt{link\_count} = 2$. Dos aristas \econtains{} entrantes
+(con name $x.txt$ y $z.txt$), excluyendo \texttt{..}.
+
+\paragraph{\ref{ej:tg-4}.} Si \texttt{link\_count = 0}, entonces el
+conjunto de aristas \econtains{} entrantes (excluyendo \texttt{..})
+tiene cardinalidad 0, es decir, está vacío.
+
+\paragraph{\ref{ej:tg-5}.} Se rompe el \invref{inv:dir-self}. Se
+detecta en \texttt{check\_dir\_self\_ref}
+(\citaLine{sotfs-graph/src/graph.rs}{936}).
+
+\paragraph{\ref{ej:tg-6}.} Mantener \texttt{dir\_for\_inode\_idx} cuesta
+$O(\log N)$ por \texttt{insert\_dir}/\texttt{remove\_dir}. Recorrer
+linealmente cuesta $O(N)$ por lookup. El break-even es trivialmente
+favorable al índice salvo workloads casi-readonly.
+
+\paragraph{\ref{ej:tg-7}.} Tres nodos: dos \Cap{} ($c_p$ con rights
+\texttt{WRITE}, $c_h$ con rights \texttt{WRITE|EXECUTE}), una arista
+\edelegates{} de $c_p$ a $c_h$. \texttt{check\_cap\_monotonicity}
+detecta que \texttt{EXECUTE} no está en $c_p.\texttt{rights}$.
+
+\paragraph{\ref{ej:tg-8}.} \emph{Hint.} Correrlo en el GC (no en cada
+DPO step) porque el costo es $O(|\Blk|)$. Aceptable como chequeo
+periódico, no como pre-condition.
+
+\paragraph{\ref{ej:tg-9}.} \emph{Hint.} El invariante: ``$\forall i \in
+\Inode$, $\exists e \in E^{\textsf{auditedBy}}$ desde $i$ a un \textsf{Audit}.''
+Modificar \opwrite, \opcreate, \oprename. Extender
+\citaTLA{sotfs\_graph.tla} con \texttt{audits} en variables.
+
+\section*{Capítulo \ref{cap:hashing}}
+
+\paragraph{\ref{ej:hash-1}.} 32 bytes (256 bits). Cota cumpleaños:
+$2^{128}$.
+
+\paragraph{\ref{ej:hash-2}.} (i) Computar hash del bloque escrito; (ii)
+buscar en storage si ya existe; (iii) agregar arista \epointsto{} o
+crear nodo + arista.
+
+\paragraph{\ref{ej:hash-3}.} 80\% de 256 bloques = ${\sim}\,205$
+compartidos + 51 + 51 únicos = 307 bloques totales en sotFS vs.\ 512
+en \texttt{ext4}. Ahorro 40\%.
+
+\paragraph{\ref{ej:hash-4}.} Si \texttt{serialize} no es canónica,
+$\hashof{v_1} \neq \hashof{v_2}$ aun siendo lógicamente iguales. Ej.:
+serializar un \texttt{Inode} con campos en orden A, B, C vs.\ B, A, C.
+
+\paragraph{\ref{ej:hash-5}.} \emph{Hint.} Tri-color: blanco (no
+visto), gris (visto, pendiente), negro (procesado). Write barrier:
+toda nueva referencia desde negro debe colorear el destino gris para
+evitar perderlo en la sweep.
+
+\section*{Capítulo \ref{cap:dpo}}
+
+\paragraph{\ref{ej:dpo-1}.} La gluing condition exige que (i) si dos
+elementos del LHS se mapean al mismo elemento del host, ambos están
+en el glue; (ii) no quedan aristas colgando al borrar lo que sólo
+vive en $L$.
+
+\paragraph{\ref{ej:dpo-2}.} \opcreate: $K = \{d\}$. \opmkdir: $K =
+\{d_{\text{p}}\}$. \oplink: $K = \{d, i\}$. \opunlink: $K = \{d\}$ o
+$\{d, i\}$. \oprmdir: $K = \{d_{\text{p}}\}$. \oprename: $K = \{d, i\}$
+(same-dir) o $\{d_1, d_2, i\}$ (cross). \opwrite: $K = \{i\}$.
+
+\paragraph{\ref{ej:dpo-3}.} Una \texttt{Symlink} aparece como
+\Inode{} de tipo \texttt{Symlink} con \texttt{symlink\_target} en un
+mapa separado. Producción: $L = \{d\}$, $K = L$, $R = L + \{i_s\}$ +
+arista $d \xrightarrow{n} i_s$. Gluing: $\neg\,\exists\,e: \mathrm{src}(e)=d,
+e.\texttt{name}=n$. Idéntica a \opcreate{} salvo el \texttt{vtype} del
+inode nuevo.
+
+\paragraph{\ref{ej:dpo-4}.} En el spec, si $i \notin \texttt{inodes}$,
+la guard $i \in \texttt{inodes}$ es falsa $\Rightarrow$ la acción no
+está habilitada. POSIX retornaría \enoent. Coincide.
+
+\paragraph{\ref{ej:dpo-5}.} Al desaparecer $i$, sus aristas adyacentes
+(\econtains{} entrantes y \epointsto{} salientes) se borran en el mismo
+paso DPO. No quedan dangling.
+
+\paragraph{\ref{ej:dpo-6}.} La NAC: $\neg\,\exists\,e \in
+E_{d_{\text{p}}}^{\econtains}: e.\texttt{name} = n$. Con
+\texttt{dir\_name\_idx}, un solo lookup en $O(\log N)$.
+
+\paragraph{\ref{ej:dpo-7}.} \emph{Hint.} No es una sola regla DPO
+(rmdir requiere dir vacío); es una secuencia que recorre el subtree.
+La atomicidad la da la GTXN del cap.~\ref{cap:transacciones}.
+
+\paragraph{\ref{ej:dpo-8}.} \emph{Hint.} Reemplazar el traversal por
+una consulta al índice \texttt{dir\_for\_inode\_idx} sobre cada
+ancestor de $d'$. Sigue siendo posible un DoS con cadenas largas; el
+fix completo requiere un índice de ancestros transitivos.
+
+\paragraph{\ref{ej:dpo-9}.} \emph{Hint.} \texttt{intros}, casos sobre
+\texttt{Hwf}, aplicar \texttt{create\_preserves\_TypeInvariant} +
+\texttt{create\_preserves\_LinkCountConsistent} + tres más.
+
+\section*{Capítulo \ref{cap:implementacion}}
+
+\paragraph{\ref{ej:impl-1}.} \texttt{NODE\_CAPACITY = 65536},
+\texttt{EDGE\_CAPACITY = 131072}.
+
+\paragraph{\ref{ej:impl-2}.} 64 (\texttt{MAX\_READERS}); más de eso
+panic.
+
+\paragraph{\ref{ej:impl-3}.} Siete arenas $\times$ (header + slots
+vacíos). $65536 \times (\text{tamaño slot})$ por arena. Para
+\texttt{Inode} ($\sim$56 bytes) son $\sim$3.7\,MiB. Total $\sim$35\,MiB.
+
+\paragraph{\ref{ej:impl-4}.} Si los lectores llegan más rápido que la
+sincronización, la cola de epochs nunca llega a 0. En la práctica los
+lectores terminan rápido (lookups O(log N)); el riesgo es teórico, no
+observado.
+
+\paragraph{\ref{ej:impl-5}.} (i) Al alocar, se setea
+\texttt{state[i] = Occupied} \emph{y} se escribe \texttt{data[i] = v}
+en el mismo bloque. (ii) Al liberar, se setea \texttt{state[i] =
+Vacant} y se push al free-list. (iii) Bump-alloc inicializa antes de
+poner \texttt{Occupied}.
+
+\paragraph{\ref{ej:impl-6}.} Test: alocar $N$ slots, verificar
+\texttt{state[i] = Occupied}; liberar $N/2$ random, verificar que el
+free-list tiene $N/2$ entries; alocar $N/2$ más, verificar que los
+nuevos slots vienen del free-list (LIFO), no por bump.
+
+\paragraph{\ref{ej:impl-7}.} Sí: una arena
+\texttt{Arena<DirInodeMapping, NODE\_CAPACITY>}. Pero \texttt{BTreeMap}
+da búsqueda $O(\log N)$ por key arbitraria, no por \texttt{InodeId}
+contiguo. Tradeoff: arena es más compacta, BTreeMap es más flexible.
+
+\paragraph{\ref{ej:impl-8}.} \emph{Hint.} Per-CPU array de
+\texttt{AtomicU64} pequeño + slow-path con \texttt{Mutex} para
+overflow. RCU sync recorre todos los per-CPU.
+
+\section*{Capítulo \ref{cap:persistencia}}
+
+\paragraph{\ref{ej:pers-1}.} Una sola tabla, \texttt{METADATA\_TABLE};
+clave \texttt{"graph"} con valor un blob JSON.
+
+\paragraph{\ref{ej:pers-2}.} Las claves tupla \texttt{(DirId, String)}
+no caben naturalmente en JSON. Y es un derivado, no estado canónico.
+
+\paragraph{\ref{ej:pers-3}.} Para \(10^5\) inodes, el blob JSON pesa
+${\sim}\,20$-50 MiB. Save: $O(M)$ serialize + redb txn $\sim$ 200 ms.
+Load: deserialize + \texttt{rebuild\_dir\_name\_idx} $O(M \log M) \sim
+500$ ms.
+
+\paragraph{\ref{ej:pers-4}.} Hacer save, load, 1000 ops random,
+luego comparar \texttt{dir\_name\_idx} con la versión recomputada
+desde \texttt{dir\_contains}.
+
+\paragraph{\ref{ej:pers-5}.} \emph{Hint.} Tres tablas: \texttt{nodes},
+\texttt{edges}, \texttt{meta}. Save y load más rápidos por columnas
+(no JSON parse), menos fragmentación, pero atomicidad cross-table
+requiere multi-table tx (\redb{} lo soporta).
+
+\section*{Capítulo \ref{cap:capabilities}}
+
+\paragraph{\ref{ej:cap-1}.} READ, WRITE, EXECUTE, GRANT, REVOKE.
+
+\paragraph{\ref{ej:cap-2}.} \texttt{None} = anonymous (no cap
+presentada); \texttt{Some(0)} = cap explícita con id 0 (un caso
+patológico — id 0 es sentinel).
+
+\paragraph{\ref{ej:cap-3}.} Inducción sobre profundidad. Base
+$d=0$: $c$ mismo es revocada. Paso: si todos los descendientes en
+profundidad $\leq d$ están revocados, los de profundidad $d+1$ (hijos
+de revocados) también lo están por la regla \textsc{Revoke}.
+
+\paragraph{\ref{ej:cap-4}.} El \texttt{epoch} cacheado por el atacante
+es distinto del corriente (porque la cap nueva tiene epoch
+incrementado, o la cap no existe). \textsc{CheckAccess} falla en línea
+1.
+
+\paragraph{\ref{ej:cap-5}.} Estado base: si no hay aristas \edelegates,
+la implicación es vacuamente cierta. Inducción: si la propiedad vale
+para todas las aristas existentes y \textsc{Derive} crea una nueva
+$(c, c')$ con $c'.\texttt{rights} \subseteq c.\texttt{rights}$ por
+construcción.
+
+\paragraph{\ref{ej:cap-6}.} \emph{Hint.} Agregar campo \texttt{suspend\_until}
+a \Cap. \textsc{CheckAccess} extra: \texttt{now $\geq$ suspend\_until}.
+\citaTLA{sotfs\_capabilities.tla} crece con timestamp variable y
+\texttt{TemporalRevoke}/\texttt{Reactivate} actions.
+
+\section*{Capítulo \ref{cap:transacciones}}
+
+\paragraph{\ref{ej:tx-1}.} Orden: \fsync(\wal{} data) $\to$
+\fsync(commit marker) $\to$ \fsync(graph) $\to$ \wal{} truncate
+(opcional, sin \fsync{} obligatorio). Commit point: el segundo
+\fsync. Crash entre 1 y 2: \wal{} sin marker $\Rightarrow$ recovery
+descarta.
+
+\paragraph{\ref{ej:tx-2}.} (i) no-partial: ningún caso intermedio. (ii)
+durability: post-Ok sobrevive crash. (iii) recovery-consistency: post-Recover
+invariantes vivos. (iv) wal-integrity: marker $\Rightarrow$ no se
+modifica hasta GC. Más difícil: recovery-consistency (requiere los 7
+invariantes preservados \emph{en cada paso} del replay).
+
+\paragraph{\ref{ej:tx-3}.} Todos los 7 invariantes del cap.~\ref{cap:typegraph}.
+No: link-count solo no garantiza unique-names ni no-dir-cycles.
+
+\paragraph{\ref{ej:tx-4}.} \(10^6\) inodes a $\sim 56$ B = $\sim 56$ MB
+solo en \texttt{Inode}. Total $\sim 200$ MB. \texttt{graph.clone()}
+copia todo: $\sim$\,200 ms - 1 s en RAM moderna. Costoso bajo
+write-heavy.
+
+\paragraph{\ref{ej:tx-5}.} Si \invref{inv:fsync-persist} se cumple, no
+puede forzar pérdida con power-cut. Si el SSD ignora FUA, sí: el
+attacker mata el power entre el ack del \fsync{} (kernel cree
+persistido) y el flush real a NAND.
+
+\paragraph{\ref{ej:tx-6}.} Si \wal{} y graph viven en el mismo SSD,
+una falla del controlador podría perder ambos. Lo importante es el
+\emph{ordering}: el commit marker se persiste \emph{antes} del graph
+apply, y el \wal{} se trunca \emph{después}. Misma física, distinto
+tiempo lógico.
+
+\paragraph{\ref{ej:tx-7}.} La closure recibe un \texttt{\&mut TypeGraph}
+y muta directamente. Si retorna \texttt{Ok} sin llamar a
+\texttt{check\_invariants}, el wrapper \texttt{with\_transaction} sí lo
+hace (línea 64 de \citaCrate{sotfs-tx}). Pero si la closure muta de un
+modo que viola un invariante y \emph{captura} el error internamente
+retornando \texttt{Ok}, el rollback ya no dispara: la única red de
+seguridad es \texttt{check\_invariants} \emph{después} de la closure.
+
+\paragraph{\ref{ej:tx-8}.} El runtime no escribe \wal{}; usa redb txn.
+La fila ``Durabilidad'' es una correspondencia entre dos primitivas
+distintas (\fsync{} sobre WAL vs.\ \texttt{redb::commit} interno). El
+backend necesita atomicidad + durabilidad + isolation serializable
+(\redb{} las provee).
+
+\paragraph{\ref{ej:tx-9}.} ``Un \texttt{read} se linealiza en un punto
+antes o después del commit point, pero no entre los dos
+sub-pasos del commit''.
+
+\paragraph{\ref{ej:tx-10}.} \emph{Hint.} \texttt{fork} hijo $\to$
+\texttt{kill -9} a tiempo aleatorio $\to$ remontar el FS $\to$
+\texttt{sotfsctl check}. Repetir 1000 veces; ningún check debería fallar.
+
+\paragraph{\ref{ej:tx-11}.} \emph{Hint.} sotFS: always-consistent (en
+modelo formal), 14/14 TLA pasos. \texttt{ext4}: data=journal es
+eventually-consistent. \texttt{btrfs}: COW da always-consistent pero
+sin spec formal. ZFS: idem btrfs + replicación.
+
+\paragraph{\ref{ej:tx-12}.} \emph{Hint.} Agregar nodo
+\textsf{Coordinator} con arista \textsf{Prepares} a cada \Txn{}.
+Extensión de \citaTLA{sotfs\_transactions.tla} con
+\texttt{PrepareAll}/\texttt{CommitAll}/\texttt{AbortAll}.
+
+\section*{Capítulos \ref{cap:tla}--\ref{cap:fuse}}
+
+Por brevedad, los ejercicios de los caps.\ \ref{cap:tla} a \ref{cap:fuse}
+quedan sólo con sus pistas; las soluciones completas son ejercicios de
+laboratorio.
+
+\paragraph{\ref{ej:tla-1}.} Ver tabla~\ref{tab:tla-specs}.
+
+\paragraph{\ref{ej:tla-2}.} $\{I_1, I_2, I_3\}$, $\{D_1, D_2\}$,
+$\{B_1, B_2\}$, $\{a, b\}$, $\texttt{MaxOps}=4$.
+
+\paragraph{\ref{ej:tla-3}.} (a) cláusula 3 con $\sim\!\exists$ sobre
+nombre. (b) \texttt{containsEdges'} y \texttt{linkCount'}. (c)
+\texttt{inodes, dirs, blocks, ..., dirInode}. Sin incremento de
+\texttt{linkCount}, falla \texttt{LinkCountConsistent}.
+
+\paragraph{\ref{ej:tla-5}.} El espacio de estados crece exponencialmente
+con \texttt{containsEdges}: $\sim 2^{|D| \times |I| \times |N|}$ ya
+mata el budget. Por eso \texttt{MaxOps} bounded.
+
+\paragraph{\ref{ej:tla-7}.} Cualquier invariante del modelo abstracto
+(no-partial-application, durability, recovery-consistency) se hereda al
+modelo concreto bajo refinement.
+
+\paragraph{\ref{ej:coq-1}.} Siete: \citaCoq{SotfsGraph.v}, y los seis
+\texttt{Dpo*.v}.
+
+\paragraph{\ref{ej:coq-2}.} \texttt{TypeInvariant},
+\texttt{LinkCountConsistent}, \texttt{UniqueNamesPerDir},
+\texttt{NoDanglingEdges}, \texttt{NoDirCycles}. Falta:
+\texttt{DirHasSelfRef}, \texttt{BlockRefcountConsistent},
+\texttt{CapMonotonicity}.
+
+\paragraph{\ref{ej:coq-3}.} Cinco lemmas en \citaCoq{DpoCreate.v}:
+líneas 147, 190, 236, 271, 298.
+
+\paragraph{\ref{ej:coq-4}.} Pros: permite check-pointing manual durante
+desarrollo, declaración explícita de deuda. Contras: silencia gaps si
+no se busca activamente; coqc no falla.
+
+\paragraph{\ref{ej:coq-5}.}
+\begin{lstlisting}[language=coq]
+Definition NoHardLinkToDir (g : Graph) : Prop :=
+  forall ce1 ce2,
+    In ce1 (g_edges g) -> In ce2 (g_edges g) ->
+    is_directory_inode g ce1.(ce_ino) ->
+    ce1 = ce2 \/ ce1.(ce_name) = ".."
+             \/ ce2.(ce_name) = ".".
+\end{lstlisting}
+
+\paragraph{\ref{ej:coq-6}.} Todos los teoremas finales (\texttt{X\_preserves\_WellFormed})
+de los seis archivos \texttt{Dpo*.v}.
+
+\paragraph{\ref{ej:topo-1}.} El \emph{treewidth} es el mínimo
+$k$ tal que existe una descomposición en árbol de bags de tamaño $\leq
+k+1$. Sirve para que algoritmos NP-hard (3-coloring, max-clique) se
+vuelvan polinomiales en grafos con treewidth acotado.
+
+\paragraph{\ref{ej:topo-2}.} $\alpha = 0.5$.
+
+\paragraph{\ref{ej:topo-3}.} En un grafo triangular, $\deg u = \deg v
+= 2$, $|N(u) \cap N(v)| = 1$. $\kappa_{\mathrm{LLY}} \approx
+1/2 \cdot 0.25 = 0.125$; tras correcciones, suele estar en $\sim 0.5$.
+
+\paragraph{\ref{ej:topo-4}.} En hojas de un árbol, $\deg u = \deg v =
+1$, $|N(u) \cap N(v)| = 0$. $\kappa$ tiende a $-1$ (transport máximo).
+
+\paragraph{\ref{ej:topo-5}.} Sin hard links, las aristas \econtains{}
+forman un árbol y los \epointsto{} aristas estrella desde Inode a sus
+Block. La tree decomposition: cada \Dir{} es un bag con su \Inode{}
++ los hijos directos; el ancho es $\leq 6$.
+
+\paragraph{\ref{ej:topo-6}.} $\kappa$ positivo y grande en el inode
+del directorio (sus vecindarios crecen masivamente). En las aristas
+\econtains{} salientes, $\kappa$ depende de la similitud entre nombres;
+si son aleatorios, $\kappa$ baja.
+
+\paragraph{\ref{ej:dec-1}.} Passthrough, Restrict, Fabricate, Redirect.
+
+\paragraph{\ref{ej:dec-2}.} El subgrafo inducido por BFS desde
+$\mathit{root\_dir}$ contiene todas las aristas \econtains{} entre
+nodos visibles. El link-count recalculado coincide con el número de
+\econtains{} entrantes en el subgrafo. Análogo para los otros 6
+invariantes.
+
+\paragraph{\ref{ej:fuse-1}.} \texttt{SOTFS\_FUSE\_TTL\_MS},
+\texttt{SOTFS\_FUSE\_ALLOW\_OTHER}, \texttt{SOTFS\_PROV\_SIDECAR}.
+
+\paragraph{\ref{ej:fuse-2}.} \oprename.
+
+\paragraph{\ref{ej:fuse-3}.}
+\begin{lstlisting}[language=shellcmd]
+since=$(date -d '1 hour ago' +%s)
+sotfs-export-hunter --tail /tmp/sotfs.prov.jsonl --once | \
+  jq -c "select(.op == \"Write\" and .t > $since) | .domain" | \
+  sort | uniq -c
+\end{lstlisting}
+
+\paragraph{\ref{ej:fuse-4}.} \texttt{TTL=0} desactiva el cache de
+\fuse{}, forzando \texttt{lookup}/\texttt{getattr} en cada syscall.
+Útil para medir el costo bruto de cada DPO op sin amortización del
+kernel.
+
+\section*{Ejercicios \texorpdfstring{$\star\star\star$}{tres-estrellas}: sólo hints}
+
+Para los ejercicios de tres estrellas, las pistas ya están en el
+cuerpo de la solución correspondiente o se enuncian en el texto del
+ejercicio. Quedan como problema abierto para el lector con tiempo.

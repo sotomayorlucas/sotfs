@@ -1,0 +1,297 @@
+% $ biblatex auxiliary file $
+% $ biblatex bbl format version 3.3 $
+% Do not modify the above lines!
+%
+% This is an auxiliary file used by the 'biblatex' package.
+% This file may safely be deleted. It will be recreated by
+% biber as required.
+%
+\begingroup
+\makeatletter
+\@ifundefined{ver@biblatex.sty}
+  {\@latex@error
+     {Missing 'biblatex' package}
+     {The bibliography requires the 'biblatex' package.}
+      \aftergroup\endinput}
+  {}
+\endgroup
+
+
+\refsection{0}
+  \datalist[entry]{nyt/global//global/global/global}
+    \entry{BLAKE3}{misc}{}{}
+      \name{author}{4}{}{%
+        {{hash=d22970cff3847c99fe4c6359ab16f241}{%
+           family={Aumasson},
+           familyi={A\bibinitperiod},
+           given={Jean-Philippe},
+           giveni={J\bibinithyphendelim P\bibinitperiod}}}%
+        {{hash=e308f5066e72ea6bac0690ff394b74c5}{%
+           family={Neves},
+           familyi={N\bibinitperiod},
+           given={Samuel},
+           giveni={S\bibinitperiod}}}%
+        {{hash=abd71820d1e83216b134cbbed4a43666}{%
+           family={Wilcox-O'Hearn},
+           familyi={W\bibinithyphendelim O\bibinitperiod},
+           given={Zooko},
+           giveni={Z\bibinitperiod}}}%
+        {{hash=5648044222541641dc1a36e87320c79c}{%
+           family={Winnerlein},
+           familyi={W\bibinitperiod},
+           given={Christian},
+           giveni={C\bibinitperiod}}}%
+      }
+      \strng{namehash}{f8552817cca63aa34dbd61239c8e6b1e}
+      \strng{fullhash}{3f467e49ba97e0fa5e563ea7fe123fff}
+      \strng{fullhashraw}{3f467e49ba97e0fa5e563ea7fe123fff}
+      \strng{bibnamehash}{3f467e49ba97e0fa5e563ea7fe123fff}
+      \strng{authorbibnamehash}{3f467e49ba97e0fa5e563ea7fe123fff}
+      \strng{authornamehash}{f8552817cca63aa34dbd61239c8e6b1e}
+      \strng{authorfullhash}{3f467e49ba97e0fa5e563ea7fe123fff}
+      \strng{authorfullhashraw}{3f467e49ba97e0fa5e563ea7fe123fff}
+      \field{sortinit}{A}
+      \field{sortinithash}{2f401846e2029bad6b3ecc16d50031e2}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{note}{Specification, \url{https://github.com/BLAKE3-team/BLAKE3-specs}}
+      \field{title}{{BLAKE3}: One Function, Fast Everywhere}
+      \field{year}{2020}
+    \endentry
+    \entry{Bertot2004}{book}{}{}
+      \name{author}{2}{}{%
+        {{hash=877cbf536bf77c23de7f6116228e348d}{%
+           family={Bertot},
+           familyi={B\bibinitperiod},
+           given={Yves},
+           giveni={Y\bibinitperiod}}}%
+        {{hash=1c95425453d3c022a6509fa0bd5cb7c4}{%
+           family={Castéran},
+           familyi={C\bibinitperiod},
+           given={Pierre},
+           giveni={P\bibinitperiod}}}%
+      }
+      \list{publisher}{1}{%
+        {Springer}%
+      }
+      \strng{namehash}{d6e19ed99b2f19fc95c0c2f4d1428684}
+      \strng{fullhash}{d6e19ed99b2f19fc95c0c2f4d1428684}
+      \strng{fullhashraw}{d6e19ed99b2f19fc95c0c2f4d1428684}
+      \strng{bibnamehash}{d6e19ed99b2f19fc95c0c2f4d1428684}
+      \strng{authorbibnamehash}{d6e19ed99b2f19fc95c0c2f4d1428684}
+      \strng{authornamehash}{d6e19ed99b2f19fc95c0c2f4d1428684}
+      \strng{authorfullhash}{d6e19ed99b2f19fc95c0c2f4d1428684}
+      \strng{authorfullhashraw}{d6e19ed99b2f19fc95c0c2f4d1428684}
+      \field{sortinit}{B}
+      \field{sortinithash}{d7095fff47cda75ca2589920aae98399}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{series}{Texts in Theoretical Computer Science}
+      \field{title}{Interactive Theorem Proving and Program Development: {Coq'Art}: The Calculus of Inductive Constructions}
+      \field{year}{2004}
+    \endentry
+    \entry{Corradini2006}{inproceedings}{}{}
+      \name{author}{4}{}{%
+        {{hash=b468c7644cc4c43aa0c3af6d28fe8bdc}{%
+           family={Corradini},
+           familyi={C\bibinitperiod},
+           given={Andrea},
+           giveni={A\bibinitperiod}}}%
+        {{hash=df8f18535fc5f79da16d91c6e99937f3}{%
+           family={Heindel},
+           familyi={H\bibinitperiod},
+           given={Tobias},
+           giveni={T\bibinitperiod}}}%
+        {{hash=8026fe4e0d1fd5d204bf58820c5acb2c}{%
+           family={Hermann},
+           familyi={H\bibinitperiod},
+           given={Frank},
+           giveni={F\bibinitperiod}}}%
+        {{hash=3ce6a00ea0ef6f68e302c434a1ee1af8}{%
+           family={König},
+           familyi={K\bibinitperiod},
+           given={Barbara},
+           giveni={B\bibinitperiod}}}%
+      }
+      \list{publisher}{1}{%
+        {Springer}%
+      }
+      \strng{namehash}{50fecaf61325a80193ad2a672d69c109}
+      \strng{fullhash}{a4ed1e4aaa37d0b0bcfc2eb0bbb85d01}
+      \strng{fullhashraw}{a4ed1e4aaa37d0b0bcfc2eb0bbb85d01}
+      \strng{bibnamehash}{a4ed1e4aaa37d0b0bcfc2eb0bbb85d01}
+      \strng{authorbibnamehash}{a4ed1e4aaa37d0b0bcfc2eb0bbb85d01}
+      \strng{authornamehash}{50fecaf61325a80193ad2a672d69c109}
+      \strng{authorfullhash}{a4ed1e4aaa37d0b0bcfc2eb0bbb85d01}
+      \strng{authorfullhashraw}{a4ed1e4aaa37d0b0bcfc2eb0bbb85d01}
+      \field{sortinit}{C}
+      \field{sortinithash}{4d103a86280481745c9c897c925753c0}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{booktitle}{Graph Transformations --- ICGT 2006}
+      \field{title}{Sesqui-pushout Rewriting}
+      \field{year}{2006}
+      \field{pages}{30\bibrangedash 45}
+      \range{pages}{16}
+    \endentry
+    \entry{Ehrig2006}{book}{}{}
+      \name{author}{4}{}{%
+        {{hash=9e25f033174059ba160f0dd00d9f0dc4}{%
+           family={Ehrig},
+           familyi={E\bibinitperiod},
+           given={Hartmut},
+           giveni={H\bibinitperiod}}}%
+        {{hash=f1cf4e8b8d5ce4c3dee8ab1bbb636343}{%
+           family={Ehrig},
+           familyi={E\bibinitperiod},
+           given={Karsten},
+           giveni={K\bibinitperiod}}}%
+        {{hash=6789c4ecce2bda2f2251f092c089ae79}{%
+           family={Prange},
+           familyi={P\bibinitperiod},
+           given={Ulrike},
+           giveni={U\bibinitperiod}}}%
+        {{hash=1fd735054d9c2deb9f2bdff20474e5ba}{%
+           family={Taentzer},
+           familyi={T\bibinitperiod},
+           given={Gabriele},
+           giveni={G\bibinitperiod}}}%
+      }
+      \list{publisher}{1}{%
+        {Springer}%
+      }
+      \strng{namehash}{43ce10bc05f19691494d1c59a9e9912c}
+      \strng{fullhash}{bcd203aafc27c6974f3937d90f42da5d}
+      \strng{fullhashraw}{bcd203aafc27c6974f3937d90f42da5d}
+      \strng{bibnamehash}{bcd203aafc27c6974f3937d90f42da5d}
+      \strng{authorbibnamehash}{bcd203aafc27c6974f3937d90f42da5d}
+      \strng{authornamehash}{43ce10bc05f19691494d1c59a9e9912c}
+      \strng{authorfullhash}{bcd203aafc27c6974f3937d90f42da5d}
+      \strng{authorfullhashraw}{bcd203aafc27c6974f3937d90f42da5d}
+      \field{sortinit}{E}
+      \field{sortinithash}{8da8a182d344d5b9047633dfc0cc9131}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{series}{EATCS Monographs in Theoretical Computer Science}
+      \field{title}{Fundamentals of Algebraic Graph Transformation}
+      \field{year}{2006}
+    \endentry
+    \entry{Lamport2002}{book}{}{}
+      \name{author}{1}{}{%
+        {{hash=5d77435450d10a850a5b58577b9a456b}{%
+           family={Lamport},
+           familyi={L\bibinitperiod},
+           given={Leslie},
+           giveni={L\bibinitperiod}}}%
+      }
+      \list{publisher}{1}{%
+        {Addison-Wesley}%
+      }
+      \strng{namehash}{5d77435450d10a850a5b58577b9a456b}
+      \strng{fullhash}{5d77435450d10a850a5b58577b9a456b}
+      \strng{fullhashraw}{5d77435450d10a850a5b58577b9a456b}
+      \strng{bibnamehash}{5d77435450d10a850a5b58577b9a456b}
+      \strng{authorbibnamehash}{5d77435450d10a850a5b58577b9a456b}
+      \strng{authornamehash}{5d77435450d10a850a5b58577b9a456b}
+      \strng{authorfullhash}{5d77435450d10a850a5b58577b9a456b}
+      \strng{authorfullhashraw}{5d77435450d10a850a5b58577b9a456b}
+      \field{sortinit}{L}
+      \field{sortinithash}{7c47d417cecb1f4bd38d1825c427a61a}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{title}{Specifying Systems: The {TLA+} Language and Tools for Hardware and Software Engineers}
+      \field{year}{2002}
+    \endentry
+    \entry{Mohan1992}{article}{}{}
+      \name{author}{5}{}{%
+        {{hash=853a2d0932b38b230275d39b3587338a}{%
+           family={Mohan},
+           familyi={M\bibinitperiod},
+           given={C.},
+           giveni={C\bibinitperiod}}}%
+        {{hash=c3634b3a8e8d8529de396be1fae7df94}{%
+           family={Haderle},
+           familyi={H\bibinitperiod},
+           given={Don},
+           giveni={D\bibinitperiod}}}%
+        {{hash=3578a4526cbb38c224ca94e6e22820fe}{%
+           family={Lindsay},
+           familyi={L\bibinitperiod},
+           given={Bruce},
+           giveni={B\bibinitperiod}}}%
+        {{hash=67ec9379456eccbc423d4e9906c2ed0d}{%
+           family={Pirahesh},
+           familyi={P\bibinitperiod},
+           given={Hamid},
+           giveni={H\bibinitperiod}}}%
+        {{hash=f8b80aa4a1c62bdeafd2e2100c2bcc7c}{%
+           family={Schwarz},
+           familyi={S\bibinitperiod},
+           given={Peter},
+           giveni={P\bibinitperiod}}}%
+      }
+      \strng{namehash}{446dac387b107353c0f2f183b2bc45d8}
+      \strng{fullhash}{2259881d2d2a9b78a46e34763c956eb1}
+      \strng{fullhashraw}{2259881d2d2a9b78a46e34763c956eb1}
+      \strng{bibnamehash}{2259881d2d2a9b78a46e34763c956eb1}
+      \strng{authorbibnamehash}{2259881d2d2a9b78a46e34763c956eb1}
+      \strng{authornamehash}{446dac387b107353c0f2f183b2bc45d8}
+      \strng{authorfullhash}{2259881d2d2a9b78a46e34763c956eb1}
+      \strng{authorfullhashraw}{2259881d2d2a9b78a46e34763c956eb1}
+      \field{sortinit}{M}
+      \field{sortinithash}{4625c616857f13d17ce56f7d4f97d451}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{journaltitle}{ACM Transactions on Database Systems}
+      \field{number}{1}
+      \field{title}{{ARIES}: A Transaction Recovery Method Supporting Fine-granularity Locking and Partial Rollbacks Using Write-ahead Logging}
+      \field{volume}{17}
+      \field{year}{1992}
+      \field{pages}{94\bibrangedash 162}
+      \range{pages}{69}
+    \endentry
+    \entry{Sigurbjarnarson2016}{inproceedings}{}{}
+      \name{author}{4}{}{%
+        {{hash=f1a28f65cd95afdeed353757fea7e084}{%
+           family={Sigurbjarnarson},
+           familyi={S\bibinitperiod},
+           given={Helgi},
+           giveni={H\bibinitperiod}}}%
+        {{hash=b08fb34981123d7c5a1b54ec25e0418a}{%
+           family={Bornholt},
+           familyi={B\bibinitperiod},
+           given={James},
+           giveni={J\bibinitperiod}}}%
+        {{hash=891b5b8af87210ad697663a0f5e1e379}{%
+           family={Torlak},
+           familyi={T\bibinitperiod},
+           given={Emina},
+           giveni={E\bibinitperiod}}}%
+        {{hash=f2e5f45a009e71ca581b562c25df1b47}{%
+           family={Wang},
+           familyi={W\bibinitperiod},
+           given={Xi},
+           giveni={X\bibinitperiod}}}%
+      }
+      \strng{namehash}{2996685ae6c01382bcd301762da9440b}
+      \strng{fullhash}{485513de771890b9fb7a874a00cc595f}
+      \strng{fullhashraw}{485513de771890b9fb7a874a00cc595f}
+      \strng{bibnamehash}{485513de771890b9fb7a874a00cc595f}
+      \strng{authorbibnamehash}{485513de771890b9fb7a874a00cc595f}
+      \strng{authornamehash}{2996685ae6c01382bcd301762da9440b}
+      \strng{authorfullhash}{485513de771890b9fb7a874a00cc595f}
+      \strng{authorfullhashraw}{485513de771890b9fb7a874a00cc595f}
+      \field{sortinit}{S}
+      \field{sortinithash}{b164b07b29984b41daf1e85279fbc5ab}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{booktitle}{12th USENIX Symposium on Operating Systems Design and Implementation (OSDI)}
+      \field{title}{Push-Button Verification of File Systems via Crash Refinement}
+      \field{year}{2016}
+      \field{pages}{1\bibrangedash 16}
+      \range{pages}{16}
+    \endentry
+  \enddatalist
+\endrefsection
+\endinput
+

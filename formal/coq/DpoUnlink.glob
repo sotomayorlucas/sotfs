@@ -1,0 +1,175 @@
+DIGEST bb12d1a774962f0022b1d6b70d85dc71
+FSotFS.DpoUnlink
+R1231:1245 Stdlib.Arith.Arith <> <> lib
+R1263:1276 Stdlib.Lists.List <> <> lib
+R1294:1306 Stdlib.Bool.Bool <> <> lib
+R1324:1326 Stdlib.micromega.Lia <> <> lib
+R1336:1348 Stdlib.Lists.List ListNotations <> mod
+R1367:1376 SotFS.SotfsGraph <> <> lib
+rec 1616:1624 <> UnlinkPre
+proj 1703:1715 <> up_dir_exists
+proj 1739:1750 <> up_user_name
+proj 1778:1791 <> up_edge_exists
+proj 1845:1857 <> up_is_regular
+proj 1959:1974 <> up_target_exists
+R1631:1635 SotFS.SotfsGraph <> Graph rec
+binder 1627:1627 <> g:1
+R1643:1647 SotFS.SotfsGraph <> DirId def
+binder 1639:1639 <> d:2
+R1658:1661 SotFS.SotfsGraph <> Name def
+binder 1651:1654 <> name:3
+R1678:1684 SotFS.SotfsGraph <> InodeId def
+binder 1665:1674 <> target_ino:4
+R1721:1730 SotFS.SotfsGraph <> dir_exists def
+R1732:1732 SotFS.DpoUnlink <> g:1 var
+R1734:1734 SotFS.DpoUnlink <> d:2 var
+R1757:1768 SotFS.SotfsGraph <> is_user_name def
+R1770:1773 SotFS.DpoUnlink <> name:3 var
+R1796:1797 Stdlib.Lists.List <> In def
+R1831:1837 SotFS.SotfsGraph <> g_edges proj
+R1839:1839 SotFS.DpoUnlink <> g:1 var
+R1800:1809 SotFS.SotfsGraph <> mkContains constr
+R1811:1811 SotFS.DpoUnlink <> d:2 var
+R1813:1822 SotFS.DpoUnlink <> target_ino:4 var
+R1824:1827 SotFS.DpoUnlink <> name:3 var
+binder 1870:1871 <> ir:9
+R1907:1933 Corelib.Init.Notations <> ::type_scope:x_'->'_x not
+R1897:1899 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R1874:1883 SotFS.SotfsGraph <> find_inode def
+R1885:1885 SotFS.DpoUnlink <> g:1 var
+R1887:1896 SotFS.DpoUnlink <> target_ino:4 var
+R1900:1903 Corelib.Init.Datatypes <> Some constr
+R1905:1906 SotFS.DpoUnlink <> ir:9 var
+R1945:1947 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R1934:1941 SotFS.SotfsGraph <> ir_vtype proj
+R1943:1944 SotFS.DpoUnlink <> ir:9 var
+R1948:1954 SotFS.SotfsGraph <> Regular constr
+R1978:1989 SotFS.SotfsGraph <> inode_exists def
+R1991:1991 SotFS.DpoUnlink <> g:1 var
+R1993:2002 SotFS.DpoUnlink <> target_ino:4 var
+def 2092:2104 <> UnlinkKeepPre
+R2111:2115 SotFS.SotfsGraph <> Graph rec
+binder 2107:2107 <> g:12
+R2132:2138 SotFS.SotfsGraph <> InodeId def
+binder 2119:2128 <> target_ino:13
+binder 2160:2161 <> ir:14
+R2197:2204 Corelib.Init.Notations <> ::type_scope:x_'->'_x not
+R2187:2189 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R2164:2173 SotFS.SotfsGraph <> find_inode def
+R2175:2175 SotFS.DpoUnlink <> g:12 var
+R2177:2186 SotFS.DpoUnlink <> target_ino:13 var
+R2190:2193 Corelib.Init.Datatypes <> Some constr
+R2195:2196 SotFS.DpoUnlink <> ir:14 var
+R2221:2224 Corelib.Init.Peano <> ::nat_scope:x_'>='_x not
+R2205:2217 SotFS.SotfsGraph <> ir_link_count proj
+R2219:2220 SotFS.DpoUnlink <> ir:14 var
+def 2469:2482 <> decrement_link
+R2494:2497 Corelib.Init.Datatypes <> list ind
+R2499:2506 SotFS.SotfsGraph <> InodeRec rec
+binder 2485:2490 <> inodes:15
+R2516:2522 SotFS.SotfsGraph <> InodeId def
+binder 2510:2512 <> ino:16
+R2527:2530 Corelib.Init.Datatypes <> list ind
+R2532:2539 SotFS.SotfsGraph <> InodeRec rec
+R2546:2548 Corelib.Lists.ListDef <> map def
+R2675:2680 SotFS.DpoUnlink <> inodes:15 var
+binder 2555:2556 <> ir:17
+R2568:2574 Stdlib.Arith.PeanoNat Nat eqb def
+R2577:2581 SotFS.SotfsGraph <> ir_id proj
+R2583:2584 SotFS.DpoUnlink <> ir:17 var
+R2587:2589 SotFS.DpoUnlink <> ino:16 var
+R2668:2669 SotFS.DpoUnlink <> ir:17 var
+R2600:2606 SotFS.SotfsGraph <> mkInode constr
+R2609:2613 SotFS.SotfsGraph <> ir_id proj
+R2615:2616 SotFS.DpoUnlink <> ir:17 var
+R2620:2627 SotFS.SotfsGraph <> ir_vtype proj
+R2629:2630 SotFS.DpoUnlink <> ir:17 var
+R2634:2637 Corelib.Init.Peano <> pred abbrev
+R2640:2652 SotFS.SotfsGraph <> ir_link_count proj
+R2654:2655 SotFS.DpoUnlink <> ir:17 var
+prf 2690:2717 <> decrement_link_preserves_ids
+binder 2730:2735 <> inodes:18
+binder 2737:2739 <> ino:19
+R2783:2785 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R2746:2748 Corelib.Lists.ListDef <> map def
+R2757:2770 SotFS.DpoUnlink <> decrement_link def
+R2772:2777 SotFS.DpoUnlink <> inodes:18 var
+R2779:2781 SotFS.DpoUnlink <> ino:19 var
+R2750:2754 SotFS.SotfsGraph <> ir_id proj
+R2786:2788 Corelib.Lists.ListDef <> map def
+R2796:2801 SotFS.DpoUnlink <> inodes:18 var
+R2790:2794 SotFS.SotfsGraph <> ir_id proj
+R2828:2841 SotFS.DpoUnlink <> decrement_link def
+R2854:2860 Stdlib.Lists.List <> map_map thm
+R2869:2875 Stdlib.Lists.List <> map_ext thm
+R2906:2912 Stdlib.Arith.PeanoNat Nat eqb def
+R2915:2919 SotFS.SotfsGraph <> ir_id proj
+prf 2955:2971 <> decrement_link_In
+binder 2984:2989 <> inodes:20
+binder 2991:2993 <> ino:21
+binder 2995:2996 <> ir:22
+R3015:3022 Corelib.Init.Notations <> ::type_scope:x_'->'_x not
+R3003:3004 Stdlib.Lists.List <> In def
+R3009:3014 SotFS.DpoUnlink <> inodes:20 var
+R3006:3007 SotFS.DpoUnlink <> ir:22 var
+R3038:3045 Corelib.Init.Notations <> ::type_scope:x_'->'_x not
+R3031:3034 Corelib.Init.Logic <> ::type_scope:x_'<>'_x not
+R3023:3027 SotFS.SotfsGraph <> ir_id proj
+R3029:3030 SotFS.DpoUnlink <> ir:22 var
+R3035:3037 SotFS.DpoUnlink <> ino:21 var
+R3046:3047 Stdlib.Lists.List <> In def
+R3053:3066 SotFS.DpoUnlink <> decrement_link def
+R3068:3073 SotFS.DpoUnlink <> inodes:20 var
+R3075:3077 SotFS.DpoUnlink <> ino:21 var
+R3049:3050 SotFS.DpoUnlink <> ir:22 var
+R3130:3143 SotFS.DpoUnlink <> decrement_link def
+R3152:3161 Stdlib.Lists.List <> in_map_iff thm
+R3198:3204 Stdlib.Arith.PeanoNat Nat eqb def
+R3207:3211 SotFS.SotfsGraph <> ir_id proj
+R3243:3252 Stdlib.Arith.PeanoNat Nat eqb_eq thm
+def 3557:3567 <> unlink_keep
+R3574:3578 SotFS.SotfsGraph <> Graph rec
+binder 3570:3570 <> g:23
+R3586:3590 SotFS.SotfsGraph <> DirId def
+binder 3582:3582 <> d:24
+R3607:3613 SotFS.SotfsGraph <> InodeId def
+binder 3594:3603 <> target_ino:25
+R3624:3627 SotFS.SotfsGraph <> Name def
+binder 3617:3620 <> name:26
+R3634:3638 SotFS.SotfsGraph <> Graph rec
+R3648:3655 SotFS.SotfsGraph <> g_inodes proj
+R3705:3710 SotFS.SotfsGraph <> g_dirs proj
+R3732:3738 SotFS.SotfsGraph <> g_edges proj
+R3660:3673 SotFS.DpoUnlink <> decrement_link def
+R3676:3683 SotFS.SotfsGraph <> g_inodes proj
+R3685:3685 SotFS.DpoUnlink <> g:23 var
+R3688:3697 SotFS.DpoUnlink <> target_ino:25 var
+R3717:3722 SotFS.SotfsGraph <> g_dirs proj
+R3724:3724 SotFS.DpoUnlink <> g:23 var
+R3744:3754 SotFS.SotfsGraph <> remove_edge def
+R3757:3766 SotFS.SotfsGraph <> mkContains constr
+R3768:3768 SotFS.DpoUnlink <> d:24 var
+R3770:3779 SotFS.DpoUnlink <> target_ino:25 var
+R3781:3784 SotFS.DpoUnlink <> name:26 var
+R3788:3794 SotFS.SotfsGraph <> g_edges proj
+R3796:3796 SotFS.DpoUnlink <> g:23 var
+prf 4044:4078 <> unlink_keep_preserves_TypeInvariant
+binder 4091:4091 <> g:27
+binder 4093:4093 <> d:28
+binder 4095:4098 <> name:29
+binder 4100:4109 <> target_ino:30
+R4128:4135 Corelib.Init.Notations <> ::type_scope:x_'->'_x not
+R4116:4125 SotFS.SotfsGraph <> WellFormed def
+R4127:4127 SotFS.DpoUnlink <> g:27 var
+R4165:4172 Corelib.Init.Notations <> ::type_scope:x_'->'_x not
+R4136:4144 SotFS.DpoUnlink <> UnlinkPre rec
+R4146:4146 SotFS.DpoUnlink <> g:27 var
+R4148:4148 SotFS.DpoUnlink <> d:28 var
+R4150:4153 SotFS.DpoUnlink <> name:29 var
+R4155:4164 SotFS.DpoUnlink <> target_ino:30 var
+R4173:4185 SotFS.SotfsGraph <> TypeInvariant def
+R4188:4198 SotFS.DpoUnlink <> unlink_keep def
+R4200:4200 SotFS.DpoUnlink <> g:27 var
+R4202:4202 SotFS.DpoUnlink <> d:28 var
+R4204:4213 SotFS.DpoUnlink <> target_ino:30 var
+R4215:4218 SotFS.DpoUnlink <> name:29 var

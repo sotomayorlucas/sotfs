@@ -1,0 +1,93 @@
+\chapter*{Notación}
+\addcontentsline{toc}{chapter}{Notación}
+
+\section*{Conjuntos y estructuras}
+
+\begin{tabularx}{\linewidth}{l X}
+  \toprule
+  Símbolo & Significado \\
+  \midrule
+  $\NN$, $\ZZ$, $\RR$ & naturales, enteros, reales \\
+  $\BB$ & $\{\bot, \top\}$, valores booleanos \\
+  $\Set$ & categoría de conjuntos y funciones \\
+  $\Graph$ & categoría de grafos dirigidos y morfismos \\
+  $\TGraph$ & categoría de grafos \emph{tipados} (la que vive sotFS) \\
+  $G \xrightarrow{f} H$ & morfismo de grafos $f$ entre $G$ y $H$ \\
+  $A \push_C B$ & pushout de $A$ y $B$ a lo largo de $C$ \\
+  $|S|$ & cardinalidad del conjunto $S$ \\
+  $\mathcal{P}(S)$ & conjunto potencia de $S$ \\
+  \bottomrule
+\end{tabularx}
+
+\section*{TypeGraph (capítulo \ref{cap:typegraph})}
+
+\begin{tabularx}{\linewidth}{l X}
+  \toprule
+  Símbolo & Significado \\
+  \midrule
+  $\NInode$ & nodo de tipo inodo (metadata POSIX) \\
+  $\NDir$ & nodo de tipo directorio \\
+  $\NCap$ & nodo de tipo capability \\
+  $\NTxn$ & nodo de tipo transaction \\
+  $\NVer$ & nodo de tipo version (snapshot) \\
+  $\NBlk$ & nodo de tipo block (datos) \\
+  $\econtains, \egrants, \edelegates$ & aristas tipadas \\
+  $\ederivedfrom, \esupersedes, \epointsto, \ehasxattr$ & aristas tipadas \\
+  $G$ & un \emph{TypeGraph} concreto (instancia) \\
+  $\hashof{x}$ & hash de contenido \blake{} de $x$ \\
+  \bottomrule
+\end{tabularx}
+
+\section*{DPO}
+
+\begin{tabularx}{\linewidth}{l X}
+  \toprule
+  Símbolo & Significado \\
+  \midrule
+  $\dpo{L}{K}{R}$ & producción DPO con \emph{left}, \emph{glue}, \emph{right} \\
+  $m: L \to G$ & \emph{matching} de la regla en el host $G$ \\
+  $G \xRightarrow{\rho, m} H$ & paso DPO de $G$ a $H$ vía $(\rho,m)$ \\
+  $\op{nac}$ & \emph{negative application condition} \\
+  \bottomrule
+\end{tabularx}
+
+\section*{Operaciones POSIX y errno}
+
+Las operaciones POSIX se denotan en \texttt{monospace}: \opcreate, \opmkdir,
+\opunlink, \oprename, \oplink, \oprmdir, \opwrite, \opread. Los errores
+POSIX se citan como \eexist, \enoent, \enotempty, \eacces, \eloop.
+
+\section*{Verificación}
+
+\begin{tabularx}{\linewidth}{l X}
+  \toprule
+  Símbolo & Significado \\
+  \midrule
+  TLA\textsuperscript{+} & lenguaje de specs de Lamport \cite{Lamport2002} \\
+  TLC & el model checker de TLA\textsuperscript{+} \\
+  Coq & asistente de pruebas \cite{Bertot2004} \\
+  \texttt{Admitted} & lema enunciado pero no probado en Coq \\
+  \citaTLA{x.tla} & cita al spec \texttt{x.tla} en \texttt{formal/} \\
+  \citaCoq{x.v} & cita al archivo \texttt{x.v} en \texttt{formal/coq/} \\
+  \citaCrate{x} & cita al crate \texttt{x} en el workspace \\
+  \citaCommit{sha} & cita al commit \texttt{sha} del repo \\
+  \bottomrule
+\end{tabularx}
+
+\section*{Cajas}
+
+\begin{tabularx}{\linewidth}{l X}
+  \toprule
+  Tipo & Uso \\
+  \midrule
+  \emph{Definición} & introducción de un objeto formal \\
+  \emph{Teorema} & resultado central, probado o citado \\
+  \emph{Lema} & resultado auxiliar \\
+  \emph{Invariante} & propiedad mantenida por construcción \\
+  \emph{Trampa} & error histórico del proyecto + lección \\
+  \emph{Observación} & nota lateral, no crítica para la lectura \\
+  \emph{Ejercicio} & propuesta al lector, graduada $\star$/$\star\star$/$\star\star\star$ \\
+  \bottomrule
+\end{tabularx}
+
+\clearpage

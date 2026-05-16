@@ -1,0 +1,88 @@
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{macros}[2026/05/13 sotFS book macros]
+
+% --- citas al repositorio (no académicas) ---
+\providecommand{\citaTLA}[1]{\texttt{formal/#1}}
+\providecommand{\citaCoq}[1]{\texttt{formal/coq/#1}}
+\providecommand{\citaCommit}[1]{commit \texttt{#1}}
+\providecommand{\citaCrate}[1]{el crate \texttt{#1}}
+\providecommand{\citaFile}[1]{\texttt{#1}}
+\providecommand{\citaLine}[2]{\texttt{#1:#2}}
+
+% --- DPO triple ---
+\providecommand{\dpo}[3]{\ensuremath{#1 \leftarrow #2 \rightarrow #3}}
+\providecommand{\dpoL}{L}
+\providecommand{\dpoK}{K}
+\providecommand{\dpoR}{R}
+
+% --- referencias cruzadas a cajas ---
+\providecommand{\invref}[1]{invariante~\ref{#1}}
+\providecommand{\trampref}[1]{trampa~\ref{#1}}
+\providecommand{\ejref}[1]{ejercicio~\ref{#1}}
+\providecommand{\defnref}[1]{definición~\ref{#1}}
+\providecommand{\teoref}[1]{teorema~\ref{#1}}
+\providecommand{\lemref}[1]{lema~\ref{#1}}
+
+% --- conjuntos y notación habitual ---
+\providecommand{\NN}{\mathbb{N}}
+\providecommand{\ZZ}{\mathbb{Z}}
+\providecommand{\RR}{\mathbb{R}}
+\providecommand{\BB}{\mathbb{B}}
+\providecommand{\Set}{\ensuremath{\mathbf{Set}}}
+\providecommand{\Graph}{\ensuremath{\mathbf{Graph}}}
+\providecommand{\TGraph}{\ensuremath{\mathbf{TypeGraph}}}
+
+\providecommand{\push}{\mathbin{\sqcup}}
+\providecommand{\hashof}[1]{\ensuremath{\mathsf{h}(#1)}}
+\providecommand{\blake}{\textsc{Blake3}}
+
+% --- nombres de operaciones POSIX en monospace ---
+\providecommand{\op}[1]{\texttt{#1}}
+\providecommand{\opcreate}{\op{create\_file}}
+\providecommand{\opmkdir}{\op{mkdir}}
+\providecommand{\opunlink}{\op{unlink}}
+\providecommand{\oprename}{\op{rename}}
+\providecommand{\oplink}{\op{link}}
+\providecommand{\oprmdir}{\op{rmdir}}
+\providecommand{\opwrite}{\op{write}}
+\providecommand{\opread}{\op{read}}
+
+% --- nodos del TypeGraph (nombres con prefijo N para no chocar con built-ins
+% como \Cap, \Dir que son macros reservadas en algunos paquetes) ---
+\providecommand{\NInode}{\textsf{Inode}}
+\providecommand{\NDir}{\textsf{Directory}}
+\providecommand{\NCap}{\textsf{Capability}}
+\providecommand{\NTxn}{\textsf{Transaction}}
+\providecommand{\NVer}{\textsf{Version}}
+\providecommand{\NBlk}{\textsf{Block}}
+% Aliases legacy (algunos chapters viejos los usan):
+\providecommand{\Inode}{\NInode}
+\providecommand{\Dir}{\NDir}
+\providecommand{\Cap}{\NCap}
+\providecommand{\Txn}{\NTxn}
+\providecommand{\Ver}{\NVer}
+\providecommand{\Blk}{\NBlk}
+
+% --- edge labels ---
+\providecommand{\econtains}{\textsf{contains}}
+\providecommand{\egrants}{\textsf{grants}}
+\providecommand{\edelegates}{\textsf{delegates}}
+\providecommand{\ederivedfrom}{\textsf{derivedFrom}}
+\providecommand{\esupersedes}{\textsf{supersedes}}
+\providecommand{\epointsto}{\textsf{pointsTo}}
+\providecommand{\ehasxattr}{\textsf{hasXattr}}
+
+% --- mensajes de error POSIX ---
+\providecommand{\eexist}{\texttt{EEXIST}}
+\providecommand{\enoent}{\texttt{ENOENT}}
+\providecommand{\enotempty}{\texttt{ENOTEMPTY}}
+\providecommand{\eacces}{\texttt{EACCES}}
+\providecommand{\eloop}{\texttt{ELOOP}}
+
+% --- símbolos comunes ---
+\providecommand{\fsync}{\textsf{fsync}}
+\providecommand{\wal}{\textsc{WAL}}
+\providecommand{\rcu}{\textsc{RCU}}
+\providecommand{\posix}{\textsc{POSIX}}
+\providecommand{\fuse}{\textsc{FUSE}}
+\providecommand{\redb}{\textsc{redb}}
