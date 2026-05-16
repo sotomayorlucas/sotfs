@@ -78,3 +78,78 @@ NDJSON event per provenance entry on stdout (`{"t":…, "kind":"prov",
 follower; `--once` switches to single-shot drain for batch ingestion
 and tests, `--poll-ms <N>` tunes the follow interval. See
 `sotfs-cli/tests/dot_and_export.rs` for the contract.
+
+## ISSUE-FORMAL-001 — Coq formalism only partially buildable
+
+**Status**: under repair. Tracking issue for v0.2.6.
+
+**Affected files** (`formal/coq/`):
+
+- `SotfsGraph.v` — ✓ compiles clean in Coq 8.20.0 (after the Rocq-9
+  / modern-Coq syntax repair in this PR).
+- `DpoCreate.v` — ✓ compiles clean.
+- `DpoUnlink.v` — ✓ compiles clean.
+- `DpoRename.v` — ✓ compiles clean.
+- `DpoMkdir.v` — ✗ does **not** compile in Coq 8.20. Failure cluster:
+  the `tauto` invocation in `mkdir_edges` doesn't symmetrise `e = x`,
+  `Nat.eqb_neq` requires the inequality in the reverse order than the
+  hypothesis provides, and the `mkdir_preserves_NoDirCycles` proof
+  contains hand-wavy commentary acknowledging a missing
+  `DirHasSelfRef` invariant (lines 480–528) that would let the
+  "old dir has inode_id = ni" sub-case close.
+- `DpoLink.v` — ✗ does not compile (similar pattern: tauto on `=`).
+- `DpoRmdir.v` — ✗ does not compile *and* contains three open
+  `Admitted` lemmas (`rmdir_preserves_TypeInvariant`,
+  `rmdir_preserves_NoDanglingEdges`, `rmdir_preserves_WellFormed`),
+  all blocked on the same missing invariant: directories are not
+  hard-linkable (GC-LINK-2 in the Rust impl), so the only user-name
+  edge targeting a directory inode is the parent's entry edge.
+
+**Evidence the formalism was never CI-checked**
+
+There is no GitHub workflow that runs `coqc`/`rocq compile`, and no
+`justfile` recipe invoking the Coq toolchain. `_CoqProject` listed
+only 4 of the 7 `.v` files even before this PR — `DpoMkdir.v`,
+`DpoLink.v`, `DpoRmdir.v` were silently excluded from any build
+attempt. The CHANGELOG claim "five `Admitted` lemmas" (v0.2.3,
+v0.2.4 carryover notes) refers to a count that does not match the
+present source: there are **three** literal `Admitted.` in
+`DpoRmdir.v` (lines 349, 405, 505) and one stylistic comment in
+`DpoUnlink.v:202` that mentions "Admitted" but is not a lemma.
+
+**What this PR closes vs. defers**
+
+This PR:
+
+1. Adds the modern-Coq syntax repair (`split; [|split;…]` instead of
+   `repeat split` over `forall`-bearing conjuncts, `Nat.eqb_neq` with
+   explicit symmetry, `tauto`-on-`=` rewritten manually) to the four
+   files above so they compile under Coq 8.20.0.
+2. Keeps `_CoqProject` honest: only the four buildable files are
+   listed. The three broken files stay in-tree, untouched, with this
+   note pointing at them.
+3. Corrects the CHANGELOG's "five Admitted" claim to "three Admitted
+   in DpoRmdir.v plus three .v files not in build."
+
+This PR does **not**:
+
+- Port `DpoMkdir.v`, `DpoLink.v`, `DpoRmdir.v` to modern Coq.
+- Close any `Admitted` in `DpoRmdir.v`.
+- Add `DirHasSelfRef` / `NoHardLinkToDir` to `WellFormed`.
+
+**Exit plan (v0.2.6)**
+
+1. Port the three remaining `.v` files to compile in Coq 8.20.0
+   (mechanical, ~20 surgical edits per file based on the patterns
+   already applied in `SotfsGraph.v`).
+2. Add `NoHardLinkToDir` and `DirHasSelfRef` to `WellFormed`. Update
+   the five existing preservation theorems (`*_preserves_WellFormed`)
+   to also preserve the two new conjuncts.
+3. Use `NoHardLinkToDir` to close the three `Admitted` in
+   `DpoRmdir.v` (proof sketched in the audit plan: case-split on
+   `ce_name e` ∈ {`dot_name`, `dotdot_name`, user name}; in the
+   user-name case, `NoHardLinkToDir` forces `e = entry_edge`,
+   contradicting `e ≠ entry`).
+4. Add a CI workflow `.github/workflows/formal.yml` that installs
+   Coq via `opam` and runs `coqc -R formal/coq SotFS` on every PR.
+   This prevents the regression from recurring.

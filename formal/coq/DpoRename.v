@@ -59,7 +59,11 @@ Lemma rename_edges :
      e = mkContains d target_ino new_name).
 Proof.
   intros. unfold rename_same_dir. simpl.
-  rewrite in_app_iff. simpl. tauto.
+  rewrite in_app_iff. simpl.
+  (* Coq 8.20: tauto doesn't symmetrize `=`; do it manually. *)
+  split.
+  - intros [Hold | [Hnew | []]]; [left; assumption | right; symmetry; assumption].
+  - intros [Hold | Hnew]; [left; assumption | right; left; symmetry; assumption].
 Qed.
 
 (* ===================================================================== *)
@@ -74,17 +78,17 @@ Theorem rename_preserves_TypeInvariant :
 Proof.
   intros g d old_name new_name target_ino HWF Hpre.
   destruct HWF as [HTI [HLC [HUN [HND HNC]]]].
-  destruct HTI as [Hedge [HnodupI HnodupD]].
+  destruct HTI as [Hedge_endpts [HnodupI HnodupD]].
   destruct Hpre as [Hdir Huser_old Huser_new Hdiff Hedge_in Hnew_fresh Htgt].
-  unfold TypeInvariant. repeat split.
+  unfold TypeInvariant. split; [| split].
   - (* endpoints exist *)
-    intros e Hin.
+    intros e0 Hin.
     apply rename_edges in Hin. destruct Hin as [Hrem | Hnew].
     + apply remove_edge_subset in Hrem.
-      destruct (HND e Hrem) as [Hd Hi]. split.
+      destruct (HND e0 Hrem) as [Hd Hi]. split.
       * unfold dir_exists, dir_ids, rename_same_dir. simpl. exact Hd.
       * unfold inode_exists, inode_ids, rename_same_dir. simpl. exact Hi.
-    + subst e. simpl. split.
+    + subst e0. simpl. split.
       * unfold dir_exists, dir_ids, rename_same_dir. simpl. exact Hdir.
       * unfold inode_exists, inode_ids, rename_same_dir. simpl. exact Htgt.
   - (* NoDupInodeIds — inodes unchanged *)
@@ -177,7 +181,7 @@ Proof.
   unfold incoming_count, rename_same_dir. simpl.
   rewrite count_occ_pred_app. simpl.
   assert (Hneq_b : Nat.eqb target_ino ino = false).
-  { apply Nat.eqb_neq. exact Hneq. }
+  { apply Nat.eqb_neq. intro H. apply Hneq. symmetry. exact H. }
   rewrite Hneq_b. simpl.
   (* The removed edge targets target_ino, not ino. So its removal
      doesn't change the count for ino. *)
@@ -243,9 +247,10 @@ Proof.
   unfold rename_same_dir in Hin. simpl in Hin.
   destruct (Nat.eq_dec (ir_id ir) target_ino) as [Heq | Hneq].
   - (* ir is the target — incoming count unchanged *)
+    rewrite Heq.
     rewrite (rename_incoming_target g d target_ino old_name new_name).
-    + apply HLC. exact Hin.
-    + unfold WellFormed. repeat split; assumption.
+    + rewrite <- Heq. apply HLC. exact Hin.
+    + unfold WellFormed. split; [| split; [| split; [| split]]]; assumption.
     + exact Hedge_in.
     + exact Huser_old.
     + exact Huser_new.
@@ -290,8 +295,7 @@ Proof.
        (d, target_ino, old_name), which satisfied the ranking *)
     unfold find_inode in Hfind. unfold rename_same_dir in Hfind. simpl in Hfind.
     unfold dir_for_inode in Hchild. unfold rename_same_dir in Hchild. simpl in Hchild.
-    apply (Hrank (mkContains d target_ino old_name) Hedge_in).
-    + exact Huser_old.
+    apply (Hrank (mkContains d target_ino old_name) Hedge_in Huser_old ir).
     + unfold find_inode. exact Hfind.
     + exact Hvtype.
     + unfold dir_for_inode. exact Hchild.
@@ -308,7 +312,7 @@ Theorem rename_preserves_WellFormed :
     WellFormed (rename_same_dir g d target_ino old_name new_name).
 Proof.
   intros g d old_name new_name target_ino HWF Hpre.
-  unfold WellFormed. repeat split.
+  unfold WellFormed. split; [| split; [| split; [| split]]].
   - exact (rename_preserves_TypeInvariant g d old_name new_name target_ino HWF Hpre).
   - exact (rename_preserves_LinkCountConsistent g d old_name new_name target_ino HWF Hpre).
   - exact (rename_preserves_UniqueNamesPerDir g d old_name new_name target_ino HWF Hpre).
