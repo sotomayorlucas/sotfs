@@ -454,6 +454,105 @@ Qed.
 (* 15. Decidability lemmas used across DPO modules                       *)
 (* ===================================================================== *)
 
+(* Generic helper: if a list has NoDup keys (via a key extractor f),
+   then `find` returns the unique element with the matching key. *)
+Lemma find_in_NoDup_key :
+  forall {A : Type} (f : A -> nat) (l : list A) (x : A) (k : nat),
+    NoDup (map f l) ->
+    In x l ->
+    f x = k ->
+    find (fun y => Nat.eqb (f y) k) l = Some x.
+Proof.
+  intros A f. induction l as [|h t IH]; intros x k Hnd Hin Heq.
+  - contradiction.
+  - simpl. destruct (Nat.eqb (f h) k) eqn:Hh.
+    + apply Nat.eqb_eq in Hh.
+      destruct Hin as [Hh_eq | Ht].
+      * subst h. reflexivity.
+      * exfalso. inversion Hnd as [|? ? Hnot_in _].
+        apply Hnot_in. rewrite Hh. rewrite <- Heq.
+        apply in_map. exact Ht.
+    + destruct Hin as [Hh_eq | Ht].
+      * subst h. apply Nat.eqb_neq in Hh.
+        exfalso. apply Hh. exact Heq.
+      * apply IH; try assumption.
+        inversion Hnd; assumption.
+Qed.
+
+(* Specialized for InodeRec / DirRec lookups. *)
+Lemma find_inode_in_NoDup :
+  forall (l : list InodeRec) (ir : InodeRec) (k : InodeId),
+    NoDup (map ir_id l) ->
+    In ir l ->
+    ir_id ir = k ->
+    find (fun x => Nat.eqb (ir_id x) k) l = Some ir.
+Proof. intros. apply (find_in_NoDup_key ir_id); assumption. Qed.
+
+Lemma find_dir_in_NoDup :
+  forall (l : list DirRec) (dr : DirRec) (k : DirId),
+    NoDup (map dr_id l) ->
+    In dr l ->
+    dr_id dr = k ->
+    find (fun x => Nat.eqb (dr_id x) k) l = Some dr.
+Proof. intros. apply (find_in_NoDup_key dr_id); assumption. Qed.
+
+(* If the filter removes only elements that don't satisfy the find
+   predicate, `find pred (filter f l) = find pred l`. *)
+Lemma find_filter_eq :
+  forall {A : Type} (pred f : A -> bool) (l : list A),
+    (forall x, In x l -> f x = false -> pred x = false) ->
+    find pred (filter f l) = find pred l.
+Proof.
+  intros A pred f. induction l as [|h t IH]; intros Hnonmatch.
+  - reflexivity.
+  - simpl. destruct (f h) eqn:Hf.
+    + simpl. destruct (pred h) eqn:Hp.
+      * reflexivity.
+      * apply IH. intros x Hx Hfx. apply Hnonmatch.
+        right; assumption. assumption.
+    + assert (Hnp : pred h = false).
+      { apply Hnonmatch. left; reflexivity. assumption. }
+      rewrite Hnp. apply IH.
+      intros x Hx Hfx. apply Hnonmatch. right; assumption. assumption.
+Qed.
+
+(* If the filter removes only elements that don't satisfy `f`,
+   count_occ_pred is unchanged. *)
+Lemma count_occ_pred_filter_eq :
+  forall {A : Type} (f g : A -> bool) (l : list A),
+    (forall x, In x l -> g x = false -> f x = false) ->
+    count_occ_pred f (filter g l) = count_occ_pred f l.
+Proof.
+  intros A f g. induction l as [|h t IH]; intros Hnonmatch.
+  - reflexivity.
+  - simpl. destruct (g h) eqn:Hgh.
+    + simpl. destruct (f h); rewrite IH;
+        [reflexivity | intros x Hin Hgx; apply Hnonmatch;
+         [right; assumption | assumption] |
+         reflexivity | intros x Hin Hgx; apply Hnonmatch;
+         [right; assumption | assumption]].
+    + assert (Hfh : f h = false).
+      { apply Hnonmatch. left; reflexivity. assumption. }
+      rewrite Hfh.
+      apply IH. intros x Hin Hgx. apply Hnonmatch.
+      right; assumption. assumption.
+Qed.
+
+(* NoDup on a mapped key implies element uniqueness when the keys agree. *)
+Lemma NoDup_map_inj :
+  forall {A B : Type} (f : A -> B) (l : list A) (x y : A),
+    NoDup (map f l) -> In x l -> In y l -> f x = f y -> x = y.
+Proof.
+  intros A B f. induction l as [|h t IH]; intros x y Hnd Hx Hy Hfeq.
+  - contradiction.
+  - simpl in Hx, Hy. inversion Hnd as [|? ? Hnotin Hnd_t].
+    destruct Hx as [Hx_eq | Hx_in]; destruct Hy as [Hy_eq | Hy_in].
+    + subst x y. reflexivity.
+    + subst x. exfalso. apply Hnotin. rewrite Hfeq. apply in_map. exact Hy_in.
+    + subst y. exfalso. apply Hnotin. rewrite <- Hfeq. apply in_map. exact Hx_in.
+    + apply IH; assumption.
+Qed.
+
 Lemma name_in_dir_false_not_in :
   forall g d n,
     name_in_dir g d n = false ->
