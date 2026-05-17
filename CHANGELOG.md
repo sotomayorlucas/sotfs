@@ -5,6 +5,24 @@ All notable changes to sotFS will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased] — fix(ci): formal.yml cache-hit broke `coqc` on PATH
+
+The `Formal` workflow added in PR #21 cached only `~/.opam`, but
+`ocaml/setup-ocaml@v3` actually puts the active switch (where Coq
+gets installed) in `./_opam`. On the second run after PR #21
+merged, the cache-hit short-circuited the `Install Coq` step, the
+switch came back without Coq, and `coqc --version` failed with
+`coqc: command not found`. The CI gate was passing on the first
+run only.
+
+### Changed
+
+- `.github/workflows/formal.yml`:
+  - Cache path is now `~/.opam` + `_opam` (cache key bumped to
+    `-v2` to invalidate the broken caches).
+  - `Install Coq 8.20.0` step always runs — `opam install` is
+    idempotent, so when the cache is warm this is ~5s.
+
 ## [Unreleased] — docs: state.md rewrite (v0.2.5 carryover H2.5)
 
 [`docs/state.md`](docs/state.md) was a snapshot of the M4 milestone
