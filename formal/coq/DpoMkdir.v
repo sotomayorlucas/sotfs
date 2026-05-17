@@ -617,6 +617,9 @@ Qed.
 (* 9. MAIN THEOREM: mkdir preserves WellFormed                           *)
 (* ===================================================================== *)
 
+(* Rust impl: `sotfs_ops::mkdir` in sotfs-ops/src/lib.rs.
+   Runtime cross-check: tests/invariants_match_coq.rs::
+   `mkdir_preserves_well_formed`. *)
 Theorem mkdir_preserves_WellFormed :
   forall g pd name ni nd pi,
     WellFormed g ->

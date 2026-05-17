@@ -606,6 +606,9 @@ Proof.
       * rewrite Nat.eqb_refl in Hdd. discriminate.
 Qed.
 
+(* Rust impl: `sotfs_ops::rmdir` in sotfs-ops/src/lib.rs.
+   Runtime cross-check: tests/invariants_match_coq.rs::
+   `rmdir_preserves_well_formed`. *)
 Theorem rmdir_preserves_WellFormed :
   forall g pd name ti td pi,
     WellFormed g ->
