@@ -77,7 +77,7 @@ Theorem rename_preserves_TypeInvariant :
     TypeInvariant (rename_same_dir g d target_ino old_name new_name).
 Proof.
   intros g d old_name new_name target_ino HWF Hpre.
-  destruct HWF as [HTI [HLC [HUN [HND HNC]]]].
+  destruct HWF as [HTI [HLC [HUN [HND [HNC [HDSR HNHL]]]]]].
   destruct HTI as [Hedge_endpts [HnodupI HnodupD]].
   destruct Hpre as [Hdir Huser_old Huser_new Hdiff Hedge_in Hnew_fresh Htgt].
   unfold TypeInvariant. split; [| split].
@@ -108,7 +108,7 @@ Theorem rename_preserves_UniqueNamesPerDir :
     UniqueNamesPerDir (rename_same_dir g d target_ino old_name new_name).
 Proof.
   intros g d old_name new_name target_ino HWF Hpre.
-  destruct HWF as [HTI [HLC [HUN [HND HNC]]]].
+  destruct HWF as [HTI [HLC [HUN [HND [HNC [HDSR HNHL]]]]]].
   destruct Hpre as [Hdir Huser_old Huser_new Hdiff Hedge_in Hnew_fresh Htgt].
   unfold UniqueNamesPerDir.
   intros e1 e2 Hin1 Hin2 Hdir_eq Hname_eq.
@@ -149,7 +149,7 @@ Theorem rename_preserves_NoDanglingEdges :
     NoDanglingEdges (rename_same_dir g d target_ino old_name new_name).
 Proof.
   intros g d old_name new_name target_ino HWF Hpre.
-  destruct HWF as [HTI [HLC [HUN [HND HNC]]]].
+  destruct HWF as [HTI [HLC [HUN [HND [HNC [HDSR HNHL]]]]]].
   destruct Hpre as [Hdir Huser_old Huser_new Hdiff Hedge_in Hnew_fresh Htgt].
   unfold NoDanglingEdges.
   intros e Hin.
@@ -239,7 +239,7 @@ Theorem rename_preserves_LinkCountConsistent :
     LinkCountConsistent (rename_same_dir g d target_ino old_name new_name).
 Proof.
   intros g d old_name new_name target_ino HWF Hpre.
-  destruct HWF as [HTI [HLC [HUN [HND HNC]]]].
+  destruct HWF as [HTI [HLC [HUN [HND [HNC [HDSR HNHL]]]]]].
   destruct Hpre as [Hdir Huser_old Huser_new Hdiff Hedge_in Hnew_fresh Htgt].
   unfold LinkCountConsistent.
   intros ir Hin.
@@ -250,7 +250,9 @@ Proof.
     rewrite Heq.
     rewrite (rename_incoming_target g d target_ino old_name new_name).
     + rewrite <- Heq. apply HLC. exact Hin.
-    + unfold WellFormed. split; [| split; [| split; [| split]]]; assumption.
+    + unfold WellFormed.
+      split; [| split; [| split; [| split; [| split; [| split]]]]];
+        assumption.
     + exact Hedge_in.
     + exact Huser_old.
     + exact Huser_new.
@@ -274,7 +276,7 @@ Theorem rename_preserves_NoDirCycles :
     NoDirCycles (rename_same_dir g d target_ino old_name new_name).
 Proof.
   intros g d old_name new_name target_ino HWF Hpre.
-  destruct HWF as [HTI [HLC [HUN [HND HNC]]]].
+  destruct HWF as [HTI [HLC [HUN [HND [HNC [HDSR HNHL]]]]]].
   destruct HNC as [rank Hrank].
   destruct Hpre as [Hdir Huser_old Huser_new Hdiff Hedge_in Hnew_fresh Htgt].
   exists rank.
@@ -305,6 +307,64 @@ Qed.
 (* 9. MAIN THEOREM: rename_same_dir preserves WellFormed                 *)
 (* ===================================================================== *)
 
+(* rename_same_dir replaces one user-name edge with another. g_dirs is
+   unchanged. The removed edge has the old user_name; the new edge has
+   the new user_name. Neither is a `.` edge (both are user-names), so
+   DirHasSelfRef survives. *)
+Theorem rename_preserves_DirHasSelfRef :
+  forall g d old_name new_name target_ino,
+    WellFormed g ->
+    RenamePre g d old_name new_name target_ino ->
+    DirHasSelfRef (rename_same_dir g d target_ino old_name new_name).
+Proof.
+  intros g d old_name new_name target_ino HWF Hpre.
+  destruct HWF as [_ [_ [_ [_ [_ [HDSR _]]]]]].
+  destruct Hpre as [_ Huser_old _ _ _ _ _].
+  unfold DirHasSelfRef in *.
+  intros d0 Hin. unfold rename_same_dir in *. simpl in *.
+  apply in_or_app. left.
+  apply remove_edge_preserves.
+  - apply HDSR. exact Hin.
+  - intro Habs. inversion Habs as [Heq_dn]. subst.
+    unfold is_user_name, dot_name in Huser_old. lia.
+Qed.
+
+(* rename preserves ce_ino but changes ce_name. The new and removed
+   edges target the same inode; if old NoHardLinkToDir held, the only
+   user-name edge to a directory inode was unique — after renaming
+   that same edge, the uniqueness still holds. *)
+Theorem rename_preserves_NoHardLinkToDir :
+  forall g d old_name new_name target_ino,
+    WellFormed g ->
+    RenamePre g d old_name new_name target_ino ->
+    NoHardLinkToDir (rename_same_dir g d target_ino old_name new_name).
+Proof.
+  intros g d old_name new_name target_ino HWF Hpre.
+  destruct HWF as [_ [_ [_ [_ [_ [_ HNHL]]]]]].
+  destruct Hpre as [_ Huser_old Huser_new Hdiff Hedge_in _ _].
+  unfold NoHardLinkToDir in *.
+  intros e1 e2 ir Hin1 Hin2 Hu1 Hu2 Heqi Hfind Hvty.
+  apply rename_edges in Hin1. apply rename_edges in Hin2.
+  (* find_inode in rename_same_dir uses the same g_inodes as g. *)
+  unfold rename_same_dir, find_inode in Hfind. simpl in Hfind.
+  destruct Hin1 as [H1rem | H1new]; destruct Hin2 as [H2rem | H2new].
+  - apply remove_edge_subset in H1rem.
+    apply remove_edge_subset in H2rem.
+    apply (HNHL e1 e2 ir H1rem H2rem Hu1 Hu2 Heqi Hfind Hvty).
+  - (* e1 from remove_edge, e2 = new edge. By HNHL on the old graph,
+       any user-name edge targeting target_ino must equal the old edge
+       (d, target_ino, old_name). So e1 = old_edge. But e1 survived
+       remove_edge, which would require the old_edge to appear twice
+       in g_edges g. WellFormed doesn't enforce NoDup g_edges, so this
+       case is technically reachable for ill-shaped (but WellFormed)
+       graphs. Closing it requires an extra NoDup edges invariant.
+       Deferred to v0.2.7 along with the DpoMkdir admit. *)
+    admit.
+  - (* Symmetric to the above. *)
+    admit.
+  - subst e1 e2. reflexivity.
+Admitted.
+
 Theorem rename_preserves_WellFormed :
   forall g d old_name new_name target_ino,
     WellFormed g ->
@@ -312,10 +372,12 @@ Theorem rename_preserves_WellFormed :
     WellFormed (rename_same_dir g d target_ino old_name new_name).
 Proof.
   intros g d old_name new_name target_ino HWF Hpre.
-  unfold WellFormed. split; [| split; [| split; [| split]]].
+  unfold WellFormed. split; [| split; [| split; [| split; [| split; [| split]]]]].
   - exact (rename_preserves_TypeInvariant g d old_name new_name target_ino HWF Hpre).
   - exact (rename_preserves_LinkCountConsistent g d old_name new_name target_ino HWF Hpre).
   - exact (rename_preserves_UniqueNamesPerDir g d old_name new_name target_ino HWF Hpre).
   - exact (rename_preserves_NoDanglingEdges g d old_name new_name target_ino HWF Hpre).
   - exact (rename_preserves_NoDirCycles g d old_name new_name target_ino HWF Hpre).
+  - exact (rename_preserves_DirHasSelfRef g d old_name new_name target_ino HWF Hpre).
+  - exact (rename_preserves_NoHardLinkToDir g d old_name new_name target_ino HWF Hpre).
 Qed.

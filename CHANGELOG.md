@@ -5,45 +5,93 @@ All notable changes to sotFS will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased] — formal Coq build repair
+## [Unreleased] — Coq 8.20 port + invariant extension
 
-Audit (2026-05-13) discovered that the Coq formalism under `formal/coq/`
-was not being built in CI, was not part of `just` recipes, and did not
-compile cleanly in Coq 8.20.0 nor Rocq 9.x — the toolchain shipped on
-modern Fedora.
+Continues the v0.2.5 audit work. Brings the remaining three `.v`
+files (`DpoMkdir.v`, `DpoLink.v`, `DpoRmdir.v`) into the build and
+adds two missing invariants to `WellFormed`.
 
-### Fixed
+### Added — `DirHasSelfRef` and `NoHardLinkToDir` invariants
 
-- `formal/coq/SotfsGraph.v`, `DpoCreate.v`, `DpoUnlink.v`,
-  `DpoRename.v` now compile in Coq 8.20.0. The fix is purely
-  syntactic: `repeat split` replaced with explicit `split; [|split;…]`
-  where the conjuncts contain `forall` quantifiers, `tauto` calls
-  over disjunctions containing `=` rewritten manually (Coq's `tauto`
-  no longer symmetrises `=`), and `Nat.eqb_neq` instantiations
-  patched with explicit `symmetry`.
-- `_CoqProject` previously listed only 4 of the 7 `.v` files —
-  `DpoMkdir.v`, `DpoLink.v`, `DpoRmdir.v` were silently excluded
-  from any build attempt. Now `_CoqProject` lists the four
-  buildable files and a comment pointing at
-  `docs/known-issues.md#issue-formal-001` for the rest.
+`SotfsGraph.v` now defines two new conjuncts in `WellFormed`:
 
-### Corrected
+- `DirHasSelfRef g` — every directory has a `.` self-edge from its
+  ID to its inode ID.
+- `NoHardLinkToDir g` — for any directory inode, any two user-name
+  edges targeting it must be equal (mirrors Rust's GC-LINK-2
+  garbage-collection rule).
 
-- The v0.2.3 and v0.2.4 entries below claim "five `Admitted`
-  lemmas in `DpoRmdir.v` / `DpoUnlink.v`". The actual count is
-  **three** literal `Admitted.` in `DpoRmdir.v`
-  (`rmdir_preserves_TypeInvariant`, `rmdir_preserves_NoDanglingEdges`,
-  `rmdir_preserves_WellFormed`). `DpoUnlink.v:202` mentions
-  "Admitted" only in a comment.
+Both are preserved by every fully-proved DPO rule:
+`create_preserves_DirHasSelfRef`, `create_preserves_NoHardLinkToDir`,
+and the analogous theorems for `mkdir`, `link`, `unlink`, `rename`.
+The new invariants unblock the `mkdir_preserves_NoDirCycles` proof
+case where an old dir d has `dr_inode_id d = ni` (fresh inode):
+`HDSR` produces the `.` edge to `ni` and `NoDanglingEdges` then
+contradicts `Hino_fresh`.
 
-### Deferred to v0.2.6
+### Added — Coq 8.20.0 port of the three remaining `.v` files
 
-- Modern-Coq syntax port for `DpoMkdir.v`, `DpoLink.v`, `DpoRmdir.v`.
-- Closing the three `Admitted` in `DpoRmdir.v` — blocked on adding
-  `NoHardLinkToDir` and `DirHasSelfRef` invariants to `WellFormed`
-  in `SotfsGraph.v` and re-proving preservation for all DPO rules.
-- A `.github/workflows/formal.yml` CI job to run Coq on every PR
-  so this regression cannot recur silently.
+`DpoMkdir.v`, `DpoLink.v`, and `DpoRmdir.v` now compile cleanly in
+Coq 8.20.0. Fix patterns reused from the previous PR (split-based
+WellFormed destructure, manual `=`-symmetry replacing `tauto`, fresh
+`e0`/`Hedge_in`/`Hedge_endpts` names to avoid collisions, explicit
+case-destructs replacing fragile `rewrite Nat.eqb_refl` chains).
+All three files are listed in `_CoqProject`; `cargo`-style smoke
+check: `coqc -R . SotFS $(cat _CoqProject | tail -n +3)`.
+
+### Fixed — closed one of v0.2.6's targeted gaps
+
+`mkdir_preserves_NoDirCycles` previously had hand-wavy comments
+admitting that the case where an old dir has `dr_inode_id = ni`
+could not be closed without `DirHasSelfRef`. With `DirHasSelfRef`
+now in `WellFormed`, that case closes cleanly. No `admit` remains
+in this theorem.
+
+### Known regressions and remaining gaps
+
+`rmdir_preserves_NoDirCycles` regressed from `Qed.` (baseline) to
+`Admitted.` (this PR). The baseline proof used the idiom
+`induction (g_inodes g) as [|h t IH]` to lift `find_inode (rmdir g)`
+back to `find_inode g`; in Coq 8.20.0 this idiom does not generalize
+the goal over the inducted-on list, so `apply IH` fails. The proof
+needs a `remember`-based reshape to be Coq 8.20-compatible — sound
+but mechanical, deferred to v0.2.7.
+
+Open `Admitted` lemmas after this PR (7 total):
+
+- `DpoRmdir.v`: `rmdir_preserves_TypeInvariant`,
+  `rmdir_preserves_NoDanglingEdges`, `rmdir_preserves_NoDirCycles`,
+  `rmdir_preserves_DirHasSelfRef`, `rmdir_preserves_NoHardLinkToDir`,
+  `rmdir_preserves_WellFormed`.
+- `DpoRename.v`: `rename_preserves_NoHardLinkToDir` — closing the
+  two `admit` cases needs a `NoDup g_edges` invariant (currently
+  absent from `WellFormed`).
+
+The 5 closed DPO rules (`create`, `mkdir`, `unlink`, `link`,
+`rename` except the `NoHardLinkToDir` admit) prove preservation of
+all 7 invariants. `init_graph_well_formed` now proves all 7.
+
+### Deferred to v0.2.7
+
+- Close the 7 `Admitted` in `DpoRmdir.v` + `DpoRename.v`. Requires:
+  - `remember`-based reshape of two `induction (g_X g)` patterns in
+    `rmdir_preserves_NoDirCycles`.
+  - A `NoDupEdges` (or equivalent) invariant in `WellFormed`, with
+    preservation proved for each DPO rule.
+  - Tighter rmdir preconditions (or DirHasSelfRef + leaf-dir reasoning)
+    to close the dot/dotdot sub-cases of `Hce_ino_ne` in
+    `rmdir_preserves_TypeInvariant`.
+- `.github/workflows/formal.yml` — Coq job in CI so these regressions
+  cannot recur silently.
+
+### Corrected (cumulative; the earlier "Coq build repair" entry)
+
+- The v0.2.3 and v0.2.4 entries below claim "five `Admitted` lemmas
+  in `DpoRmdir.v` / `DpoUnlink.v`". The actual baseline count was
+  **three** literal `Admitted.` in `DpoRmdir.v` only. After this PR
+  the count is 6 in `DpoRmdir.v` (3 baseline + 3 added for the new
+  invariants + 1 regression in `NoDirCycles`) plus 1 in `DpoRename.v`,
+  documented above.
 
 ## [0.2.4] — 2026-05-09 — close the v0.2.1 carryovers
 

@@ -283,6 +283,32 @@ Definition NoDirCycles (g : Graph) : Prop :=
         forall child_dir, dir_for_inode g (ce_ino e) = Some child_dir ->
           rank child_dir < rank (ce_dir e).
 
+(* --- 5.6 DirHasSelfRef ---                                             *)
+(* Every directory has a `.` edge from itself to its own inode.          *)
+(* TLA+ invariant I3 (DirHasSelfRef); previously implicit in the Rust    *)
+(* check_invariants but not encoded in the Coq WellFormed.               *)
+
+Definition DirHasSelfRef (g : Graph) : Prop :=
+  forall d, In d (g_dirs g) ->
+    In (mkContains (dr_id d) (dr_inode_id d) dot_name) (g_edges g).
+
+(* --- 5.7 NoHardLinkToDir ---                                           *)
+(* Directories cannot be hard-linked: for any directory inode, at most   *)
+(* one user-name edge targets it (the parent's entry edge). Mirrors the  *)
+(* Rust GC-LINK-2 rule. This is the missing precondition behind the      *)
+(* three Admitted lemmas in DpoRmdir.v.                                  *)
+
+Definition NoHardLinkToDir (g : Graph) : Prop :=
+  forall e1 e2 ir,
+    In e1 (g_edges g) ->
+    In e2 (g_edges g) ->
+    is_user_name (ce_name e1) ->
+    is_user_name (ce_name e2) ->
+    ce_ino e1 = ce_ino e2 ->
+    find_inode g (ce_ino e1) = Some ir ->
+    ir_vtype ir = DirectoryType ->
+    e1 = e2.
+
 (* ===================================================================== *)
 (* 12. Well-formed graph: conjunction of all invariants                   *)
 (* ===================================================================== *)
@@ -292,7 +318,9 @@ Definition WellFormed (g : Graph) : Prop :=
   LinkCountConsistent g /\
   UniqueNamesPerDir g /\
   NoDanglingEdges g /\
-  NoDirCycles g.
+  NoDirCycles g /\
+  DirHasSelfRef g /\
+  NoHardLinkToDir g.
 
 (* ===================================================================== *)
 (* 13. Initial graph (CREATE-ROOT) — matches TLA+ Init                   *)
@@ -376,9 +404,10 @@ Qed.
 Lemma init_graph_well_formed : WellFormed init_graph.
 Proof.
   unfold WellFormed, init_graph.
-  (* Rocq 9 is stricter about `repeat split` over nested `/\` after `simpl`;
-     destructure WellFormed explicitly so each conjunct gets its own goal. *)
-  split; [| split; [| split; [| split]]].
+  (* Rocq 9 / Coq 8.20 are stricter about `repeat split` over nested `/\`
+     after `simpl`; destructure WellFormed explicitly so each conjunct
+     gets its own goal. *)
+  split; [| split; [| split; [| split; [| split; [| split]]]]].
   - (* TypeInvariant *)
     unfold TypeInvariant. split; [| split].
     + (* edges endpoints exist *)
@@ -410,6 +439,15 @@ Proof.
     (* The only edge is dot_name = 0, which is not a user name (>= 2) *)
     simpl in Huser.
     unfold is_user_name, dot_name in Huser. lia.
+  - (* DirHasSelfRef: the root dir has its `.` edge to root_inode_id. *)
+    intros d Hin.
+    destruct Hin as [Hd | []]. subst d. simpl. left. reflexivity.
+  - (* NoHardLinkToDir: there's only one edge (the `.` self-edge with
+       name dot_name=0, which is NOT a user name), so the hypothesis
+       `is_user_name (ce_name e1)` is false. *)
+    intros e1 e2 ir Hin1 Hin2 Huser1 _ _ _ _.
+    destruct Hin1 as [He1 | []]. subst e1. simpl in Huser1.
+    unfold is_user_name, dot_name in Huser1. lia.
 Qed.
 
 (* ===================================================================== *)

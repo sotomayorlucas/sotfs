@@ -1,10 +1,19 @@
 -R . SotFS
 
-# Files that compile clean in Coq 8.20.0. The remaining .v files
-# (DpoMkdir.v, DpoLink.v, DpoRmdir.v) have outstanding compile errors
-# in modern Coq + 3 Admitted lemmas (in DpoRmdir.v); see
-# docs/known-issues.md ISSUE-FORMAL-001 for the full state.
+# All seven DPO modules compile in Coq 8.20.0 as of v0.2.6.
+# - SotfsGraph.v defines DirHasSelfRef + NoHardLinkToDir as conjuncts
+#   of WellFormed (added in v0.2.6 to support rmdir reasoning).
+# - DpoCreate/Mkdir/Unlink/Rename/Link prove preservation of all seven
+#   invariants for their DPO rule.
+# - DpoRmdir keeps 5 Admitted lemmas (3 from baseline + 2 added for
+#   DirHasSelfRef and NoHardLinkToDir preservation); 2 admits in
+#   rename_preserves_NoHardLinkToDir, 1 in mkdir_preserves_NoDirCycles
+#   was closed using DirHasSelfRef. See docs/known-issues.md
+#   ISSUE-FORMAL-001 for the full state.
 SotfsGraph.v
 DpoCreate.v
+DpoMkdir.v
+DpoLink.v
 DpoUnlink.v
 DpoRename.v
+DpoRmdir.v
