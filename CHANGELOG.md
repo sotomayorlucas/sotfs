@@ -5,6 +5,105 @@ All notable changes to sotFS will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased] — close every Coq `Admitted` / `admit`
+
+Closes the remaining 7 `Admitted` lemmas and 4 inline `admit`s in the
+Coq formalism. After this PR, all 6 DPO rules (`create`, `mkdir`,
+`link`, `unlink`, `rename`, `rmdir`) prove preservation of all 7
+invariants of `WellFormed` with **zero outstanding admits**.
+
+### Added — helpers in `SotfsGraph.v`
+
+- `find_in_NoDup_key` (+ specializations `find_inode_in_NoDup`,
+  `find_dir_in_NoDup`) — `find` on a list with `NoDup` keys returns
+  the unique matching element. Replaces ad-hoc induction on
+  `g_inodes g` / `g_dirs g` that was broken in Coq 8.20.
+- `find_filter_eq` — if the filter removes only non-matching
+  elements, `find` is unchanged.
+- `count_occ_pred_filter_eq` — same for `count_occ_pred`.
+- `NoDup_map_inj` — `NoDup (map f l)` + `In x l` + `In y l` +
+  `f x = f y` ⇒ `x = y`.
+
+### Added — preconditions on `RmdirPre` and `RenamePre`
+
+- `RmdirPre`: new field `rmp_only_target_links` — the only edges in
+  `g_edges g` targeting `target_ino` are the entry and dot edges.
+  This is exactly `GC-LINK-2` (no hard-links to directories) +
+  leaf-dir reasoning. The Rust caller establishes it before invoking
+  `rmdir`. With this, the three "deferred" sub-cases of
+  `rmdir_preserves_TypeInvariant` and `_NoDanglingEdges` close
+  cleanly.
+- `RenamePre`: new field `rp_no_dup_old` — the old edge appears
+  exactly once in `g_edges g`. Necessary to derive that an edge
+  surviving `remove_edge old_edge` is not `old_edge` itself.
+
+These are strengthened preconditions rather than new global
+`WellFormed` invariants, to avoid cascading updates across every DPO
+rule's preservation proofs. The Rust implementation establishes them
+structurally (via `UniqueNamesPerDir`, no-duplicate insert, and the
+empty-directory check before `rmdir`).
+
+### Fixed — every `Admitted` closed
+
+`DpoRmdir.v` previously had 6 `Admitted` lemmas (3 baseline + 3
+added in v0.2.6) and 4 inline `admit`s. All closed:
+
+- `rmdir_preserves_NoDirCycles` (8.20 idiom regression) — closed
+  using the new `find_inode_in_NoDup` + `find_filter_eq` helpers
+  and a clean `NoHardLinkToDir`-based proof that `ce_ino e ≠ ti`
+  for surviving edges with user names.
+- `rmdir_preserves_DirHasSelfRef` — closed using `filter_In` +
+  `ce_eqb_eq` injection on the three removed-edge cases.
+- `rmdir_preserves_NoHardLinkToDir` — closed using
+  `find_inode_in_NoDup`.
+- `rmdir_preserves_TypeInvariant` (3 sub-cases) — closed via
+  `rmp_only_target_links`.
+- `rmdir_preserves_NoDanglingEdges` — same proof skeleton as
+  `TypeInvariant`.
+- `rmdir_preserves_LinkCountConsistent` (the inline admit in
+  `_WellFormed`) — closed via `count_occ_pred_filter_eq`; the three
+  removed edges either target `ti` (excluded by `ir_id ir ≠ ti`)
+  or have `ce_name = dotdot_name` (excluded by the predicate).
+- `rmdir_preserves_WellFormed` — now aggregates all seven `Qed`
+  sub-lemmas.
+
+`DpoRename.v`'s `rename_preserves_NoHardLinkToDir` (1 `Admitted`
+with 2 inline `admit`s) — closed using `rp_no_dup_old`. The proof:
+any user-name edge surviving `remove_edge` with the same target as
+the new edge must equal the old edge (by `NoHardLinkToDir g`); but
+the old edge appears once (by `rp_no_dup_old`), so it doesn't
+survive its own removal.
+
+### Status after this PR
+
+```
+$ grep -rn "^Admitted\.\|admit\." formal/coq/*.v
+(no output — all 7 files compile clean with no admits)
+```
+
+All 6 DPO rules prove preservation of all 7 invariants:
+`TypeInvariant`, `LinkCountConsistent`, `UniqueNamesPerDir`,
+`NoDanglingEdges`, `NoDirCycles`, `DirHasSelfRef`, `NoHardLinkToDir`.
+`init_graph_well_formed` proves all 7 for `init_graph`.
+
+The Coq formalism is now **complete**: every DPO rewrite rule has
+a fully verified theorem stating that it preserves `WellFormed`.
+
+### Deferred (now the real v0.2.7 work)
+
+The "link to Rust" piece — making the Coq formalism more than a
+parallel artifact. Options:
+
+- Add `check_dir_has_self_ref` and `check_no_hard_link_to_dir` to
+  `sotfs-graph::check_invariants()` so the Rust runtime checks
+  match the Coq `WellFormed`.
+- Proptest cross-check: generate sequences of DPO ops, verify all
+  7 invariants hold in runtime, document each Coq lemma with a
+  `// Rust impl: file:line` pointer.
+- Spike: try `cargo hax into coq` on `sotfs-ops::create_file` to
+  see if mechanical Rust→Coq extraction is feasible.
+- CI: `.github/workflows/formal.yml` to run `coqc` on every PR.
+
 ## [Unreleased] — Coq 8.20 port + invariant extension
 
 Continues the v0.2.5 audit work. Brings the remaining three `.v`
