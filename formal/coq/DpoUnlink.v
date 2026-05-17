@@ -100,14 +100,14 @@ Theorem unlink_keep_preserves_TypeInvariant :
 Proof.
   intros g d name target_ino HWF Hpre.
   destruct HWF as [HTI [HLC [HUN [HND HNC]]]].
-  destruct HTI as [Hedge [HnodupI HnodupD]].
-  destruct Hpre as [Hdir Huser Hedge Hreg Htgt].
-  unfold TypeInvariant. repeat split.
+  destruct HTI as [Hedge_endpts [HnodupI HnodupD]].
+  destruct Hpre as [Hdir Huser Hedge_in Hreg Htgt].
+  unfold TypeInvariant. split; [| split].
   - (* endpoints exist *)
-    intros e Hin.
+    intros e0 Hin.
     unfold unlink_keep in Hin. simpl in Hin.
     apply remove_edge_subset in Hin.
-    destruct (HND e Hin) as [Hd Hi]. split.
+    destruct (HND e0 Hin) as [Hd Hi]. split.
     + unfold dir_exists, dir_ids, unlink_keep. simpl. exact Hd.
     + unfold inode_exists, inode_ids, unlink_keep. simpl.
       rewrite decrement_link_preserves_ids. exact Hi.
@@ -187,7 +187,7 @@ Proof.
     + (* h = removed edge — it targets target_ino, not ino *)
       apply ce_eqb_eq in Heq_edge. subst h. simpl.
       assert (Hneqb : Nat.eqb target_ino ino = false).
-      { apply Nat.eqb_neq. exact Hneq. }
+      { apply Nat.eqb_neq. intro H. apply Hneq. symmetry. exact H. }
       rewrite Hneqb. simpl. reflexivity.
     + (* h kept *)
       simpl.
@@ -245,8 +245,14 @@ Proof.
     rewrite Htgt.
     rewrite (unlink_incoming_target g d target_ino name).
     + (* pred link_count = pred incoming_count *)
-      f_equal. apply HLC. exact Hin_old.
-    + unfold WellFormed. repeat split; assumption.
+      f_equal. rewrite <- Htgt. apply HLC. exact Hin_old.
+    + (* WellFormed g — reconstruct TypeInvariant since we destructed it. *)
+      unfold WellFormed. split; [| split; [| split; [| split]]].
+      * unfold TypeInvariant. split; [| split]; assumption.
+      * exact HLC.
+      * exact HUN.
+      * exact HND.
+      * exact HNC.
     + exact Hedge_in.
     + exact Huser.
   - (* ir_old is not the target — unchanged *)
@@ -305,7 +311,7 @@ Theorem unlink_keep_preserves_WellFormed :
     WellFormed (unlink_keep g d target_ino name).
 Proof.
   intros g d name target_ino HWF Hpre Hkeep.
-  unfold WellFormed. repeat split.
+  unfold WellFormed. split; [| split; [| split; [| split]]].
   - exact (unlink_keep_preserves_TypeInvariant g d name target_ino HWF Hpre).
   - exact (unlink_keep_preserves_LinkCountConsistent g d name target_ino HWF Hpre Hkeep).
   - exact (unlink_keep_preserves_UniqueNamesPerDir g d name target_ino HWF Hpre).

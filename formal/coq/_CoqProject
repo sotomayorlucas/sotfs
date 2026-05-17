@@ -1,5 +1,9 @@
 -R . SotFS
 
+# Files that compile clean in Coq 8.20.0. The remaining .v files
+# (DpoMkdir.v, DpoLink.v, DpoRmdir.v) have outstanding compile errors
+# in modern Coq + 3 Admitted lemmas (in DpoRmdir.v); see
+# docs/known-issues.md ISSUE-FORMAL-001 for the full state.
 SotfsGraph.v
 DpoCreate.v
 DpoUnlink.v

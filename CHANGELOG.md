@@ -5,6 +5,46 @@ All notable changes to sotFS will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased] — formal Coq build repair
+
+Audit (2026-05-13) discovered that the Coq formalism under `formal/coq/`
+was not being built in CI, was not part of `just` recipes, and did not
+compile cleanly in Coq 8.20.0 nor Rocq 9.x — the toolchain shipped on
+modern Fedora.
+
+### Fixed
+
+- `formal/coq/SotfsGraph.v`, `DpoCreate.v`, `DpoUnlink.v`,
+  `DpoRename.v` now compile in Coq 8.20.0. The fix is purely
+  syntactic: `repeat split` replaced with explicit `split; [|split;…]`
+  where the conjuncts contain `forall` quantifiers, `tauto` calls
+  over disjunctions containing `=` rewritten manually (Coq's `tauto`
+  no longer symmetrises `=`), and `Nat.eqb_neq` instantiations
+  patched with explicit `symmetry`.
+- `_CoqProject` previously listed only 4 of the 7 `.v` files —
+  `DpoMkdir.v`, `DpoLink.v`, `DpoRmdir.v` were silently excluded
+  from any build attempt. Now `_CoqProject` lists the four
+  buildable files and a comment pointing at
+  `docs/known-issues.md#issue-formal-001` for the rest.
+
+### Corrected
+
+- The v0.2.3 and v0.2.4 entries below claim "five `Admitted`
+  lemmas in `DpoRmdir.v` / `DpoUnlink.v`". The actual count is
+  **three** literal `Admitted.` in `DpoRmdir.v`
+  (`rmdir_preserves_TypeInvariant`, `rmdir_preserves_NoDanglingEdges`,
+  `rmdir_preserves_WellFormed`). `DpoUnlink.v:202` mentions
+  "Admitted" only in a comment.
+
+### Deferred to v0.2.6
+
+- Modern-Coq syntax port for `DpoMkdir.v`, `DpoLink.v`, `DpoRmdir.v`.
+- Closing the three `Admitted` in `DpoRmdir.v` — blocked on adding
+  `NoHardLinkToDir` and `DirHasSelfRef` invariants to `WellFormed`
+  in `SotfsGraph.v` and re-proving preservation for all DPO rules.
+- A `.github/workflows/formal.yml` CI job to run Coq on every PR
+  so this regression cannot recur silently.
+
 ## [0.2.4] — 2026-05-09 — close the v0.2.1 carryovers
 
 This release closes four of the five v0.2.1-carryover items. The
