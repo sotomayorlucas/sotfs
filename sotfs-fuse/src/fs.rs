@@ -51,11 +51,17 @@ const BLOCK_SIZE: u32 = 4096;
 /// Derive a [`CapContext`] from a FUSE request.
 ///
 /// Convention: each Linux uid acts as its own security domain (we don't
-/// have a cap-graph mapping yet — that lands with the cap-mediated
-/// admission control work post-v0.3). `cap_id` stays `None` until the
-/// FUSE daemon learns to look up the cap-graph for the (uid,inode)
-/// pair; the value still surfaces in MSO query Q4 (ops_by_domain) and
-/// Q6 (activity_summary).
+/// have a uid → cap mapping yet — that's a v0.3 work item). `cap_id`
+/// stays `None`, which the graph's admission check
+/// (`TypeGraph::require_cap`, added in the v0.2.5 cap-plumbing work)
+/// treats as the "anonymous / kernel" bypass — i.e. FUSE callers
+/// remain unrestricted today, identical to pre-admission behavior.
+/// The uid still surfaces as `domain_id` in MSO query Q4
+/// (`ops_by_domain`) and Q6 (`activity_summary`).
+///
+/// When the uid → cap mapping lands, this function will resolve a
+/// real `cap_id` for the request's uid; the rest of the pipeline
+/// (admission + provenance) already understands that shape.
 fn ctx_from_req(req: &Request<'_>) -> CapContext {
     CapContext::new(None, req.uid() as u64)
 }

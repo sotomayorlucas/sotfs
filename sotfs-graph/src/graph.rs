@@ -670,6 +670,43 @@ impl TypeGraph {
         self.cap_ctx
     }
 
+    /// Cap-mediated admission control for mutating DPO ops.
+    ///
+    /// Each mutating op in `sotfs-ops` calls `require_cap` with the
+    /// `Rights` bits the op needs. The check resolves the active
+    /// `cap_ctx`:
+    ///
+    /// - `cap_id == None` is the "anonymous / kernel" path. Internal
+    ///   admin tasks (snapshot load, fsck, sotfsctl boot) operate
+    ///   without a cap; the check returns `Ok(())` so those flows are
+    ///   unaffected. Today the FUSE adapter also passes `None`,
+    ///   pending a uid → cap mapping (v0.3 work). This explicit
+    ///   "anonymous = bypass" is the structural reason every existing
+    ///   sotfs-ops test continues to pass without modification.
+    ///
+    /// - `cap_id == Some(id)` looks up the `Capability` in the cap
+    ///   arena. If the cap doesn't exist, returns
+    ///   `GraphError::CapNotFound(id)`. If the cap exists but doesn't
+    ///   carry the requested bits, returns
+    ///   `GraphError::CapInsufficientRights { needed, have }`.
+    ///
+    /// Callers should not need to handle the error themselves — the
+    /// `?` propagates back through the DPO op and out to the caller.
+    pub fn require_cap(&self, needed: u8) -> Result<(), GraphError> {
+        let cap_id = match self.cap_ctx.cap_id {
+            Some(id) => id,
+            None => return Ok(()),
+        };
+        let cap = self.get_cap(cap_id).ok_or(GraphError::CapNotFound(cap_id))?;
+        if !cap.rights.contains(needed) {
+            return Err(GraphError::CapInsufficientRights {
+                needed,
+                have: cap.rights.0,
+            });
+        }
+        Ok(())
+    }
+
     /// Rebuild `dir_name_idx` from the current edge set. Call after
     /// loading a graph snapshot that predates the index.
     pub fn rebuild_dir_name_idx(&mut self) {

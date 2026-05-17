@@ -36,6 +36,9 @@ pub enum GraphError {
     // quota errors
     QuotaExceeded { dir: DirId, resource: String },
 
+    // capability admission control
+    CapInsufficientRights { needed: u8, have: u8 },
+
     // Invariant violations
     InvariantViolation(String),
 }
@@ -71,6 +74,11 @@ impl core::fmt::Display for GraphError {
             Self::QuotaExceeded { dir, resource } => {
                 write!(f, "{} quota exceeded for directory {}", resource, dir)
             }
+            Self::CapInsufficientRights { needed, have } => write!(
+                f,
+                "capability lacks required rights: needed {:#04x}, have {:#04x}",
+                needed, have
+            ),
             Self::InvariantViolation(msg) => write!(f, "invariant violation: {}", msg),
         }
     }
