@@ -128,9 +128,32 @@ fn dpo_ops_record_with_active_cap_ctx() {
     // ctx between them, and check the log captures the right cap /
     // domain on each entry. This is the contract that powers MSO
     // queries Q1/Q2/Q4/Q6 once FUSE plumbs real values.
-    use sotfs_graph::types::CapContext;
+    //
+    // v0.2.5 (cap-admission): the caps referenced by `cap_ctx` must
+    // now exist in the graph and carry the rights the DPO op needs.
+    // Caps 7 and 8 below are pre-inserted with WRITE+GRANT so the
+    // create_file + write_data + chmod sequence is admitted; the
+    // assertions on what provenance records remain unchanged.
+    use sotfs_graph::types::{Capability, CapContext, Rights};
     let mut g = fresh();
     let rd = g.root_dir;
+
+    g.insert_cap(
+        7,
+        Capability {
+            id: 7,
+            rights: Rights::ALL,
+            epoch: 0,
+        },
+    );
+    g.insert_cap(
+        8,
+        Capability {
+            id: 8,
+            rights: Rights::ALL,
+            epoch: 0,
+        },
+    );
 
     g.set_cap_ctx(CapContext::new(Some(7), 1000));
     let id_a = create_file(&mut g, rd, "a", 0, 0, Permissions::FILE_DEFAULT).unwrap();

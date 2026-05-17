@@ -5,6 +5,88 @@ All notable changes to sotFS will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased] — cap-mediated admission control on DPO ops (v0.2.5 H1.1)
+
+Closes the last v0.2.5 audit carryover: every mutating DPO op in
+`sotfs-ops` now performs cap-mediated admission control before any
+state mutation. Pre-this-PR, the `cap_ctx` threaded through
+`TypeGraph` was used **only** to attribute provenance entries —
+nothing actually rejected an op based on the cap. That gap is closed.
+
+### Design choice — instrumented helper, not changed signatures
+
+The audit's recommended action was "extend the signatures of the 13
+mutating DPO ops to take `CapContext` and reject the op if the cap
+doesn't cover it". I took the structurally equivalent but
+non-breaking path: keep the public signatures, and have each
+mutator call `g.require_cap(rights)?` as its first line. The cap
+context is already threaded through `TypeGraph` (every FUSE
+callback calls `set_cap_ctx(ctx_from_req(req))`), so the
+information is in scope; what was missing was the check.
+
+Trade-offs vs the signatures-take-`CapContext` approach:
+
+- **+** No source-compat break for ~150 call sites across
+  sotfs-cli, sotfs-tx, sotfs-fuse, fuzz targets, tests.
+- **+** All 354 existing tests continue to pass without modification
+  (the default `cap_ctx` is anonymous; admission bypasses).
+- **−** The cap context is read out of mutable state rather than
+  passed by value. Concurrent callers must
+  `set_cap_ctx` immediately before each op (which FUSE already
+  does, see `sotfs-fuse/src/fs.rs`).
+
+### Added
+
+- `TypeGraph::require_cap(needed: u8)` in
+  [`sotfs-graph/src/graph.rs`](sotfs-graph/src/graph.rs):
+  - `cap_ctx.cap_id == None` → admit (anonymous / kernel mode,
+    preserves all existing test behavior).
+  - `cap_ctx.cap_id == Some(id)` → look up the `Capability` in the
+    arena; fail with `CapNotFound(id)` if absent, fail with
+    `CapInsufficientRights { needed, have }` if rights don't cover
+    `needed`.
+- `GraphError::CapInsufficientRights { needed: u8, have: u8 }` —
+  new error variant with a `Display` impl.
+- Call to `g.require_cap(...)` at the top of 16 DPO mutators:
+  - `WRITE`: `create_file`, `mkdir`, `rmdir`, `link`, `unlink`,
+    `rename`, `write_block`, `write_data`, `truncate`, `setxattr`,
+    `removexattr`, `symlink`.
+  - `GRANT`: `chmod`, `chown`, `setacl`, `set_quota`.
+  Read-only helpers (`read_data`, `getxattr`, `listxattr`,
+  `readlink`, `getacl`, `get_quota`, `check_quota_*`, `fsck`) are
+  not instrumented; they don't mutate state.
+- [`sotfs-ops/tests/cap_admission.rs`](sotfs-ops/tests/cap_admission.rs)
+  — 7 tests covering the matrix:
+  1. Anonymous ctx admits every op (baseline).
+  2. `Rights::WRITE` cap admits every write-class op.
+  3. `Rights::READ`-only cap rejects `create_file` with the right
+     error variant and field values.
+  4. `Rights::READ`-only cap rejects all 9 write-class ops.
+  5. `Rights::WRITE` (but not `GRANT`) rejects `chmod` / `chown`.
+  6. `Rights::ALL` admits `chmod` / `chown` / `setacl` / `set_quota`.
+  7. A `cap_id` not present in the arena rejects with `CapNotFound`.
+
+### Updated
+
+- [`sotfs-ops/tests/provenance_integration.rs`](sotfs-ops/tests/provenance_integration.rs)
+  `dpo_ops_record_with_active_cap_ctx`: previously used
+  `CapContext::new(Some(7), ...)` without inserting cap 7 into the
+  graph — pre-admission this was fine (cap_id was only attribution
+  metadata). Now caps 7 and 8 are pre-inserted with `Rights::ALL`
+  so the sequence is admitted; the assertions on what provenance
+  records are unchanged.
+- [`sotfs-fuse/src/fs.rs`](sotfs-fuse/src/fs.rs) `ctx_from_req`
+  doc-comment updated to spell out the contract with admission
+  control: today `cap_id = None` → anonymous bypass, identical to
+  pre-this-PR behavior. The uid → cap mapping that would make
+  every FUSE request go through admission is a v0.3 work item.
+
+### Not in scope
+
+- The uid → cap mapping for FUSE. Plumbing requires a new graph
+  state and a setup interface for the daemon; tracked as v0.3 work.
+- Changing public function signatures. See "Design choice" above.
+
 ## [Unreleased] — formal CI gate
 
 `.github/workflows/formal.yml` — Coq verification on every PR.

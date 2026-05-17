@@ -38,6 +38,7 @@ pub fn create_file(
     gid: u32,
     permissions: Permissions,
 ) -> Result<InodeId, GraphError> {
+    g.require_cap(Rights::WRITE)?;
     // Reject reserved and invalid names
     if name.is_empty() || name == "." || name == ".." || name.contains('/') || name.contains('\0') {
         return Err(GraphError::NameNotFound(name.into()));
@@ -99,6 +100,7 @@ pub fn mkdir(
     gid: u32,
     permissions: Permissions,
 ) -> Result<CreateResult, GraphError> {
+    g.require_cap(Rights::WRITE)?;
     // Reject reserved and invalid names
     if name.is_empty() || name == "." || name == ".." || name.contains('/') || name.contains('\0') {
         return Err(GraphError::NameNotFound(name.into()));
@@ -196,6 +198,7 @@ pub fn mkdir(
 
 /// DPO Rule: RMDIR — §6.2.4
 pub fn rmdir(g: &mut TypeGraph, parent_dir: DirId, name: &str) -> Result<(), GraphError> {
+    g.require_cap(Rights::WRITE)?;
     if name == "." || name == ".." {
         return Err(GraphError::NameNotFound(name.into()));
     }
@@ -275,6 +278,7 @@ pub fn link(
     name: &str,
     target_inode: InodeId,
 ) -> Result<(), GraphError> {
+    g.require_cap(Rights::WRITE)?;
     // Cannot create links named "." or ".." — these are reserved
     if name == "." || name == ".." {
         return Err(GraphError::NameNotFound(name.into()));
@@ -320,6 +324,7 @@ pub fn link(
 
 /// DPO Rule: UNLINK — §6.2.6
 pub fn unlink(g: &mut TypeGraph, dir: DirId, name: &str) -> Result<(), GraphError> {
+    g.require_cap(Rights::WRITE)?;
     if name == "." || name == ".." {
         return Err(GraphError::NameNotFound(name.into()));
     }
@@ -408,6 +413,7 @@ pub fn rename(
     dst_dir: DirId,
     dst_name: &str,
 ) -> Result<(), GraphError> {
+    g.require_cap(Rights::WRITE)?;
     // Cannot rename "." or ".." — these are structural
     if src_name == "." || src_name == ".." || dst_name == "." || dst_name == ".." {
         return Err(GraphError::NameNotFound(src_name.into()));
@@ -630,6 +636,7 @@ pub fn write_block(
     sector_start: u64,
     sector_count: u64,
 ) -> Result<BlockId, GraphError> {
+    g.require_cap(Rights::WRITE)?;
     if !g.contains_inode(inode_id) {
         return Err(GraphError::InodeNotFound(inode_id));
     }
@@ -673,6 +680,7 @@ pub fn write_data(
     offset: u64,
     data: &[u8],
 ) -> Result<usize, GraphError> {
+    g.require_cap(Rights::WRITE)?;
     let inode = g
         .get_inode(inode_id)
         .ok_or(GraphError::InodeNotFound(inode_id))?;
@@ -726,6 +734,7 @@ pub fn read_data(
 
 /// Truncate a file to the given length.
 pub fn truncate(g: &mut TypeGraph, inode_id: InodeId, new_size: u64) -> Result<(), GraphError> {
+    g.require_cap(Rights::WRITE)?;
     let inode = g
         .get_inode(inode_id)
         .ok_or(GraphError::InodeNotFound(inode_id))?;
@@ -747,6 +756,7 @@ pub fn truncate(g: &mut TypeGraph, inode_id: InodeId, new_size: u64) -> Result<(
 
 /// Set permissions on an inode.
 pub fn chmod(g: &mut TypeGraph, inode_id: InodeId, mode: u16) -> Result<(), GraphError> {
+    g.require_cap(Rights::GRANT)?;
     let inode = g
         .get_inode_mut(inode_id)
         .ok_or(GraphError::InodeNotFound(inode_id))?;
@@ -762,6 +772,7 @@ pub fn chown(
     uid: Option<u32>,
     gid: Option<u32>,
 ) -> Result<(), GraphError> {
+    g.require_cap(Rights::GRANT)?;
     let inode = g
         .get_inode_mut(inode_id)
         .ok_or(GraphError::InodeNotFound(inode_id))?;
@@ -891,6 +902,7 @@ pub fn setxattr(
     name: &str,
     value: &[u8],
 ) -> Result<XAttrId, GraphError> {
+    g.require_cap(Rights::WRITE)?;
     if !g.contains_inode(inode_id) {
         return Err(GraphError::InodeNotFound(inode_id));
     }
@@ -969,6 +981,7 @@ pub fn removexattr(
     namespace: XAttrNamespace,
     name: &str,
 ) -> Result<(), GraphError> {
+    g.require_cap(Rights::WRITE)?;
     if !g.contains_inode(inode_id) {
         return Err(GraphError::InodeNotFound(inode_id));
     }
@@ -1040,6 +1053,7 @@ pub fn symlink(
     uid: u32,
     gid: u32,
 ) -> Result<InodeId, GraphError> {
+    g.require_cap(Rights::WRITE)?;
     if name.is_empty() || name == "." || name == ".." || name.contains('/') || name.contains('\0') {
         return Err(GraphError::NameNotFound(name.into()));
     }
@@ -1167,6 +1181,7 @@ pub fn setacl(
     inode_id: InodeId,
     entries: Vec<AclEntry>,
 ) -> Result<(), GraphError> {
+    g.require_cap(Rights::GRANT)?;
     if !g.contains_inode(inode_id) {
         return Err(GraphError::InodeNotFound(inode_id));
     }
@@ -1296,6 +1311,7 @@ pub fn set_quota(
     inode_limit: u64,
     byte_limit: u64,
 ) -> Result<(), GraphError> {
+    g.require_cap(Rights::GRANT)?;
     if !g.contains_dir(dir_id) {
         return Err(GraphError::DirNotFound(dir_id));
     }
