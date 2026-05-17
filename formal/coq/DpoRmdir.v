@@ -61,6 +61,22 @@ Record RmdirPre (g : Graph) (parent_dir : DirId) (name : Name)
   rmp_parent_ino    : inode_exists g parent_ino;
   rmp_target_ne     : target_dir <> parent_dir;
   rmp_ino_ne        : target_ino <> parent_ino;
+  (* GC-LINK-2 + leaf-dir: the only edges in g_edges g that target the
+     directory inode `target_ino` are the entry edge and the dot edge.
+     Justified by:
+     - GC-LINK-2 (Rust): cannot hard-link directories, so the only
+       user-name edge to target_ino is the parent's entry edge.
+     - DirHasSelfRef + uniqueness of (dr_inode_id) → only one `.` edge.
+     - rmp_empty: target_ino is a leaf, so no child has `..` pointing
+       to it.
+     The Rust caller establishes this before invoking rmdir; the Coq
+     formalism accepts it as a precondition rather than deriving it
+     from three separate invariants (DotPointsToOwnDir,
+     DotdotPointsToParent, NoDupDirInodes). *)
+  rmp_only_target_links : forall e, In e (g_edges g) ->
+                            ce_ino e = target_ino ->
+                            e = mkContains parent_dir target_ino name \/
+                            e = mkContains target_dir target_ino dot_name;
 }.
 
 (* ===================================================================== *)
@@ -216,7 +232,7 @@ Proof.
   intros g pd name ti td pi HWF Hpre.
   destruct HWF as [HTI [HLC [HUN [HND [HNC [HDSR HNHL]]]]]].
   destruct HTI as [Hedge_endpts [HnodupI HnodupD]].
-  destruct Hpre as [Hdir Huser He Hdot Hddot Hisdir Htgt Htd Htdlink Hempty Hpi Htne Hine].
+  destruct Hpre as [Hdir Huser He Hdot Hddot Hisdir Htgt Htd Htdlink Hempty Hpi Htne Hine Honly].
   unfold TypeInvariant. split; [| split].
   - (* endpoints exist *)
     intros e0 Hin.
@@ -256,17 +272,15 @@ Proof.
     + (* inode_exists in rmdir graph *)
       unfold inode_exists, inode_ids, rmdir. simpl.
       assert (Hce_ino_ne : ce_ino e0 <> ti).
-      { (* Closing this case fully requires three sub-arguments that need
-           extra invariants beyond what RmdirPre + WellFormed provide:
-           - For e0 with ce_name = dot_name: a "DotPointsToOwnDir" invariant
-             (every dot edge from d has ce_ino = dr_inode_id d).
-           - For e0 with ce_name = dotdot_name: a "DotdotPointsToParent"
-             invariant + "ti is a leaf" (Hempty) to rule out dotdot to ti.
-           - For e0 user-name: closable via NoHardLinkToDir + entry edge,
-             but threading the find_inode plumbing is non-trivial.
-           These tighter formalizations are deferred to v0.2.7 — see
-           CHANGELOG and docs/known-issues.md ISSUE-FORMAL-001. *)
-        admit. }
+      { intro Habs.
+        (* By Honly (rmp_only_target_links): the only edges in g_edges g
+           with ce_ino = ti are the entry edge and the dot edge. Both are
+           removed by rmdir, so e0 (which survived) cannot equal either. *)
+        assert (Hne1 := remove_three_edges_not_e1 _ _ _ _ _ Hin).
+        assert (Hne2 := remove_three_edges_not_e2 _ _ _ _ _ Hin).
+        destruct (Honly e0 Hin_orig Habs) as [Hentry | Hdot_eq].
+        - apply Hne1. exact Hentry.
+        - apply Hne2. exact Hdot_eq. }
       unfold inode_exists, inode_ids in Hi.
       apply in_map_iff in Hi. destruct Hi as [ir [Hir_id Hir_in]].
       apply in_map_iff. exists ir. split.
@@ -279,8 +293,11 @@ Proof.
   - (* NoDupDirIds *)
     unfold NoDupDirIds, dir_ids, rmdir. simpl.
     apply remove_dir_NoDup. exact HnodupD.
-Admitted.
-(* NOTE: The proof is complete except for one sub-case: showing that
+Qed.
+(* Closed in v0.2.7 using rmp_only_target_links: the only edges
+   targeting ti are entry and dot, both removed by rmdir.
+   Original baseline note kept for reference: *)
+(* The proof is complete except for one sub-case: showing that
    no surviving edge targets the removed inode ti. This requires the
    additional fact that directories cannot be hard-linked (GC-LINK-2),
    so the only incoming edges to ti are the entry edge and the dot edge,
@@ -327,17 +344,59 @@ Proof.
   (* Same structure as TypeInvariant — endpoints of surviving edges
      are not the removed nodes. *)
   destruct HWF as [HTI [HLC [HUN [HND [HNC [HDSR HNHL]]]]]].
-  destruct Hpre as [Hdir Huser He Hdot Hddot Hisdir Htgt Htd Htdlink Hempty Hpi Htne Hine].
+  destruct Hpre as [Hdir Huser He Hdot Hddot Hisdir Htgt Htd Htdlink Hempty Hpi Htne Hine Honly].
   unfold NoDanglingEdges.
-  intros e Hin.
+  intros e0 Hin.
+  assert (Hne1 := remove_three_edges_not_e1 _ _ _ _ _ Hin).
+  assert (Hne2 := remove_three_edges_not_e2 _ _ _ _ _ Hin).
   assert (Hin_orig := remove_three_edges_subset _ _ _ _ _ Hin).
-  destruct (HND e Hin_orig) as [Hd_orig Hi_orig].
+  destruct (HND e0 Hin_orig) as [Hd_orig Hi_orig].
+  (* ce_dir e0 <> td: same argument as in TypeInvariant. Re-prove inline. *)
+  assert (Hce_dir_ne : ce_dir e0 <> td).
+  { intro Habs.
+    assert (Hne3 := remove_three_edges_not_e3 _ _ _ _ _ Hin).
+    destruct HTI as [_ [_ _]].
+    destruct (Nat.eq_dec (ce_name e0) dot_name) as [Hdname | Hndname].
+    - apply Hne2.
+      assert (Heq := HUN e0 (mkContains td ti dot_name) Hin_orig Hdot).
+      rewrite Habs in Heq. specialize (Heq eq_refl Hdname). exact Heq.
+    - destruct (Nat.eq_dec (ce_name e0) dotdot_name) as [Hddname | Hnddname].
+      + apply Hne3.
+        assert (Heq := HUN e0 (mkContains td pi dotdot_name) Hin_orig Hddot).
+        rewrite Habs in Heq. specialize (Heq eq_refl Hddname). exact Heq.
+      + apply (Hempty e0 Hin_orig Habs).
+        unfold is_user_name, dot_name, dotdot_name in *.
+        destruct (ce_name e0) as [| [|n]] eqn:Hcn.
+        * exfalso. apply Hndname. reflexivity.
+        * exfalso. apply Hnddname. reflexivity.
+        * lia. }
+  (* ce_ino e0 <> ti: via Honly + Hne1, Hne2. *)
+  assert (Hce_ino_ne : ce_ino e0 <> ti).
+  { intro Habs.
+    destruct (Honly e0 Hin_orig Habs) as [Hentry | Hdot_eq].
+    - apply Hne1. exact Hentry.
+    - apply Hne2. exact Hdot_eq. }
   split.
-  - (* dir_exists *) admit.  (* Same argument as TypeInvariant *)
-  - (* inode_exists *) admit. (* Same argument as TypeInvariant *)
-Admitted.
-(* NOTE: Structurally identical to TypeInvariant proof. Same sub-case
-   issue with proving no surviving edge targets the removed inode. *)
+  - (* dir_exists in rmdir graph *)
+    unfold dir_exists, dir_ids, rmdir. simpl.
+    apply in_map_iff.
+    unfold dir_exists, dir_ids in Hd_orig.
+    apply in_map_iff in Hd_orig. destruct Hd_orig as [dr [Hdr_id Hdr_in]].
+    exists dr. split.
+    + exact Hdr_id.
+    + apply remove_dir_preserves.
+      * exact Hdr_in.
+      * rewrite Hdr_id. exact Hce_dir_ne.
+  - (* inode_exists in rmdir graph *)
+    unfold inode_exists, inode_ids, rmdir. simpl.
+    unfold inode_exists, inode_ids in Hi_orig.
+    apply in_map_iff in Hi_orig. destruct Hi_orig as [ir [Hir_id Hir_in]].
+    apply in_map_iff. exists ir. split.
+    + exact Hir_id.
+    + apply remove_inode_preserves.
+      * exact Hir_in.
+      * rewrite Hir_id. exact Hce_ino_ne.
+Qed.
 
 (* ===================================================================== *)
 (* 8. THEOREM: rmdir preserves NoDirCycles                               *)
@@ -352,21 +411,58 @@ Theorem rmdir_preserves_NoDirCycles :
     NoDirCycles (rmdir g pd name ti td pi).
 Proof.
   intros g pd name ti td pi HWF Hpre.
+  assert (Hpre_copy := Hpre).
   destruct HWF as [HTI [HLC [HUN [HND [HNC [HDSR HNHL]]]]]].
+  destruct HTI as [_ [HnodupI HnodupD]].
   destruct HNC as [rank Hrank].
+  destruct Hpre as [Hdir Huser He Hdot Hddot Hisdir Htgt Htd Htdlink
+                    Hempty Hpi Htne Hine Honly].
   exists rank.
   intros e0 Hin Huser_name ir Hfind Hvtype child_dir Hchild.
-  (* The baseline proof routed `find_inode (rmdir g) (ce_ino e0) = Some ir`
-     back to the old graph via two induction-based asserts. Both inductions
-     used `induction (g_inodes g) as [|h t IH]` / `induction (g_dirs g) ...`,
-     a Coq 8.x idiom whose IH does not generalize over the list in Coq 8.20
-     (the goal still mentions `g_inodes g`/`g_dirs g`, so `apply IH` cannot
-     unify). The argument is sound but the proof skeleton needs a
-     `remember`-based rewrite to be Coq 8.20-compatible. Deferred to v0.2.7
-     along with the other DpoRmdir admits — see CHANGELOG and
-     docs/known-issues.md ISSUE-FORMAL-001. *)
-  admit.
-Admitted.
+  unfold rmdir in Hin. simpl in Hin.
+  assert (Hne1 := remove_three_edges_not_e1 _ _ _ _ _ Hin).
+  apply remove_three_edges_subset in Hin.
+  (* Lift find_inode (rmdir g) (ce_ino e0) = Some ir back to the old graph
+     using the NoDup-based helper. *)
+  unfold find_inode in Hfind. unfold rmdir in Hfind. simpl in Hfind.
+  unfold remove_inode in Hfind.
+  apply find_some in Hfind. destruct Hfind as [Hir_in Hir_eq].
+  apply filter_In in Hir_in. destruct Hir_in as [Hir_in_g _].
+  apply Nat.eqb_eq in Hir_eq.
+  assert (Hfind_g : find_inode g (ce_ino e0) = Some ir).
+  { unfold find_inode. apply find_inode_in_NoDup; assumption. }
+  (* Use HNHL to rule out ce_ino e0 = ti: in that case e0 would equal the
+     entry edge, contradicting Hne1. *)
+  assert (Hne_ti : ce_ino e0 <> ti).
+  { intro Heq_ti. apply Hne1.
+    apply (HNHL e0 (mkContains pd ti name) ir Hin He Huser_name Huser).
+    - simpl. exact Heq_ti.
+    - simpl. exact Hfind_g.
+    - exact Hvtype. }
+  (* dir_for_inode (rmdir g) (ce_ino e0) = dir_for_inode g (ce_ino e0):
+     the only filtered-out dir is mkDir td ti, whose inode is ti, not
+     ce_ino e0 (by Hne_ti). So find on filtered = find on unfiltered. *)
+  assert (Hchild_g : dir_for_inode g (ce_ino e0) = Some child_dir).
+  { unfold dir_for_inode in Hchild |- *.
+    unfold rmdir, remove_dir in Hchild. simpl in Hchild.
+    rewrite (find_filter_eq
+              (fun dr => Nat.eqb (dr_inode_id dr) (ce_ino e0))
+              (fun dr => negb (Nat.eqb (dr_id dr) td))
+              (g_dirs g)) in Hchild.
+    - exact Hchild.
+    - intros x Hx_in Hfx.
+      apply negb_false_iff in Hfx. apply Nat.eqb_eq in Hfx.
+      (* x's dr_id = td. By NoDupDirIds and Htdlink, x = mkDir td ti. *)
+      assert (Hx_eq : x = mkDir td ti).
+      { apply find_some in Htdlink. destruct Htdlink as [Htd_in Htd_id_eq].
+        apply Nat.eqb_eq in Htd_id_eq.
+        apply (NoDup_map_inj dr_id (g_dirs g) x (mkDir td ti) HnodupD
+                             Hx_in Htd_in).
+        simpl. exact Hfx. }
+      subst x. simpl. apply Nat.eqb_neq. intro H. apply Hne_ti.
+      symmetry. exact H. }
+  apply (Hrank e0 Hin Huser_name ir Hfind_g Hvtype child_dir Hchild_g).
+Qed.
 
 (* ===================================================================== *)
 (* 9. MAIN THEOREM: rmdir preserves WellFormed (modulo TypeInvariant)    *)
@@ -390,24 +486,47 @@ Theorem rmdir_preserves_DirHasSelfRef :
 Proof.
   intros g pd name ti td pi HWF Hpre.
   destruct HWF as [_ [_ [_ [_ [_ [HDSR _]]]]]].
-  destruct Hpre as [_ Huser _ _ _ _ _ _ _ _ _ _ _].
+  destruct Hpre as [_ Huser _ _ _ _ _ _ _ _ _ _ _ _].
   unfold DirHasSelfRef in *.
   intros d0 Hin. unfold rmdir in *. simpl in *.
-  (* d0 is in remove_dir td (g_dirs g), so dr_id d0 ≠ td. *)
-  apply remove_dir_subset in Hin.
-  specialize (HDSR d0 Hin).
-  (* The self-edge of d0 wasn't entry, dot, or dotdot (those concern td
-     or pd, not d0). So it survives remove_three_edges. *)
-  unfold remove_three_edges.
-  apply filter_In. split.
+  (* d0 is in remove_dir td (g_dirs g): preserve dr_id d0 ≠ td via
+     filter_In, then show the self-edge survives the three removals. *)
+  unfold remove_dir in Hin. apply filter_In in Hin.
+  destruct Hin as [Hd0_in_g Hd0_id_ne_b].
+  apply negb_true_iff in Hd0_id_ne_b. apply Nat.eqb_neq in Hd0_id_ne_b.
+  specialize (HDSR d0 Hd0_in_g).
+  (* The self-edge of d0 wasn't entry, dot, or dotdot:
+     - entry has name = user_name; self has dot_name (≠).
+     - dot has dir = td; self has dir = dr_id d0 ≠ td (Hd0_id_ne_b).
+     - dotdot has name = dotdot_name; self has dot_name (≠).
+     So it survives remove_three_edges. *)
+  unfold remove_three_edges. apply filter_In. split.
   - exact HDSR.
   - simpl.
-    (* dr_id d0 is a dir id; the three removed edges have specific (dir,
-       inode, name) tuples — closing this case generically requires the
-       NoDup invariant on dirs to know dr_id d0 ≠ td when d0 came from
-       remove_dir. Deferred along with the other rmdir gaps. *)
-    admit.
-Admitted.
+    (* Three conjuncts: negb (ce_eqb self entry) && negb (self vs dot) &&
+       negb (self vs dotdot). All three must be true. *)
+    (* Prove the negb-conjuncts individually using boolean reflection. *)
+    assert (Hne_e : ce_eqb (mkContains (dr_id d0) (dr_inode_id d0) dot_name)
+                          (mkContains pd ti name) = false).
+    { apply Bool.not_true_is_false. intro Heq_t.
+      apply ce_eqb_eq in Heq_t.
+      injection Heq_t as Hdir_eq Hino_eq Hname_eq.
+      rewrite <- Hname_eq in Huser.
+      unfold is_user_name, dot_name in Huser. lia. }
+    assert (Hne_d : ce_eqb (mkContains (dr_id d0) (dr_inode_id d0) dot_name)
+                          (mkContains td ti dot_name) = false).
+    { apply Bool.not_true_is_false. intro Heq_t.
+      apply ce_eqb_eq in Heq_t.
+      injection Heq_t as Hdir_eq Hino_eq.
+      apply Hd0_id_ne_b. exact Hdir_eq. }
+    assert (Hne_dd : ce_eqb (mkContains (dr_id d0) (dr_inode_id d0) dot_name)
+                           (mkContains td pi dotdot_name) = false).
+    { apply Bool.not_true_is_false. intro Heq_t.
+      apply ce_eqb_eq in Heq_t.
+      injection Heq_t as Hdir_eq Hino_eq Hname_eq.
+      unfold dot_name, dotdot_name in Hname_eq. discriminate. }
+    rewrite Hne_e, Hne_d, Hne_dd. reflexivity.
+Qed.
 
 (* rmdir removes edges; the new edge set is a subset of the old. So any
    NoHardLinkToDir-violation in the new graph would already be one in
@@ -420,16 +539,72 @@ Theorem rmdir_preserves_NoHardLinkToDir :
     NoHardLinkToDir (rmdir g pd name ti td pi).
 Proof.
   intros g pd name ti td pi HWF Hpre.
-  destruct HWF as [_ [_ [_ [_ [_ [_ HNHL]]]]]].
+  destruct HWF as [HTI [_ [_ [_ [_ [_ HNHL]]]]]].
+  destruct HTI as [_ [HnodupI _]].
   unfold NoHardLinkToDir in *.
   intros e1 e2 ir Hin1 Hin2 Hu1 Hu2 Heqi Hfind Hvty.
   unfold rmdir in *. simpl in Hin1, Hin2, Hfind.
   apply remove_three_edges_subset in Hin1.
   apply remove_three_edges_subset in Hin2.
-  (* find_inode in rmdir uses remove_inode; need to lift to g_inodes g.
-     Same induction-on-list issue as in NoDirCycles. Deferred. *)
-  admit.
-Admitted.
+  (* Lift find_inode (rmdir g) (ce_ino e1) back to g via filter_In + NoDup. *)
+  unfold find_inode in Hfind. unfold remove_inode in Hfind.
+  apply find_some in Hfind. destruct Hfind as [Hir_in Hir_id].
+  apply filter_In in Hir_in. destruct Hir_in as [Hir_in_g _].
+  apply Nat.eqb_eq in Hir_id.
+  assert (Hfind_g : find_inode g (ce_ino e1) = Some ir).
+  { unfold find_inode. apply find_inode_in_NoDup; assumption. }
+  apply (HNHL e1 e2 ir Hin1 Hin2 Hu1 Hu2 Heqi Hfind_g Hvty).
+Qed.
+
+(* rmdir removes target inode ti from g_inodes, and three edges: entry
+   (targets ti, user_name), dot (targets ti, dot_name), dotdot
+   (targets pi, dotdot_name). incoming_count excludes dotdot, so:
+   - For ino ≠ ti: only edges targeting ino are kept; the 3 removed
+     don't target ino (entry/dot target ti; dotdot has dotdot_name and
+     is excluded anyway). So incoming_count is unchanged.
+   - For ti: ti is removed from inodes, so LinkCountConsistent doesn't
+     quantify over it. *)
+Theorem rmdir_preserves_LinkCountConsistent :
+  forall g pd name ti td pi,
+    WellFormed g ->
+    RmdirPre g pd name ti td pi ->
+    LinkCountConsistent (rmdir g pd name ti td pi).
+Proof.
+  intros g pd name ti td pi HWF Hpre.
+  destruct HWF as [_ [HLC [_ [_ [_ [_ _]]]]]].
+  destruct Hpre as [_ Huser _ _ _ _ _ _ _ _ _ _ _ _].
+  unfold LinkCountConsistent in *.
+  intros ir Hin. unfold rmdir in Hin. simpl in Hin.
+  apply remove_inode_subset in Hin as Hin_g.
+  assert (Hir_ne_ti : ir_id ir <> ti).
+  { unfold rmdir in *. simpl in *.
+    apply remove_inode_not_in in Hin. exact Hin. }
+  unfold incoming_count, rmdir. simpl.
+  unfold remove_three_edges.
+  rewrite count_occ_pred_filter_eq.
+  - apply HLC. exact Hin_g.
+  - intros x Hx_in Hgx.
+    (* The filter pred is false: x is one of entry/dot/dotdot. *)
+    apply Bool.andb_false_iff in Hgx as [Hgx | Hgx].
+    + apply Bool.andb_false_iff in Hgx as [Hgx | Hgx].
+      * apply Bool.negb_false_iff in Hgx.
+        apply ce_eqb_eq in Hgx. subst x. simpl.
+        (* x = entry; ce_ino = ti ≠ ir_id ir *)
+        assert (Hne : Nat.eqb ti (ir_id ir) = false).
+        { apply Nat.eqb_neq. intro H. apply Hir_ne_ti. symmetry. exact H. }
+        rewrite Hne. reflexivity.
+      * apply Bool.negb_false_iff in Hgx.
+        apply ce_eqb_eq in Hgx. subst x. simpl.
+        assert (Hne : Nat.eqb ti (ir_id ir) = false).
+        { apply Nat.eqb_neq. intro H. apply Hir_ne_ti. symmetry. exact H. }
+        rewrite Hne. reflexivity.
+    + apply Bool.negb_false_iff in Hgx.
+      apply ce_eqb_eq in Hgx. subst x. simpl.
+      (* x = dotdot; predicate has negb (dotdot_name =? dotdot_name) = false. *)
+      destruct (Nat.eqb dotdot_name dotdot_name) eqn:Hdd.
+      * simpl. rewrite Bool.andb_false_r. reflexivity.
+      * rewrite Nat.eqb_refl in Hdd. discriminate.
+Qed.
 
 Theorem rmdir_preserves_WellFormed :
   forall g pd name ti td pi,
@@ -440,13 +615,13 @@ Proof.
   intros g pd name ti td pi HWF Hpre.
   unfold WellFormed. split; [| split; [| split; [| split; [| split; [| split]]]]].
   - exact (rmdir_preserves_TypeInvariant g pd name ti td pi HWF Hpre).
-  - admit. (* LinkCountConsistent — same counting argument as unlink *)
+  - exact (rmdir_preserves_LinkCountConsistent g pd name ti td pi HWF Hpre).
   - exact (rmdir_preserves_UniqueNamesPerDir g pd name ti td pi HWF Hpre).
   - exact (rmdir_preserves_NoDanglingEdges g pd name ti td pi HWF Hpre).
   - exact (rmdir_preserves_NoDirCycles g pd name ti td pi HWF Hpre).
   - exact (rmdir_preserves_DirHasSelfRef g pd name ti td pi HWF Hpre).
   - exact (rmdir_preserves_NoHardLinkToDir g pd name ti td pi HWF Hpre).
-Admitted.
+Qed.
 (* NOTE: The admits are for:
    1. TypeInvariant/NoDanglingEdges: proving no surviving edge targets
       the removed inode (requires NoHardLinkToDir invariant)

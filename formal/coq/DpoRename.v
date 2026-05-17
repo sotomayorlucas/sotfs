@@ -34,6 +34,14 @@ Record RenamePre (g : Graph) (d : DirId) (old_name new_name : Name)
   rp_edge_exists  : In (mkContains d target_ino old_name) (g_edges g);
   rp_new_fresh    : name_in_dir g d new_name = false;
   rp_target_exists : inode_exists g target_ino;
+  (* The old edge appears exactly once in g_edges g. The Rust caller
+     establishes this via UniqueNamesPerDir + the implementation never
+     inserts duplicate records (it would be a bug). Without this, two
+     copies of the old edge would survive remove_edge (which only
+     removes one) and break uniqueness reasoning. *)
+  rp_no_dup_old   : ~ In (mkContains d target_ino old_name)
+                         (remove_edge (mkContains d target_ino old_name)
+                                      (g_edges g));
 }.
 
 (* ===================================================================== *)
@@ -79,7 +87,7 @@ Proof.
   intros g d old_name new_name target_ino HWF Hpre.
   destruct HWF as [HTI [HLC [HUN [HND [HNC [HDSR HNHL]]]]]].
   destruct HTI as [Hedge_endpts [HnodupI HnodupD]].
-  destruct Hpre as [Hdir Huser_old Huser_new Hdiff Hedge_in Hnew_fresh Htgt].
+  destruct Hpre as [Hdir Huser_old Huser_new Hdiff Hedge_in Hnew_fresh Htgt Hno_dup].
   unfold TypeInvariant. split; [| split].
   - (* endpoints exist *)
     intros e0 Hin.
@@ -109,7 +117,7 @@ Theorem rename_preserves_UniqueNamesPerDir :
 Proof.
   intros g d old_name new_name target_ino HWF Hpre.
   destruct HWF as [HTI [HLC [HUN [HND [HNC [HDSR HNHL]]]]]].
-  destruct Hpre as [Hdir Huser_old Huser_new Hdiff Hedge_in Hnew_fresh Htgt].
+  destruct Hpre as [Hdir Huser_old Huser_new Hdiff Hedge_in Hnew_fresh Htgt Hno_dup].
   unfold UniqueNamesPerDir.
   intros e1 e2 Hin1 Hin2 Hdir_eq Hname_eq.
   apply rename_edges in Hin1. apply rename_edges in Hin2.
@@ -150,7 +158,7 @@ Theorem rename_preserves_NoDanglingEdges :
 Proof.
   intros g d old_name new_name target_ino HWF Hpre.
   destruct HWF as [HTI [HLC [HUN [HND [HNC [HDSR HNHL]]]]]].
-  destruct Hpre as [Hdir Huser_old Huser_new Hdiff Hedge_in Hnew_fresh Htgt].
+  destruct Hpre as [Hdir Huser_old Huser_new Hdiff Hedge_in Hnew_fresh Htgt Hno_dup].
   unfold NoDanglingEdges.
   intros e Hin.
   apply rename_edges in Hin. destruct Hin as [Hrem | Hnew].
@@ -240,7 +248,7 @@ Theorem rename_preserves_LinkCountConsistent :
 Proof.
   intros g d old_name new_name target_ino HWF Hpre.
   destruct HWF as [HTI [HLC [HUN [HND [HNC [HDSR HNHL]]]]]].
-  destruct Hpre as [Hdir Huser_old Huser_new Hdiff Hedge_in Hnew_fresh Htgt].
+  destruct Hpre as [Hdir Huser_old Huser_new Hdiff Hedge_in Hnew_fresh Htgt Hno_dup].
   unfold LinkCountConsistent.
   intros ir Hin.
   (* inodes unchanged in rename *)
@@ -278,7 +286,7 @@ Proof.
   intros g d old_name new_name target_ino HWF Hpre.
   destruct HWF as [HTI [HLC [HUN [HND [HNC [HDSR HNHL]]]]]].
   destruct HNC as [rank Hrank].
-  destruct Hpre as [Hdir Huser_old Huser_new Hdiff Hedge_in Hnew_fresh Htgt].
+  destruct Hpre as [Hdir Huser_old Huser_new Hdiff Hedge_in Hnew_fresh Htgt Hno_dup].
   exists rank.
   intros e Hin Huser_e ir Hfind Hvtype child_dir Hchild.
   apply rename_edges in Hin. destruct Hin as [Hrem | Hnew].
@@ -319,7 +327,7 @@ Theorem rename_preserves_DirHasSelfRef :
 Proof.
   intros g d old_name new_name target_ino HWF Hpre.
   destruct HWF as [_ [_ [_ [_ [_ [HDSR _]]]]]].
-  destruct Hpre as [_ Huser_old _ _ _ _ _].
+  destruct Hpre as [_ Huser_old _ _ _ _ _ _].
   unfold DirHasSelfRef in *.
   intros d0 Hin. unfold rename_same_dir in *. simpl in *.
   apply in_or_app. left.
@@ -341,7 +349,7 @@ Theorem rename_preserves_NoHardLinkToDir :
 Proof.
   intros g d old_name new_name target_ino HWF Hpre.
   destruct HWF as [_ [_ [_ [_ [_ [_ HNHL]]]]]].
-  destruct Hpre as [_ Huser_old Huser_new Hdiff Hedge_in _ _].
+  destruct Hpre as [_ Huser_old Huser_new Hdiff Hedge_in _ _ Hno_dup].
   unfold NoHardLinkToDir in *.
   intros e1 e2 ir Hin1 Hin2 Hu1 Hu2 Heqi Hfind Hvty.
   apply rename_edges in Hin1. apply rename_edges in Hin2.
@@ -351,19 +359,34 @@ Proof.
   - apply remove_edge_subset in H1rem.
     apply remove_edge_subset in H2rem.
     apply (HNHL e1 e2 ir H1rem H2rem Hu1 Hu2 Heqi Hfind Hvty).
-  - (* e1 from remove_edge, e2 = new edge. By HNHL on the old graph,
-       any user-name edge targeting target_ino must equal the old edge
-       (d, target_ino, old_name). So e1 = old_edge. But e1 survived
-       remove_edge, which would require the old_edge to appear twice
-       in g_edges g. WellFormed doesn't enforce NoDup g_edges, so this
-       case is technically reachable for ill-shaped (but WellFormed)
-       graphs. Closing it requires an extra NoDup edges invariant.
-       Deferred to v0.2.7 along with the DpoMkdir admit. *)
-    admit.
-  - (* Symmetric to the above. *)
-    admit.
+  - (* e1 from remove_edge, e2 = new edge. By HNHL on g, e1 = old_edge.
+       But Hno_dup says old_edge isn't in remove_edge old_edge — contra. *)
+    subst e2. simpl in Heqi.
+    apply remove_edge_subset in H1rem as H1rem_g.
+    unfold find_inode in Hfind.
+    assert (Heq_e1 :
+      e1 = mkContains d target_ino old_name).
+    { apply (HNHL e1 (mkContains d target_ino old_name) ir H1rem_g Hedge_in
+                  Hu1 Huser_old).
+      - simpl. exact Heqi.
+      - simpl. exact Hfind.
+      - exact Hvty. }
+    exfalso. apply Hno_dup. rewrite Heq_e1 in H1rem. exact H1rem.
+  - (* e1 = new edge, e2 from remove_edge: symmetric. *)
+    subst e1. simpl in Heqi.
+    apply remove_edge_subset in H2rem as H2rem_g.
+    unfold find_inode in Hfind.
+    simpl in Hfind. rewrite Heqi in Hfind.
+    assert (Heq_e2 :
+      e2 = mkContains d target_ino old_name).
+    { apply (HNHL e2 (mkContains d target_ino old_name) ir H2rem_g Hedge_in
+                  Hu2 Huser_old).
+      - simpl. symmetry. exact Heqi.
+      - simpl. exact Hfind.
+      - exact Hvty. }
+    exfalso. apply Hno_dup. rewrite Heq_e2 in H2rem. exact H2rem.
   - subst e1 e2. reflexivity.
-Admitted.
+Qed.
 
 Theorem rename_preserves_WellFormed :
   forall g d old_name new_name target_ino,
