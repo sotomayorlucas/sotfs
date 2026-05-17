@@ -5,6 +5,51 @@ All notable changes to sotFS will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased] — docs: state.md rewrite (v0.2.5 carryover H2.5)
+
+[`docs/state.md`](docs/state.md) was a snapshot of the M4 milestone
+before the workspace was extracted from the parent repo. It described
+crates under `sotfs/sotfs-X/` (paths that haven't existed since the
+extraction) and listed only the 4 invariants present at M4. The
+honest path forward was to rewrite it against the current state.
+
+### Changed
+
+- Header now dated `2026-05-17`, post the v0.2.5→v0.3 stack
+  (PRs #15..#21). Calls out that workspace version is still `0.2.4`
+  in `Cargo.toml` and the next release cut depends on remaining
+  carryovers.
+- Repository layout table rewritten with current crate paths
+  (no `sotfs/` prefix).
+- Invariants table updated to 8 checks (was 7) — adds
+  `check_dir_self_ref`, `check_no_hard_link_to_dir` (per PR #16/#18)
+  and includes Coq predicate cross-refs (per PR #19).
+- DPO ops table expanded with current op set (`rmdir`,
+  `setxattr`, `removexattr`, `symlink`, `setacl`, `write_block`,
+  `write_data`, `read_data`, `truncate`, `chown`) and Coq theorem
+  filenames where applicable.
+- New §Formal verification documenting Coq status (0 Admitted/admit,
+  locked by `formal.yml`) and TLA+ status (manual TLC).
+- Test inventory regenerated against current `#[test]` counts
+  (84 / 104 / 7 / 6 / 63 / 10 / 39).
+- New §CI gates listing the 5 workflows including the new
+  `formal.yml`.
+- New §Open carryovers explicitly listing H1.1 (cap plumbing) and
+  H1.3 (proptest ignores) as blocking a v0.2.5 cut, and confirming
+  what the original audit listed but is already closed (no_std build,
+  Coq `Admitted/admit`, CHANGELOG "5 Admitted" mention).
+- New §Longer horizon pointing to §H3 of the audit (WAL,
+  multi-resource 2PC, ext4/btrfs benchmarks, two-pass fsck, macOS CI,
+  `hax`).
+
+### Removed
+
+- §M4.1.1 "performance bug: `deep_mkdir_chain_no_cycles`": the cause
+  (`dir_for_inode` O(N)) was fixed by the inode→dir reverse index
+  landed pre-v0.2.5; the audit's H1.4 confirms M4.1.1 is closed.
+- All references to paths under `sotfs/sotfs-*/...`.
+- Outdated TLA+ "M5" language.
+
 ## [Unreleased] — formal CI gate
 
 `.github/workflows/formal.yml` — Coq verification on every PR.
