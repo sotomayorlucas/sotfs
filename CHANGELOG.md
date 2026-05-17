@@ -5,6 +5,37 @@ All notable changes to sotFS will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased] — docs: README refresh post v0.2.5 carryover stack
+
+The README still claimed seven invariants, "All TLA+ specs pass TLC under
+bounded model checking" (in fact manual), no mention of the Coq
+formalism, no mention of cap admission control, and a Status section
+frozen at `v0.2.0`. Refreshed against current main.
+
+### Changed
+
+- Invariants count 7 → 8 (adds `DirHasSelfRef`, `NoHardLinkToDir`).
+- §Formally modelled now describes both formalisms honestly: TLA+
+  with manual TLC; Coq 8.20 with zero `Admitted` locked by
+  `formal.yml`.
+- §Capability-secured updated for v0.2.5 cap admission: 16 DPO ops
+  gate on `TypeGraph::require_cap` with the `WRITE`/`GRANT` split.
+- Crates table: adds `sotfs-experimental`; `sotfs-ops` row mentions
+  `rmdir`/ACL/quotas; notes `sotfs-graph` is `no_std`-compatible.
+- §Performance: drops the "bench harness lands in v0.2.2" promise
+  (didn't); marks ext4/btrfs comparison as audit H3.3 work.
+- §Testing: documents the 4 CI workflows including new `formal.yml`.
+- §Status rewritten: workspace version, what landed since v0.2.4
+  (formalism + parity + cap admission + proptest regression + hax
+  spike), and v0.3 → v1.0 roadmap with audit H3 references.
+- Mount options: adds `SOTFS_FUSE_NO_PROVENANCE` and `SOTFS_PROV_SIDECAR`.
+- Adds [Formal] badge alongside [CI]/[Coverage].
+
+### Removed
+
+- "Nivel 2/3/4" sotX terminology — the standalone repo uses the
+  audit horizons instead.
+
 ## [Unreleased] — fix(ci): formal.yml cache-hit broke `coqc` on PATH
 
 The `Formal` workflow added in PR #21 cached only `~/.opam`, but
