@@ -423,6 +423,9 @@ Proof.
   - subst e1 e2. reflexivity.
 Qed.
 
+(* Rust impl: `sotfs_ops::link` in sotfs-ops/src/lib.rs.
+   Runtime cross-check: tests/invariants_match_coq.rs::
+   `link_preserves_well_formed`. *)
 Theorem link_preserves_WellFormed :
   forall g d name ti,
     WellFormed g ->

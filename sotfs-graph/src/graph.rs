@@ -871,6 +871,33 @@ impl TypeGraph {
     /// returns wrong answers and possibly a DoS vector). Promoted into the
     /// canonical set in v0.2.1 — previously only `sotfsctl check` invoked
     /// the oracle.
+    ///
+    /// # Correspondence with the Coq formalism
+    ///
+    /// Each runtime check mirrors a conjunct of `WellFormed` in
+    /// [formal/coq/SotfsGraph.v](../../formal/coq/SotfsGraph.v):
+    ///
+    /// | Rust check | Coq predicate | Coq def file |
+    /// |---|---|---|
+    /// | `check_link_count_consistency` | `LinkCountConsistent` | `SotfsGraph.v:247` |
+    /// | `check_unique_names` | `UniqueNamesPerDir` | `SotfsGraph.v:255` |
+    /// | `check_dir_self_ref` | `DirHasSelfRef` | `SotfsGraph.v:295` |
+    /// | `check_no_dangling_edges` | `NoDanglingEdges` | `SotfsGraph.v:266` |
+    /// | `check_no_dir_cycles` | `NoDirCycles` | `SotfsGraph.v:277` |
+    /// | `check_no_hard_link_to_dir` | `NoHardLinkToDir` | `SotfsGraph.v:305` |
+    /// | (none — bounded `inode_ids`/`dir_ids`) | `TypeInvariant` | `SotfsGraph.v:237` |
+    ///
+    /// `block_refcount`, `cap_monotonicity`, and `dir_name_idx` are
+    /// Rust-only — the Coq formalism doesn't model Block, Capability,
+    /// or the secondary name index. They're checked here as part of
+    /// the broader "type graph well-formed" contract.
+    ///
+    /// For each DPO rewrite rule (`create_file`, `mkdir`, `link`,
+    /// `unlink`, `rename`, `rmdir`), the Coq formalism has a theorem
+    /// `<op>_preserves_WellFormed` proving the 7 invariants are
+    /// preserved. So if `check_invariants()` ever fails after a DPO
+    /// op on a previously-`WellFormed` graph, it's a Rust bug — the
+    /// Rust impl diverged from the Coq spec.
     pub fn check_invariants(&self) -> Result<(), GraphError> {
         self.check_link_count_consistency()?;
         self.check_unique_names()?;

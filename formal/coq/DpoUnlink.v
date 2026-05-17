@@ -353,6 +353,9 @@ Proof.
   apply (HNHL e1 e2 ir_old Hin1 Hin2 Hu1 Hu2 Heqi Hfind_old Hvty_old).
 Qed.
 
+(* Rust impl: `sotfs_ops::unlink` in sotfs-ops/src/lib.rs.
+   Runtime cross-check: tests/invariants_match_coq.rs::
+   `unlink_preserves_well_formed`. *)
 Theorem unlink_keep_preserves_WellFormed :
   forall g d name target_ino,
     WellFormed g ->
