@@ -1,196 +1,217 @@
-# sotFS — State Report (M4)
+# sotFS — State Report
 
-> **Source of truth**: this document. Generated as part of M4 verification.
-> See `docs/ROADMAP_STYX.md` for milestone context.
+**Last updated**: 2026-05-17 (post merge of the v0.2.5→v0.3 stack — PRs #15..#21).
+**Workspace version**: `0.2.4` in [`Cargo.toml`](../Cargo.toml). Main is
+ahead of that tag by the v0.2.5→v0.2.9 + v0.3 spike + CI work; the
+next release cut will be `v0.2.6` or `v0.3.0` depending on whether the
+remaining v0.2.5 carryovers (see [§Open carryovers](#open-carryovers))
+land first.
+
+This document supersedes the M4 milestone report it replaced. For
+the per-release history, see [`CHANGELOG.md`](../CHANGELOG.md).
 
 ## What sotFS is
 
 sotFS is a typed-graph filesystem where:
 
-- Nodes have one of 6 kinds: `Inode`, `Directory`, `Capability`, `Transaction`, `Version`, `Block`.
-- Edges have one of 7 types: `contains`, `grants`, `delegates`, `derivedFrom`, `supersedes`, `pointsTo`, `hasXattr`.
-- POSIX operations (`create_file`, `mkdir`, `unlink`, `rename`, `link`, …) are encoded as **DPO graph rewrites**: each op specifies a left-hand pattern, a right-hand pattern, and a gluing condition; the resulting graph is checked against a fixed set of invariants.
+- Nodes have one of 6 kinds: `Inode`, `Directory`, `Capability`,
+  `Transaction`, `Version`, `Block`.
+- Edges have one of 7 types: `contains`, `grants`, `delegates`,
+  `derivedFrom`, `supersedes`, `pointsTo`, `hasXattr`.
+- POSIX operations (`create_file`, `mkdir`, `unlink`, `rmdir`,
+  `rename`, `link`, …) are encoded as **DPO graph rewrites**: each
+  op specifies a left-hand pattern, a right-hand pattern, and a
+  gluing condition; the resulting graph is checked against a fixed
+  set of invariants.
 
-The graph is allocated in heap-backed arenas (`Arena<T>`) keyed by stable typed IDs (`InodeId`, `DirId`, `EdgeId`, …). The whole `TypeGraph` struct is ~744 bytes on the stack — only handles, no inline storage.
+The graph is allocated in heap-backed arenas (`Arena<T>`) keyed by
+stable typed IDs (`InodeId`, `DirId`, `EdgeId`, …).
 
 ## Repository layout
 
-The sotFS workspace lives at `sotfs/` with these crates:
-
-| Crate | Purpose | LOC (src) |
-|-------|---------|-----------|
-| [`sotfs-graph`](../sotfs/sotfs-graph) | Type graph data model, arenas, RCU snapshots, DOT/D3 export, invariant checker | ~3.6k |
-| [`sotfs-ops`](../sotfs/sotfs-ops) | DPO rewrite rules: `create_file`, `mkdir`, `unlink`, `rename`, `link`, `read/write`, xattr, perms | ~2.3k |
-| [`sotfs-storage`](../sotfs/sotfs-storage) | Persistence backend, crash recovery | ~0.1k |
-| [`sotfs-tx`](../sotfs/sotfs-tx) | Transaction layer with concurrency tests | ~0.1k |
-| [`sotfs-monitor`](../sotfs/sotfs-monitor) | Treewidth + curvature monitoring (adversarial detection) | ~3.0k |
-| [`sotfs-fuse`](../sotfs/sotfs-fuse) | Real FUSE binding (mount on Linux) | ~0.5k |
-| [`sotfs-cli`](../sotfs/sotfs-cli) | DOT before/after CLI for visualizing rewrites | new (M4) |
-
-> **Note**: `services/sotfs-fuse/` previously existed as an unfinished `cargo new` skeleton (`edition = "2024"`, hello-world main) and was deleted as part of M4 cleanup. The canonical FUSE implementation is `sotfs/sotfs-fuse/`.
+| Crate | Purpose |
+|-------|---------|
+| [`sotfs-graph`](../sotfs-graph) | Type graph data model, arenas, RCU snapshots, provenance log, DOT/D3 export, invariant checker |
+| [`sotfs-ops`](../sotfs-ops) | DPO rewrite rules: `create_file`, `mkdir`, `rmdir`, `unlink`, `rename`, `link`, `write/read`, xattr, perms, ACL, quotas |
+| [`sotfs-storage`](../sotfs-storage) | Persistence backend (redb) + snapshot save/load |
+| [`sotfs-tx`](../sotfs-tx) | Graph-level atomic transactions (single-host `Gtxn`) |
+| [`sotfs-monitor`](../sotfs-monitor) | Treewidth + curvature monitoring (adversarial detection) |
+| [`sotfs-fuse`](../sotfs-fuse) | Real FUSE3 binding (mount on Linux) |
+| [`sotfs-cli`](../sotfs-cli) | `sotfsctl`, `sotfs-dot`, `sotfs-export-hunter` binaries |
+| [`sotfs-experimental`](../sotfs-experimental) | Typestate sketches (not consumed by other crates) |
 
 ## Invariants checked after every rewrite
 
-`TypeGraph::check_invariants()` (see `sotfs/sotfs-graph/src/graph.rs:571`) runs the following set; every unit test calls it post-op:
+[`TypeGraph::check_invariants()`](../sotfs-graph/src/graph.rs)
+runs the following 8 checks. The Coq column links to the matching
+preservation theorem; the table is the source of truth for the
+Rust↔Coq correspondence (added in PR #19).
 
-| # | Name | Source line | What it guards |
-|---|------|-------------|----------------|
-| 1 | `check_link_count_consistency` | graph.rs:583 | I2 + G3: `inode.link_count == |incoming contains edges|` excluding `..` |
-| 2 | `check_unique_names` | graph.rs:613 | C1 + I4: no two siblings share a name in the same directory |
-| 3 | `check_dir_self_ref` | graph.rs:~640 | Every directory has a `.` self-edge to its own inode |
-| 4 | `check_no_dangling_edges` | graph.rs:~670 | Every edge endpoint references a live node |
-| 5 | `check_block_refcount` | graph.rs:~700 | `pointsTo` edges accurately reflect block sharing |
-| 6 | `check_no_dir_cycles` | graph.rs:~720 | Directory hierarchy is a DAG (no `..`-traversed cycles) |
-| 7 | `check_cap_monotonicity` | graph.rs:~745 | Capability rights are subset-monotonic along `delegates` chains |
+| # | Rust check (`sotfs-graph/src/graph.rs`) | Coq predicate (`formal/coq/SotfsGraph.v`) |
+|---|---|---|
+| 1 | `check_link_count_consistency` (L916) | `LinkCountConsistent` |
+| 2 | `check_unique_names` (L946) | `UniqueNamesPerDir` |
+| 3 | `check_dir_self_ref` (L964) | `DirHasSelfRef` |
+| 4 | `check_no_hard_link_to_dir` (L998) | `NoHardLinkToDir` |
+| 5 | `check_no_dangling_edges` (L1035) | `NoDanglingEdges` |
+| 6 | `check_block_refcount` (L1067) | (Rust-only — block sharing) |
+| 7 | `check_no_dir_cycles` (L1086) | `NoDirCycles` |
+| 8 | `check_cap_monotonicity` (L1127) | (Rust-only — POSIX bits subset along `delegates`) |
 
-If any invariant fails, the graph rewrite is rejected with `GraphError::InvariantViolation(...)`.
+If any invariant fails, the graph rewrite is rejected with
+`GraphError::InvariantViolation(...)`.
 
-## Operations (DPO rules)
+## DPO rules (operations)
 
-| Op | File:Line | Kind |
-|----|-----------|------|
-| `create_file` | sotfs-ops/src/lib.rs:31 | Add Inode (link_count=1) + Contains edge from parent dir |
-| `mkdir` | sotfs-ops/src/lib.rs:83 | Add Inode + Directory + 3 edges (entry, `.`, `..`) |
-| `link` (hard link) | sotfs-ops/src/lib.rs:263 | Add Contains edge to existing inode, increment link_count |
-| `unlink` | sotfs-ops/src/lib.rs:312 | Remove Contains edge, decrement link_count, GC if `0` |
-| `rename` | sotfs-ops/src/lib.rs:386 | Same-dir: rename Contains label. Cross-dir: cycle-checked, `..` updated |
-| read / write / xattr / chmod / chown | sotfs-ops/src/lib.rs (various) | Field updates with invariant re-check |
+| Op | File:Line | Coq theorem | Kind |
+|----|-----------|-------------|------|
+| `create_file` | [sotfs-ops/src/lib.rs](../sotfs-ops/src/lib.rs) | `DpoCreate.v` | Add Inode (lc=1) + Contains edge from parent |
+| `mkdir` | sotfs-ops/src/lib.rs | `DpoMkdir.v` | Add Inode + Directory + 3 edges (entry, `.`, `..`) |
+| `rmdir` | sotfs-ops/src/lib.rs | `DpoRmdir.v` | Remove 3 edges + dir node, only if empty |
+| `link` (hard link) | sotfs-ops/src/lib.rs | `DpoLink.v` | Add Contains edge to existing inode, increment lc |
+| `unlink` | sotfs-ops/src/lib.rs | `DpoUnlink.v` | Remove Contains edge, decrement lc, GC if 0 |
+| `rename` | sotfs-ops/src/lib.rs | `DpoRename.v` | Same-dir: rename label. Cross-dir: cycle-checked, `..` updated |
+| `write_block` / `write_data` / `read_data` / `truncate` | sotfs-ops/src/lib.rs | — | Block content + size; field updates with invariant re-check |
+| `chmod` / `chown` / `setxattr` / `removexattr` / `symlink` / `setacl` | sotfs-ops/src/lib.rs | — | Field updates with invariant re-check |
 
-DPO rules are encoded in function logic (gluing condition checks at the top of each fn), not in a separate rule AST. This is intentional and sufficient for the M4 demo; an explicit AST is out of scope.
+DPO rules are encoded in function logic (gluing condition checks at
+the top of each fn), not in a separate rule AST.
 
-## Test inventory (M4.1 baseline)
+## Formal verification
 
-Run from `sotfs/`:
+### Coq formalism (Coq 8.20.0)
+
+The seven `.v` files in [`formal/coq/`](../formal/coq) prove that
+each DPO rule preserves `WellFormed`, a 7-conjunct predicate:
+
+| Conjunct | Defined in |
+|---|---|
+| `TypeInvariant` | `SotfsGraph.v` |
+| `LinkCountConsistent` | `SotfsGraph.v` |
+| `UniqueNamesPerDir` | `SotfsGraph.v` |
+| `NoDanglingEdges` | `SotfsGraph.v` |
+| `NoDirCycles` | `SotfsGraph.v` |
+| `DirHasSelfRef` | `SotfsGraph.v` (added v0.2.6) |
+| `NoHardLinkToDir` | `SotfsGraph.v` (added v0.2.6) |
+
+**Current status** (PR #17):
+
+- 0 `Admitted.` lemmas across all 7 files.
+- 0 inline `admit.` in any proof.
+- CI gate ([`.github/workflows/formal.yml`](../.github/workflows/formal.yml))
+  runs `coqc` on every PR and fails on stray `Admitted/admit`.
+
+The Coq↔Rust correspondence is by-construction (we proved invariants
+of the abstract graph then implemented Rust accordingly) plus
+runtime parity (the Rust `check_invariants()` runs the same 7
+predicates after every Rust DPO op, and
+[`sotfs-ops/tests/invariants_match_coq.rs`](../sotfs-ops/tests/invariants_match_coq.rs)
+asserts it explicitly for each rule). It is **not** mechanical
+refinement; see [`docs/hax-spike.md`](hax-spike.md) for why
+mechanical refinement (via `hax`) is deferred.
+
+### TLA+ specs
+
+Six TLA+ models in [`formal/`](../formal):
+
+| File | LOC | Topic |
+|------|-----|-------|
+| `sotfs_graph.tla` | ~514 | Type graph state machine |
+| `sotfs_crash.tla` | ~284 | Crash recovery state machine |
+| `sotfs_crash_refinement.tla` | ~388 | Crash safety refinement proof |
+| `sotfs_transactions.tla` | ~316 | Transaction semantics |
+| `sotfs_curvature.tla` | ~294 | Adversarial curvature model |
+| `sotfs_capabilities.tla` | ~276 | Capability access control |
+
+**Verification status**: TLC runs are manual (`formal/run_tlc.sh`).
+Putting TLC in CI is in scope for v0.3+; see
+[`docs/known-issues.md`](known-issues.md).
+
+## Test inventory
+
+Run from repo root:
 
 ```bash
 cargo test --workspace
 ```
 
-Or via the new just recipe:
+| Crate | `#[test]` attrs | Notable test files |
+|-------|----:|---|
+| `sotfs-graph` | 84 | unit + `tests/{graph_api,types_methods,cap_ctx,graph_hunter_export,error_display}.rs` |
+| `sotfs-ops` | 104 | unit + `tests/{proptest_ops,acl_cap_edges,quota_integration,provenance_integration,invariants_match_coq,export_full,graph_helpers}.rs` |
+| `sotfs-storage` | 7 | `tests/crash.rs` |
+| `sotfs-tx` | 6 | `tests/concurrency.rs` |
+| `sotfs-monitor` | 63 | `tests/adversarial.rs` |
+| `sotfs-fuse` | 10 | `tests/{cli_args,mount_integration}.rs` |
+| `sotfs-cli` | 39 | `tests/{sotfsctl_integration,dot_and_export}.rs` |
 
-```bash
-just test-sotfs
-```
+Coverage floor: **85%** ([`.github/workflows/coverage.yml`](../.github/workflows/coverage.yml)).
 
-| Crate | Test file | Tests | Status |
-|-------|-----------|-------|--------|
-| sotfs-graph | unit (`src/`) — arena, graph, rcu, typestate | 33 | passing — verified M4.1 |
-| sotfs-ops | unit (`src/lib.rs`) | 42 | **42/42 PASS** (verified 2026-04-25) |
-| sotfs-ops | `tests/proptest_ops.rs` (10 properties × N cases each) | 10 | **9/10 PASS**, 1 deferred (see M4.1.1 below) |
-| sotfs-monitor | `tests/adversarial.rs` | 6 | passing |
-| sotfs-storage | unit + `tests/crash.rs` | 4 | passing |
-| sotfs-tx | unit + `tests/concurrency.rs` | 6 | passing |
-
-Default proptest budget is 10,000 cases per property. Override with `PROPTEST_CASES=200 cargo test` for a quick smoke.
-
-### M4.1.1 — known performance bug: `deep_mkdir_chain_no_cycles`
-
-The proptest `deep_mkdir_chain_no_cycles` (sotfs-ops/tests/proptest_ops.rs:453) builds a chain of 20–30 nested `mkdir` calls and runs `check_invariants()` once at the end. With 5 cases it finishes in 0.01s; with 50+ cases the wall-time explodes past 60s and never returns within reasonable time, even in `--release`.
-
-Root cause is **not** a correctness bug — it's a complexity bug:
-
-- `TypeGraph::dir_for_inode` (sotfs-graph/src/graph.rs:441) is `O(N)`: it iterates `self.dirs.values()` looking for the matching `inode_id`.
-- It is called inside `is_descendant_of` and `has_cycle_from` once per edge during DFS.
-- During `check_no_dir_cycles`, the outer loop iterates every dir and starts a DFS — so the per-call cost is `O(N²)` and the per-invariant cost is `O(N³)` in the worst case.
-- Proptest replays many random shapes; some of them hit the worst case.
-
-**The default `just test-sotfs` skips this test** to keep the suite fast and reproducible. `just test-sotfs-full` runs everything including this one (in release).
-
-The fix (M4.1.1, future): add an `inode_id → dir_id` reverse index alongside `self.dirs`, making `dir_for_inode` `O(log N)`. That alone should drop the whole property test back to sub-second.
-
-Logged but **not blocking M4** — it doesn't change any verifiable claim about sotFS correctness, only the time budget for proptest stress runs.
+Proptest is default 256 cases (workspace setting); two tests in
+`proptest_ops.rs` remain `#[ignore]` due to an upstream
+`rand_core::BlockRng` hang — see
+[`docs/known-issues.md`](known-issues.md) ISSUE-QA-001.
 
 ## Fuzz targets
 
-Located at `sotfs/fuzz/fuzz_targets/`:
+Located at [`fuzz/fuzz_targets/`](../fuzz):
 
-- `fuzz_op_sequence.rs` — generates random sequences of `FsOp` and asserts `check_invariants()` after every step.
-- `fuzz_path_resolution.rs` — random POSIX path strings → resolution must not panic.
+- `fuzz_op_sequence.rs` — random `FsOp` sequences, asserts
+  `check_invariants()` after every step.
+- `fuzz_path_resolution.rs` — random POSIX path strings, must not panic.
 - `fuzz_ipc_parser.rs` — IPC message parsing.
 
-Run a 60-second sweep:
+Daily 6h sweep runs in [`.github/workflows/fuzz.yml`](../.github/workflows/fuzz.yml)
+on cron.
 
-```bash
-just fuzz-sotfs   # requires nightly + cargo install cargo-fuzz
-```
+## CLI
 
-## DOT visualization (M4.3)
+Three binaries in `sotfs-cli`:
 
-The new `sotfs-cli` crate exposes `sotfs-dot`, which generates `before.dot` and `after.dot` for any single DPO rewrite:
+- `sotfsctl` — admin: snapshot, check, prov-query, info.
+- `sotfs-dot` — DOT before/after visualization of single DPO rewrites.
+- `sotfs-export-hunter` — JSON export of graph snapshot + tail mode.
 
-```bash
-just sotfs-dot mkdir foo
-dot -Tpng after.dot -o after.png
-```
+## CI gates
 
-Available ops: `create-file`, `mkdir`, `unlink`, `rename`, `link`. All operate on a fresh graph rooted at the canonical root directory; ops that need a pre-existing target (`unlink`, `rename`, `link`) auto-set it up so `before.dot` already shows the target.
+| Workflow | What runs |
+|---|---|
+| [`ci.yml`](../.github/workflows/ci.yml) | rustfmt, clippy `-D warnings`, debug + release tests, build release binaries |
+| [`coverage.yml`](../.github/workflows/coverage.yml) | `cargo-llvm-cov`, fail under 85% lines |
+| [`fuzz.yml`](../.github/workflows/fuzz.yml) | Daily 6h cargo-fuzz across 3 targets |
+| [`formal.yml`](../.github/workflows/formal.yml) | Coq 8.20 build of every file in `_CoqProject`, fail on `Admitted/admit` |
+| [`release.yml`](../.github/workflows/release.yml) | Linux x86_64 binary build on tag push |
 
-### Example: `mkdir foo`
+## Open carryovers
 
-`before.dot` (root only):
+See [§H1.1, H1.3 of the audit plan](../.claude/plans/auditemos-que-cosas-nos-agile-river.md)
+for full context. The active ones blocking a v0.2.5 cut:
 
-```
-digraph sotFS {
-  I1 [label="I1\ndir\nlc=1", shape=box, fillcolor=gold];
-  D1 [label="D1\nino=1", shape=folder, fillcolor=lightyellow];
-  D1 -> I1 [label="."];
-}
-```
+- **H1.1** — cap-mediated DPO paths: the 13 mutating ops in
+  [`sotfs-ops/src/lib.rs`](../sotfs-ops/src/lib.rs) still take
+  `(g, parent_dir, name, uid, gid, perms)` without a `CapContext`
+  parameter. [`sotfs-fuse/src/fs.rs::ctx_from_req`](../sotfs-fuse/src/fs.rs)
+  hardcodes `cap_id = None`.
+- **H1.3** — two proptests in `sotfs-ops/tests/proptest_ops.rs`
+  remain `#[ignore]`. Exit plan: port to deterministic unit tests
+  with ~50 hand-picked inputs.
 
-`after.dot` (root + new dir `foo` with `.`/`..`):
+What's **already closed** (despite still appearing in the audit
+text):
 
-```
-digraph sotFS {
-  I1 [label="I1\ndir\nlc=1", shape=box, fillcolor=gold];
-  I2 [label="I2\ndir\nlc=2", shape=box, fillcolor=gold];
-  D1 [label="D1\nino=1", shape=folder, fillcolor=lightyellow];
-  D2 [label="D2\nino=2", shape=folder, fillcolor=lightyellow];
-  D1 -> I1 [label="."];
-  D1 -> I2 [label="foo"];
-  D2 -> I2 [label="."];
-  D2 -> I1 [label=".."];
-}
-```
+- `no_std` build: `cargo build -p sotfs-graph --no-default-features`
+  compiles clean (all `BTree*` imports gate `std`/`alloc` correctly).
+- Coq `Admitted/admit`: 0, locked by `formal.yml`.
+- CHANGELOG "5 Admitted" reference: corrected in PR #15.
 
-Hard link demonstrates `link_count` semantics: after `just sotfs-dot link orig copy`, the after-graph has two `Contains` edges to the same `I2` inode, with `lc=2`.
+## What sotFS does NOT cover (longer horizon, v0.3 → v1.0)
 
-## TLA+ specs
+See [§H3 of the audit](../.claude/plans/auditemos-que-cosas-nos-agile-river.md):
 
-Six TLA+ models exist for sotFS in `formal/`:
-
-| File | LOC | Topic |
-|------|-----|-------|
-| `sotfs_graph.tla` | 514 | Type graph state machine |
-| `sotfs_crash.tla` | 284 | Crash recovery state machine |
-| `sotfs_crash_refinement.tla` | 388 | Crash safety refinement proof |
-| `sotfs_transactions.tla` | 316 | Transaction semantics |
-| `sotfs_curvature.tla` | 294 | Adversarial curvature model |
-| `sotfs_capabilities.tla` | 276 | Capability access control |
-
-**Verification status**: M5. M4 does NOT claim TLC has been run on these specs in CI. Honest claim: the specs encode the intended invariants and were used as source-of-truth while implementing the Rust check_invariants — the link is by-construction, not by formal refinement proof.
-
-## What M4 does NOT cover
-
-- TLA+ model checking via TLC (M5).
-- Tier-2 multi-object 2PC in `sotfs-tx` (M3.5).
-- Real Linux FUSE mount + IO benchmark (M11/M13).
-- An explicit DPO rule AST separate from function bodies (out of scope).
-- Adversarial proptest under simulated crash + curvature monitoring (covered by `sotfs-monitor` tests but not automated in CI).
-
-## How to reproduce M4 verification
-
-```bash
-cd sotfs
-cargo test --workspace                  # full suite (~5 min, dominated by 10K-case proptests)
-PROPTEST_CASES=200 cargo test --workspace   # quick smoke (~30s)
-cargo build -p sotfs-cli
-target/x86_64-pc-windows-msvc/debug/sotfs-dot mkdir foo
-# → before.dot + after.dot ready to render with `dot -Tpng`
-```
-
-Or from project root:
-
-```bash
-just test-sotfs
-just sotfs-dot mkdir foo
-```
+- WAL-based crash recovery (today: snapshot save/load only).
+- Real multi-resource 2PC in `sotfs-tx` (today: graph-level atomicity).
+- Benchmark suite vs ext4/btrfs (today: criterion micro-benches only).
+- Two-pass offline fsck with `--repair` (today: invariant check only).
+- macOS first-class CI matrix (today: best-effort, not tested).
+- Mechanical Rust→Coq extraction via `hax` (see
+  [`docs/hax-spike.md`](hax-spike.md) — deferred).
