@@ -5,6 +5,36 @@ All notable changes to sotFS will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased] — `hax` spike: feasibility report
+
+Investigates whether [hax](https://github.com/hacspec/hax) (Inria/AWS,
+used in Signal Protocol + Kyber + ML-KEM) can mechanically generate
+Coq files from the Rust source, enabling formal-refinement-style
+verification rather than the runtime-checked correspondence we have
+today.
+
+**Outcome**: not recommended for v0.3. See
+[docs/hax-spike.md](docs/hax-spike.md) for the full analysis.
+
+Concrete findings:
+- `cargo-hax` and `hax-driver` install cleanly (~4 min build each)
+  with a pinned nightly Rust toolchain.
+- The OCaml `hax-engine` needs to be installed separately via opam
+  pin to the upstream repo; that step requires system packages
+  (`libgmp`, `m4`, etc.) installable only with `yum`/`sudo`.
+- Even if installed, `hax` cannot translate `unsafe` blocks (RCU,
+  arena), FFI (sotfs-fuse), or `dyn Trait` — all present in our
+  codebase.
+
+Adopting `hax` would require a multi-week refactor of `sotfs-graph`
+into a pure-Rust core + axiomatized unsafe internals, before any
+verification value is delivered. Not worth it without a stronger
+formal-verification driver (compliance, customer requirement, etc.).
+
+The runtime parity (PR #18) + cross-references (PR #19) +
+forthcoming CI gate (PR #21) give us drift detection at low cost
+and remain the recommended path.
+
 ## [Unreleased] — Coq ↔ Rust cross-references
 
 Documents the correspondence between the Coq formalism and the Rust
