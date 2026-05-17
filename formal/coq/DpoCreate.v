@@ -387,6 +387,9 @@ Proof.
     subst e1 e2. reflexivity.
 Qed.
 
+(* Rust impl: `sotfs_ops::create_file` in sotfs-ops/src/lib.rs.
+   Runtime cross-check: tests/invariants_match_coq.rs::
+   `create_file_preserves_well_formed`. *)
 Theorem create_preserves_WellFormed :
   forall g d name new_ino,
     WellFormed g ->

@@ -5,6 +5,35 @@ All notable changes to sotFS will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased] — Coq ↔ Rust cross-references
+
+Documents the correspondence between the Coq formalism and the Rust
+implementation, and lands a concrete test that asserts each Coq
+preservation theorem holds at runtime in Rust.
+
+### Added
+
+- [sotfs-ops/tests/invariants_match_coq.rs](sotfs-ops/tests/invariants_match_coq.rs)
+  — 8 named tests, one per DPO rule + init + a combined sequence.
+  Each documents its corresponding Coq theorem and verifies
+  `check_invariants()` accepts the result of the Rust impl. If any
+  test ever fails, the Rust DPO impl has drifted from the proved
+  Coq spec.
+- Doc-comment on `TypeGraph::check_invariants` listing the per-check
+  Coq predicate (line-referenced) so developers can see at a glance
+  which runtime check corresponds to which `WellFormed` conjunct.
+
+### Documented (Coq → Rust)
+
+Each `*_preserves_WellFormed` theorem in
+[formal/coq/Dpo*.v](formal/coq/) now has a comment block above it
+pointing at the Rust function it formalizes and the runtime
+cross-check test. Similarly, `WellFormed` in `SotfsGraph.v` has a
+per-conjunct table mapping to `check_*` functions.
+
+The two artifacts are now mutually discoverable: jumping from
+either side surfaces the other.
+
 ## [Unreleased] — Rust runtime parity with Coq `WellFormed`
 
 `sotfs-graph::check_invariants()` now checks the same 7 invariants

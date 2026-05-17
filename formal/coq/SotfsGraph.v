@@ -313,6 +313,16 @@ Definition NoHardLinkToDir (g : Graph) : Prop :=
 (* 12. Well-formed graph: conjunction of all invariants                   *)
 (* ===================================================================== *)
 
+(* Rust runtime mirror: `sotfs_graph::TypeGraph::check_invariants` in
+   sotfs-graph/src/graph.rs. Per-conjunct mapping:
+     TypeInvariant       — (bounded id sets, implicit in Rust types)
+     LinkCountConsistent — check_link_count_consistency
+     UniqueNamesPerDir   — check_unique_names
+     NoDanglingEdges     — check_no_dangling_edges
+     NoDirCycles         — check_no_dir_cycles
+     DirHasSelfRef       — check_dir_self_ref
+     NoHardLinkToDir     — check_no_hard_link_to_dir (added in v0.2.8)
+*)
 Definition WellFormed (g : Graph) : Prop :=
   TypeInvariant g /\
   LinkCountConsistent g /\

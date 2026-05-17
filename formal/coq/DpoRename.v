@@ -388,6 +388,9 @@ Proof.
   - subst e1 e2. reflexivity.
 Qed.
 
+(* Rust impl: `sotfs_ops::rename` in sotfs-ops/src/lib.rs.
+   Runtime cross-check: tests/invariants_match_coq.rs::
+   `rename_preserves_well_formed`. *)
 Theorem rename_preserves_WellFormed :
   forall g d old_name new_name target_ino,
     WellFormed g ->
