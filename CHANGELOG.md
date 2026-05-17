@@ -5,6 +5,35 @@ All notable changes to sotFS will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased] — formal CI gate
+
+`.github/workflows/formal.yml` — Coq verification on every PR.
+
+This closes the original audit finding (`ISSUE-FORMAL-001`): the Coq
+formalism was never CI-checked, which is how 3 of 7 `.v` files
+silently fell out of `_CoqProject` between v0.2.0 and v0.2.5.
+
+### Added
+
+- [.github/workflows/formal.yml](.github/workflows/formal.yml):
+  - Sets up OCaml 4.14 + opam via `ocaml/setup-ocaml@v3`.
+  - Installs Coq 8.20.0 + coq-stdlib (cached across runs).
+  - Compiles every `.v` file listed in `_CoqProject` in order
+    (`coqc -R . SotFS`).
+  - Audits for stray `Admitted.` or inline `admit.` — fails the
+    build if any reappear (the formalism reached zero admits in
+    PR #17; this gate locks the state in).
+
+### Notes on workflow security
+
+The workflow does not consume any untrusted input. The only dynamic
+values flowing into `run:` blocks are `runner.os` (GitHub-controlled)
+and `cache-hit` (output of `actions/cache`). No issue titles, PR
+bodies, or commit messages are interpolated.
+
+`permissions: contents: read` is set explicitly to constrain the
+default `GITHUB_TOKEN` to read-only access.
+
 ## [Unreleased] — `hax` spike: feasibility report
 
 Investigates whether [hax](https://github.com/hacspec/hax) (Inria/AWS,

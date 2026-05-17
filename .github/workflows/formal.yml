@@ -1,0 +1,71 @@
+name: Formal
+
+# Verify the Coq formalism on every PR. Without this gate, the Coq
+# code drifts silently — as it did between v0.2.0 and v0.2.5 when
+# `_CoqProject` excluded 3 of 7 files and nobody noticed. See
+# `docs/known-issues.md` ISSUE-FORMAL-001 for that history.
+#
+# Security: this workflow does NOT consume any untrusted user input
+# (no issue/PR/commit-message strings flow into `run:` blocks). The
+# only dynamic value is `runner.os` and `cache-hit`, both controlled
+# by GitHub.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  coq:
+    name: coqc 8.20 — formal/coq/*.v
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up OCaml + opam
+        uses: ocaml/setup-ocaml@v3
+        with:
+          ocaml-compiler: "4.14"
+
+      - name: Cache opam packages
+        id: cache-opam
+        uses: actions/cache@v4
+        with:
+          path: ~/.opam
+          key: opam-coq-8.20.0-ocaml-4.14-${{ runner.os }}
+
+      - name: Install Coq 8.20.0
+        if: steps.cache-opam.outputs.cache-hit != 'true'
+        run: |
+          opam install -y coq.8.20.0 coq-stdlib.8.20.0
+
+      - name: Verify coqc is on PATH
+        run: |
+          eval $(opam env)
+          coqc --version
+
+      - name: Compile every .v file in _CoqProject
+        working-directory: formal/coq
+        run: |
+          eval $(opam env)
+          # Read _CoqProject, build each .v file in order, fail on any error.
+          for f in $(grep -E '^[^-#].*\.v$' _CoqProject); do
+            echo "=== coqc $f ==="
+            coqc -R . SotFS "$f"
+          done
+
+      - name: Audit for stray Admitted / admit
+        working-directory: formal/coq
+        run: |
+          # If anyone reintroduces an Admitted or inline `admit`, fail the build.
+          # The formalism reached zero admits in PR #17; this gate locks it.
+          if grep -rn '^Admitted\.\|\<admit\.' *.v; then
+            echo "::error::Coq formalism contains Admitted / admit. v0.2.7 closed all of them; this PR reintroduces a gap."
+            exit 1
+          fi
+          echo "No Admitted / admit in formal/coq/*.v"
