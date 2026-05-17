@@ -151,7 +151,7 @@ Theorem create_preserves_TypeInvariant :
     TypeInvariant (create_file g d name new_ino).
 Proof.
   intros g d name new_ino HWF Hpre.
-  destruct HWF as [HTI [HLC [HUN [HND HNC]]]].
+  destruct HWF as [HTI [HLC [HUN [HND [HNC [HDSR HNHL]]]]]].
   destruct HTI as [Hedge [HnodupI HnodupD]].
   destruct Hpre as [Hdir Huser Hfresh Hino_fresh].
   unfold TypeInvariant. split; [| split].
@@ -194,7 +194,7 @@ Theorem create_preserves_LinkCountConsistent :
     LinkCountConsistent (create_file g d name new_ino).
 Proof.
   intros g d name new_ino HWF Hpre.
-  destruct HWF as [HTI [HLC [HUN [HND HNC]]]].
+  destruct HWF as [HTI [HLC [HUN [HND [HNC [HDSR HNHL]]]]]].
   destruct Hpre as [Hdir Huser Hnamefresh Hino_fresh].
   unfold LinkCountConsistent.
   intros ir Hin.
@@ -240,7 +240,7 @@ Theorem create_preserves_UniqueNamesPerDir :
     UniqueNamesPerDir (create_file g d name new_ino).
 Proof.
   intros g d name new_ino HWF Hpre.
-  destruct HWF as [HTI [HLC [HUN [HND HNC]]]].
+  destruct HWF as [HTI [HLC [HUN [HND [HNC [HDSR HNHL]]]]]].
   destruct Hpre as [Hdir Huser Hnamefresh Hino_fresh].
   unfold UniqueNamesPerDir.
   intros e1 e2 Hin1 Hin2 Hdir_eq Hname_eq.
@@ -275,7 +275,7 @@ Theorem create_preserves_NoDanglingEdges :
     NoDanglingEdges (create_file g d name new_ino).
 Proof.
   intros g d name new_ino HWF Hpre.
-  destruct HWF as [HTI [HLC [HUN [HND HNC]]]].
+  destruct HWF as [HTI [HLC [HUN [HND [HNC [HDSR HNHL]]]]]].
   destruct Hpre as [Hdir Huser Hnamefresh Hino_fresh].
   unfold NoDanglingEdges.
   intros e Hin.
@@ -302,7 +302,7 @@ Theorem create_preserves_NoDirCycles :
     NoDirCycles (create_file g d name new_ino).
 Proof.
   intros g d name new_ino HWF Hpre.
-  destruct HWF as [HTI [HLC [HUN [HND HNC]]]].
+  destruct HWF as [HTI [HLC [HUN [HND [HNC [HDSR HNHL]]]]]].
   destruct Hpre as [Hdir Huser Hnamefresh Hino_fresh].
   destruct HNC as [rank Hrank].
   destruct HTI as [_ [HnodupI _]].
@@ -332,6 +332,61 @@ Qed.
 (* 9. MAIN THEOREM: create_file preserves WellFormed                     *)
 (* ===================================================================== *)
 
+(* create_file leaves g_dirs untouched, so DirHasSelfRef is preserved
+   identically: the same `.` edges remain in the appended edge list. *)
+Theorem create_preserves_DirHasSelfRef :
+  forall g d name new_ino,
+    WellFormed g ->
+    DirHasSelfRef (create_file g d name new_ino).
+Proof.
+  intros g d name new_ino HWF.
+  destruct HWF as [_ [_ [_ [_ [_ [HDSR _]]]]]].
+  unfold DirHasSelfRef in *.
+  intros d0 Hin. unfold create_file in *. simpl in *.
+  apply in_or_app. left. apply HDSR. exact Hin.
+Qed.
+
+(* create_file adds a Regular inode and one user-name edge to it.
+   The new edge targets a regular inode (vtype = Regular), not a
+   directory, so it cannot violate NoHardLinkToDir. *)
+Theorem create_preserves_NoHardLinkToDir :
+  forall g d name new_ino,
+    WellFormed g ->
+    CreatePre g d name new_ino ->
+    NoHardLinkToDir (create_file g d name new_ino).
+Proof.
+  intros g d name new_ino HWF Hpre.
+  assert (HWF_copy := HWF).
+  destruct HWF as [HTI [_ [_ [HND_g [_ [_ HNHL]]]]]].
+  destruct HTI as [_ [HnodupI _]].
+  destruct Hpre as [Hdir Huser Hnamefresh Hino_fresh].
+  unfold NoHardLinkToDir.
+  intros e1 e2 ir Hin1 Hin2 Hu1 Hu2 Heqi Hfind Hvty.
+  apply create_edges in Hin1. apply create_edges in Hin2.
+  destruct Hin1 as [Ho1 | Hn1]; destruct Hin2 as [Ho2 | Hn2].
+  - (* Both edges are old: any edge in g_edges g targets an inode in g.
+       If find_inode (create_file ...) returns ir, lift to old graph. *)
+    destruct (Nat.eq_dec (ce_ino e1) new_ino) as [Heq_new | Hne_new].
+    + (* But ce_ino e1 must be in inode_ids g (NoDanglingEdges), and
+         new_ino isn't. Contradiction. *)
+      exfalso. apply Hino_fresh.
+      destruct (HND_g e1 Ho1) as [_ Hi]. rewrite Heq_new in Hi. exact Hi.
+    + rewrite (create_find_old_ino g d name new_ino (ce_ino e1) Hne_new)
+        in Hfind.
+      apply (HNHL e1 e2 ir Ho1 Ho2 Hu1 Hu2 Heqi Hfind Hvty).
+  - (* e1 old, e2 new: ce_ino e2 = new_ino, ce_ino e1 = new_ino too.
+       But ce_ino e1 in g; new_ino not in g. Contradiction. *)
+    exfalso. subst e2. simpl in Heqi.
+    apply Hino_fresh.
+    destruct (HND_g e1 Ho1) as [_ Hi]. rewrite Heqi in Hi. exact Hi.
+  - (* e1 new, e2 old: symmetric. *)
+    exfalso. subst e1. simpl in Heqi.
+    apply Hino_fresh.
+    destruct (HND_g e2 Ho2) as [_ Hi]. rewrite <- Heqi in Hi. exact Hi.
+  - (* Both new edges: same edge. *)
+    subst e1 e2. reflexivity.
+Qed.
+
 Theorem create_preserves_WellFormed :
   forall g d name new_ino,
     WellFormed g ->
@@ -339,10 +394,12 @@ Theorem create_preserves_WellFormed :
     WellFormed (create_file g d name new_ino).
 Proof.
   intros g d name new_ino HWF Hpre.
-  unfold WellFormed. split; [| split; [| split; [| split]]].
+  unfold WellFormed. split; [| split; [| split; [| split; [| split; [| split]]]]].
   - exact (create_preserves_TypeInvariant g d name new_ino HWF Hpre).
   - exact (create_preserves_LinkCountConsistent g d name new_ino HWF Hpre).
   - exact (create_preserves_UniqueNamesPerDir g d name new_ino HWF Hpre).
   - exact (create_preserves_NoDanglingEdges g d name new_ino HWF Hpre).
   - exact (create_preserves_NoDirCycles g d name new_ino HWF Hpre).
+  - exact (create_preserves_DirHasSelfRef g d name new_ino HWF).
+  - exact (create_preserves_NoHardLinkToDir g d name new_ino HWF Hpre).
 Qed.

@@ -99,7 +99,7 @@ Theorem unlink_keep_preserves_TypeInvariant :
     TypeInvariant (unlink_keep g d target_ino name).
 Proof.
   intros g d name target_ino HWF Hpre.
-  destruct HWF as [HTI [HLC [HUN [HND HNC]]]].
+  destruct HWF as [HTI [HLC [HUN [HND [HNC [HDSR HNHL]]]]]].
   destruct HTI as [Hedge_endpts [HnodupI HnodupD]].
   destruct Hpre as [Hdir Huser Hedge_in Hreg Htgt].
   unfold TypeInvariant. split; [| split].
@@ -131,7 +131,7 @@ Theorem unlink_keep_preserves_UniqueNamesPerDir :
     UniqueNamesPerDir (unlink_keep g d target_ino name).
 Proof.
   intros g d name target_ino HWF Hpre.
-  destruct HWF as [HTI [HLC [HUN [HND HNC]]]].
+  destruct HWF as [HTI [HLC [HUN [HND [HNC [HDSR HNHL]]]]]].
   unfold UniqueNamesPerDir.
   intros e1 e2 Hin1 Hin2 Hdir Hname.
   unfold unlink_keep in Hin1, Hin2. simpl in Hin1, Hin2.
@@ -151,7 +151,7 @@ Theorem unlink_keep_preserves_NoDanglingEdges :
     NoDanglingEdges (unlink_keep g d target_ino name).
 Proof.
   intros g d name target_ino HWF Hpre.
-  destruct HWF as [HTI [HLC [HUN [HND HNC]]]].
+  destruct HWF as [HTI [HLC [HUN [HND [HNC [HDSR HNHL]]]]]].
   unfold NoDanglingEdges.
   intros e Hin.
   unfold unlink_keep in Hin. simpl in Hin.
@@ -229,7 +229,7 @@ Theorem unlink_keep_preserves_LinkCountConsistent :
     LinkCountConsistent (unlink_keep g d target_ino name).
 Proof.
   intros g d name target_ino HWF Hpre Hkeep.
-  destruct HWF as [HTI [HLC [HUN [HND HNC]]]].
+  destruct HWF as [HTI [HLC [HUN [HND [HNC [HDSR HNHL]]]]]].
   destruct HTI as [Hedge [HnodupI HnodupD]].
   destruct Hpre as [Hdir Huser Hedge_in Hreg Htgt_exists].
   unfold LinkCountConsistent.
@@ -247,12 +247,14 @@ Proof.
     + (* pred link_count = pred incoming_count *)
       f_equal. rewrite <- Htgt. apply HLC. exact Hin_old.
     + (* WellFormed g — reconstruct TypeInvariant since we destructed it. *)
-      unfold WellFormed. split; [| split; [| split; [| split]]].
+      unfold WellFormed. split; [| split; [| split; [| split; [| split; [| split]]]]].
       * unfold TypeInvariant. split; [| split]; assumption.
       * exact HLC.
       * exact HUN.
       * exact HND.
       * exact HNC.
+      * exact HDSR.
+      * exact HNHL.
     + exact Hedge_in.
     + exact Huser.
   - (* ir_old is not the target — unchanged *)
@@ -277,7 +279,7 @@ Theorem unlink_keep_preserves_NoDirCycles :
     NoDirCycles (unlink_keep g d target_ino name).
 Proof.
   intros g d name target_ino HWF Hpre.
-  destruct HWF as [HTI [HLC [HUN [HND HNC]]]].
+  destruct HWF as [HTI [HLC [HUN [HND [HNC [HDSR HNHL]]]]]].
   destruct HNC as [rank Hrank].
   destruct Hpre as [Hdir Huser Hedge_in Hreg Htgt_exists].
   exists rank.
@@ -303,6 +305,54 @@ Qed.
 (* 9. MAIN THEOREM: unlink_keep preserves WellFormed                     *)
 (* ===================================================================== *)
 
+(* unlink_keep removes one user-name edge from g_edges and decrements
+   the link_count of target_ino. The directory entries (g_dirs) are
+   unchanged. Since the removed edge is a user-name edge (precondition
+   up_user_name), no `.` self-edge is touched, so DirHasSelfRef is
+   preserved. *)
+Theorem unlink_keep_preserves_DirHasSelfRef :
+  forall g d name target_ino,
+    WellFormed g ->
+    UnlinkPre g d name target_ino ->
+    DirHasSelfRef (unlink_keep g d target_ino name).
+Proof.
+  intros g d name target_ino HWF Hpre.
+  destruct HWF as [_ [_ [_ [_ [_ [HDSR _]]]]]].
+  destruct Hpre as [_ Huser _ _ _].
+  unfold DirHasSelfRef in *.
+  intros d0 Hin. unfold unlink_keep in *. simpl in *.
+  (* The `.` self-edge of d0 survives remove_edge because its name is
+     dot_name (= 0), but `name` is a user_name (≥ 2). They differ. *)
+  apply remove_edge_preserves.
+  - apply HDSR. exact Hin.
+  - intro Habs. inversion Habs as [Heq_dn]. subst.
+    unfold is_user_name, dot_name in Huser. lia.
+Qed.
+
+(* unlink_keep's target inode is Regular (precondition up_is_regular),
+   so it isn't a directory. The new edges are a subset of g_edges g,
+   so any directory-targeting violations would already have existed
+   in g. Old NoHardLinkToDir g gives uniqueness; subset relation
+   preserves it. *)
+Theorem unlink_keep_preserves_NoHardLinkToDir :
+  forall g d name target_ino,
+    WellFormed g ->
+    UnlinkPre g d name target_ino ->
+    NoHardLinkToDir (unlink_keep g d target_ino name).
+Proof.
+  intros g d name target_ino HWF Hpre.
+  destruct HWF as [_ [_ [_ [_ [_ [_ HNHL]]]]]].
+  unfold NoHardLinkToDir in *.
+  intros e1 e2 ir Hin1 Hin2 Hu1 Hu2 Heqi Hfind Hvty.
+  unfold unlink_keep in *. simpl in Hin1, Hin2, Hfind.
+  apply remove_edge_subset in Hin1.
+  apply remove_edge_subset in Hin2.
+  (* find_inode in unlink_keep uses decrement_link inodes; vtype preserved. *)
+  apply decrement_link_preserves_vtype in Hfind; [| exact Hvty].
+  destruct Hfind as [ir_old [Hfind_old Hvty_old]].
+  apply (HNHL e1 e2 ir_old Hin1 Hin2 Hu1 Hu2 Heqi Hfind_old Hvty_old).
+Qed.
+
 Theorem unlink_keep_preserves_WellFormed :
   forall g d name target_ino,
     WellFormed g ->
@@ -311,10 +361,12 @@ Theorem unlink_keep_preserves_WellFormed :
     WellFormed (unlink_keep g d target_ino name).
 Proof.
   intros g d name target_ino HWF Hpre Hkeep.
-  unfold WellFormed. split; [| split; [| split; [| split]]].
+  unfold WellFormed. split; [| split; [| split; [| split; [| split; [| split]]]]].
   - exact (unlink_keep_preserves_TypeInvariant g d name target_ino HWF Hpre).
   - exact (unlink_keep_preserves_LinkCountConsistent g d name target_ino HWF Hpre Hkeep).
   - exact (unlink_keep_preserves_UniqueNamesPerDir g d name target_ino HWF Hpre).
   - exact (unlink_keep_preserves_NoDanglingEdges g d name target_ino HWF Hpre).
   - exact (unlink_keep_preserves_NoDirCycles g d name target_ino HWF Hpre).
+  - exact (unlink_keep_preserves_DirHasSelfRef g d name target_ino HWF Hpre).
+  - exact (unlink_keep_preserves_NoHardLinkToDir g d name target_ino HWF Hpre).
 Qed.

@@ -92,13 +92,13 @@ Proof.
     destruct (Nat.eqb (ir_id h) target_ino) eqn:Htgt.
     + simpl in Hfind.
       destruct (Nat.eqb (ir_id h) ino) eqn:Hid.
-      * inversion Hfind. subst. exists h. simpl. split; reflexivity.
+      * inversion Hfind. subst. exists h. simpl. rewrite Hid. split; reflexivity.
       * apply IH in Hfind. destruct Hfind as [ir_old [Hf Hv]].
         exists ir_old. simpl. rewrite Hid. exact (conj Hf Hv).
     + simpl in Hfind.
       destruct (Nat.eqb (ir_id h) ino) eqn:Hid.
-      * inversion Hfind. subst. exists h. simpl. rewrite Hid.
-        split; reflexivity.
+      * inversion Hfind as [Heq]. subst ir.
+        exists h. simpl. rewrite Hid. split; reflexivity.
       * apply IH in Hfind. destruct Hfind as [ir_old [Hf Hv]].
         exists ir_old. simpl. rewrite Hid. exact (conj Hf Hv).
 Qed.
@@ -123,7 +123,11 @@ Lemma link_edges :
     In e (g_edges (hard_link g d name ti)) <->
     In e (g_edges g) \/ e = mkContains d ti name.
 Proof.
-  intros. unfold hard_link. simpl. rewrite in_app_iff. simpl. tauto.
+  intros. unfold hard_link. simpl. rewrite in_app_iff. simpl.
+  (* Coq 8.20: tauto doesn't symmetrize `=`; do it manually. *)
+  split.
+  - intros [Hold | [Hnew | []]]; [left; assumption | right; symmetry; assumption].
+  - intros [Hold | Hnew]; [left; assumption | right; left; symmetry; assumption].
 Qed.
 
 Lemma link_preserves_dirs :
@@ -220,16 +224,16 @@ Theorem link_preserves_TypeInvariant :
     TypeInvariant (hard_link g d name ti).
 Proof.
   intros g d name ti HWF Hpre.
-  destruct HWF as [HTI [HLC [HUN [HND HNC]]]].
-  destruct HTI as [Hedge [HnodupI HnodupD]].
+  destruct HWF as [HTI [HLC [HUN [HND [HNC [HDSR HNHL]]]]]].
+  destruct HTI as [Hedge_endpts [HnodupI HnodupD]].
   destruct Hpre as [Hdir Huser Hfresh Htgt Hreg].
-  unfold TypeInvariant. repeat split.
-  - intros e Hin. apply link_edges in Hin.
+  unfold TypeInvariant. split; [| split].
+  - intros e0 Hin. apply link_edges in Hin.
     destruct Hin as [Hold | Hnew].
-    + destruct (HND e Hold) as [Hd Hi]. split.
+    + destruct (HND e0 Hold) as [Hd Hi]. split.
       * apply link_preserves_dirs. exact Hd.
       * apply link_preserves_inodes. exact Hi.
-    + subst e. simpl. split.
+    + subst e0. simpl. split.
       * apply link_preserves_dirs. exact Hdir.
       * apply link_preserves_inodes. exact Htgt.
   - unfold NoDupInodeIds, inode_ids, hard_link. simpl.
@@ -248,7 +252,7 @@ Theorem link_preserves_LinkCountConsistent :
     LinkCountConsistent (hard_link g d name ti).
 Proof.
   intros g d name ti HWF Hpre.
-  destruct HWF as [HTI [HLC [HUN [HND HNC]]]].
+  destruct HWF as [HTI [HLC [HUN [HND [HNC [HDSR HNHL]]]]]].
   destruct Hpre as [Hdir Huser Hfresh Htgt Hreg].
   unfold LinkCountConsistent.
   intros ir Hin. unfold hard_link in Hin. simpl in Hin.
@@ -261,7 +265,7 @@ Proof.
     rewrite Heqb in Heq. subst ir. simpl.
     rewrite Htgt_eq.
     rewrite (link_incoming_target g d name ti Huser).
-    f_equal. apply HLC. exact Hin_old.
+    f_equal. rewrite <- Htgt_eq. apply HLC. exact Hin_old.
   - (* ir_old is not the target — unchanged *)
     assert (Heqb : Nat.eqb (ir_id ir_old) ti = false).
     { apply Nat.eqb_neq. exact Hntgt. }
@@ -281,7 +285,7 @@ Theorem link_preserves_UniqueNamesPerDir :
     UniqueNamesPerDir (hard_link g d name ti).
 Proof.
   intros g d name ti HWF Hpre.
-  destruct HWF as [HTI [HLC [HUN [HND HNC]]]].
+  destruct HWF as [HTI [HLC [HUN [HND [HNC [HDSR HNHL]]]]]].
   destruct Hpre as [Hdir Huser Hfresh Htgt Hreg].
   unfold UniqueNamesPerDir.
   intros e1 e2 Hin1 Hin2 Hdir_eq Hname_eq.
@@ -308,7 +312,7 @@ Theorem link_preserves_NoDanglingEdges :
     NoDanglingEdges (hard_link g d name ti).
 Proof.
   intros g d name ti HWF Hpre.
-  destruct HWF as [HTI [HLC [HUN [HND HNC]]]].
+  destruct HWF as [HTI [HLC [HUN [HND [HNC [HDSR HNHL]]]]]].
   destruct Hpre as [Hdir Huser Hfresh Htgt Hreg].
   unfold NoDanglingEdges.
   intros e Hin. apply link_edges in Hin.
@@ -335,7 +339,7 @@ Theorem link_preserves_NoDirCycles :
     NoDirCycles (hard_link g d name ti).
 Proof.
   intros g d name ti HWF Hpre.
-  destruct HWF as [HTI [HLC [HUN [HND HNC]]]].
+  destruct HWF as [HTI [HLC [HUN [HND [HNC [HDSR HNHL]]]]]].
   destruct HTI as [_ [HnodupI _]].
   destruct HNC as [rank Hrank].
   destruct Hpre as [Hdir Huser Hfresh Htgt Hreg].
@@ -359,12 +363,65 @@ Proof.
     apply increment_link_find_vtype in Hfind.
     destruct Hfind as [ir_old [Hf Hv]].
     specialize (Hreg ir_old Hf).
-    rewrite <- Hv in Hvtype. rewrite Hreg in Hvtype. discriminate.
+    rewrite Hv in Hvtype. rewrite Hreg in Hvtype. discriminate.
 Qed.
 
 (* ===================================================================== *)
 (* 10. MAIN THEOREM: hard_link preserves WellFormed                      *)
 (* ===================================================================== *)
+
+(* hard_link adds a Contains edge to an existing inode and increments
+   its link_count. g_dirs is unchanged; the new edge is a user-name
+   edge (precondition lp_user_name), so DirHasSelfRef survives. *)
+Theorem link_preserves_DirHasSelfRef :
+  forall g d name ti,
+    WellFormed g ->
+    DirHasSelfRef (hard_link g d name ti).
+Proof.
+  intros g d name ti HWF.
+  destruct HWF as [_ [_ [_ [_ [_ [HDSR _]]]]]].
+  unfold DirHasSelfRef in *.
+  intros d0 Hin. unfold hard_link in *. simpl in *.
+  apply in_or_app. left. apply HDSR. exact Hin.
+Qed.
+
+(* The new edge (d, ti, name) targets ti which is Regular (precondition
+   lp_is_regular), not DirectoryType. So NoHardLinkToDir's hypothesis
+   `ir_vtype ir = DirectoryType` is false for the new edge — the
+   property is preserved trivially. *)
+Theorem link_preserves_NoHardLinkToDir :
+  forall g d name ti,
+    WellFormed g ->
+    LinkPre g d name ti ->
+    NoHardLinkToDir (hard_link g d name ti).
+Proof.
+  intros g d name ti HWF Hpre.
+  destruct HWF as [_ [_ [_ [_ [_ [_ HNHL]]]]]].
+  destruct Hpre as [_ _ _ Htgt_exists Hreg].
+  unfold NoHardLinkToDir in *.
+  intros e1 e2 ir Hin1 Hin2 Hu1 Hu2 Heqi Hfind Hvty.
+  apply link_edges in Hin1. apply link_edges in Hin2.
+  unfold hard_link, find_inode in Hfind. simpl in Hfind.
+  apply increment_link_find_vtype in Hfind.
+  destruct Hfind as [ir_old [Hfind_old Hvty_eq]].
+  (* Vtype of the old inode = vtype of the new inode (since increment_link
+     only changes link_count). So ir_vtype ir_old = DirectoryType too. *)
+  rewrite Hvty_eq in Hvty.
+  destruct Hin1 as [Ho1 | Hn1]; destruct Hin2 as [Ho2 | Hn2].
+  - apply (HNHL e1 e2 ir_old Ho1 Ho2 Hu1 Hu2 Heqi Hfind_old Hvty).
+  - (* e1 old, e2 new (mkContains d ti name). ce_ino e2 = ti.
+       ce_ino e1 = ti by Heqi. Hreg says find_inode g ti yields Regular.
+       But Hvty says DirectoryType. Contradiction. *)
+    exfalso. subst e2. simpl in Heqi.
+    rewrite Heqi in Hfind_old.
+    unfold find_inode in Hfind_old.
+    specialize (Hreg ir_old Hfind_old). rewrite Hreg in Hvty. discriminate.
+  - exfalso. subst e1. simpl in Heqi.
+    (* After subst e1, Hfind_old's `ce_ino e1` became `ti`. *)
+    unfold find_inode in Hfind_old.
+    specialize (Hreg ir_old Hfind_old). rewrite Hreg in Hvty. discriminate.
+  - subst e1 e2. reflexivity.
+Qed.
 
 Theorem link_preserves_WellFormed :
   forall g d name ti,
@@ -373,10 +430,12 @@ Theorem link_preserves_WellFormed :
     WellFormed (hard_link g d name ti).
 Proof.
   intros g d name ti HWF Hpre.
-  unfold WellFormed. repeat split.
+  unfold WellFormed. split; [| split; [| split; [| split; [| split; [| split]]]]].
   - exact (link_preserves_TypeInvariant g d name ti HWF Hpre).
   - exact (link_preserves_LinkCountConsistent g d name ti HWF Hpre).
   - exact (link_preserves_UniqueNamesPerDir g d name ti HWF Hpre).
   - exact (link_preserves_NoDanglingEdges g d name ti HWF Hpre).
   - exact (link_preserves_NoDirCycles g d name ti HWF Hpre).
+  - exact (link_preserves_DirHasSelfRef g d name ti HWF).
+  - exact (link_preserves_NoHardLinkToDir g d name ti HWF Hpre).
 Qed.
