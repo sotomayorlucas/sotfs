@@ -368,24 +368,12 @@ proptest! {
     }
 
     // ===== 4. chmod preserves other fields =====
-
-    /// chmod only changes permissions, nothing else.
-    #[test]
-    #[ignore = "proptest harness hang in rand_core::BlockRng — see docs/testing/known-issues.md"]
-    fn chmod_preserves_other_fields(mode in 0..0o7777u16) {
-        let mut g = TypeGraph::new();
-        let rd = g.root_dir;
-        let fid = create_file(&mut g, rd, "f", 42, 7, Permissions::FILE_DEFAULT).unwrap();
-        let before = g.get_inode(fid).unwrap().clone();
-        chmod(&mut g, fid, mode).unwrap();
-        let after = &g.get_inode(fid).unwrap();
-        prop_assert_eq!(after.uid, before.uid);
-        prop_assert_eq!(after.gid, before.gid);
-        prop_assert_eq!(after.size, before.size);
-        prop_assert_eq!(after.link_count, before.link_count);
-        prop_assert_eq!(after.vtype, before.vtype);
-        prop_assert_eq!(after.permissions.mode(), mode);
-    }
+    //
+    // The original proptest for chmod hangs inside `rand_core::BlockRng`
+    // (see docs/known-issues.md ISSUE-QA-001). It has been replaced by
+    // `tests/regression_ops.rs::chmod_preserves_other_fields_regression`,
+    // which sweeps 50 hand-picked modes deterministically without invoking
+    // the proptest runner.
 
     // ===== 5. chown preserves permissions =====
 
@@ -528,41 +516,10 @@ proptest! {
     }
 
     // ===== 10. Deep mkdir chain — no cycles =====
-
-    /// Creating a chain of 20+ nested directories never creates a cycle.
-    /// This specifically stress-tests the cycle check on deep trees.
-    /// Range kept at 20..30 because check_no_dir_cycles is O(n^2).
-    #[test]
-    #[ignore = "proptest harness hang in rand_core::BlockRng — see docs/testing/known-issues.md"]
-    fn deep_mkdir_chain_no_cycles(depth in 20..30usize) {
-        let t0 = Instant::now();
-        let mut g = TypeGraph::new();
-        let mut current_dir = g.root_dir;
-
-        for i in 0..depth {
-            let name = format!("d{}", i);
-            match mkdir(&mut g, current_dir, &name, 0, 0, Permissions::DIR_DEFAULT) {
-                Ok(result) => {
-                    current_dir = result.dir_id.unwrap();
-                }
-                Err(_) => break, // Name collision or other error, stop extending
-            }
-        }
-
-        // All invariants must hold on the deep tree
-        g.check_invariants().map_err(|e| {
-            format!("Deep mkdir chain (depth={}) invariant violation: {} [elapsed {:?}]",
-                depth, e, t0.elapsed())
-        }).unwrap();
-
-        // Explicit ancestry check: root must be ancestor of deepest dir
-        prop_assert!(g.is_ancestor(g.root_dir, current_dir),
-            "Root is not ancestor of deepest dir after {} mkdirs", depth);
-
-        // Deepest dir must NOT be ancestor of root (would indicate cycle)
-        if current_dir != g.root_dir {
-            prop_assert!(!g.is_ancestor(current_dir, g.root_dir),
-                "Deepest dir is ancestor of root — cycle detected at depth {}", depth);
-        }
-    }
+    //
+    // The original proptest for deep mkdir chains hangs inside
+    // `rand_core::BlockRng` (see docs/known-issues.md ISSUE-QA-001). It
+    // has been replaced by
+    // `tests/regression_ops.rs::deep_mkdir_chain_no_cycles_regression`,
+    // which exercises depths 10..60 deterministically.
 }

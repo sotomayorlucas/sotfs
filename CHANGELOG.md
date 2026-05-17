@@ -5,6 +5,43 @@ All notable changes to sotFS will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased] — close ISSUE-QA-001 (v0.2.5 carryover H1.3)
+
+Two `#[ignore]`-marked proptest cases in
+[`sotfs-ops/tests/proptest_ops.rs`](sotfs-ops/tests/proptest_ops.rs)
+(`chmod_preserves_other_fields`, `deep_mkdir_chain_no_cycles`) hung
+indefinitely inside `rand_core::BlockRng` — an upstream issue,
+diagnosed in [`docs/known-issues.md`](docs/known-issues.md)
+ISSUE-QA-001. Marking them `#[ignore]` had been the v0.2.4
+mitigation; the audit listed it as a v0.2.5 carryover.
+
+### Added
+
+- [`sotfs-ops/tests/regression_ops.rs`](sotfs-ops/tests/regression_ops.rs)
+  — deterministic replacements for both cases:
+  - `chmod_preserves_other_fields_regression` sweeps 50 hand-picked
+    modes (zero, every single-bit, common POSIX defaults, all four
+    setuid/setgid/sticky combinations, all-bits, and mid-range
+    bit-pattern combinations), asserts each invariant of the
+    original property (uid/gid/size/link_count/vtype preserved,
+    mode updated, invariants hold), and finishes in <0.2s.
+  - `deep_mkdir_chain_no_cycles_regression` builds chains of
+    depth ∈ {10, 20..30, 40, 60} and asserts the cycle/ancestry
+    properties the proptest had.
+
+### Removed
+
+- The two proptest bodies in `proptest_ops.rs`. Only the
+  numbered-section comments (`===== 4. =====` and `===== 10. =====`)
+  remain, with a pointer to the regression file.
+- The `#[ignore]` attributes on the deleted tests.
+
+### Updated
+
+- [`docs/known-issues.md`](docs/known-issues.md) ISSUE-QA-001 marked
+  mitigated; step 2 of the exit plan checked off; new step 4 covers
+  what to do if upstream ever fixes `rand_core::BlockRng`.
+
 ## [Unreleased] — formal CI gate
 
 `.github/workflows/formal.yml` — Coq verification on every PR.

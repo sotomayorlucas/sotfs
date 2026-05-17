@@ -9,14 +9,24 @@ chase it as a regression of your PR.
 
 ## ISSUE-QA-001 — proptest harness hang in `rand_core::BlockRng`
 
-**Affected tests**
+**Status**: mitigated (v0.2.5 carryover closed). The two affected
+proptest cases have been replaced with deterministic regression
+tests in `sotfs-ops/tests/regression_ops.rs`. The original proptest
+bodies are removed; only their numbered-section comments remain in
+`proptest_ops.rs` as pointers to the regression file. The upstream
+`rand_core` hang itself is unfixed — this entry stays so future
+contributors do not re-add a proptest version expecting it to work.
+
+**Previously affected tests**
 
 - `sotfs-ops/tests/proptest_ops.rs::chmod_preserves_other_fields`
+  → replaced by
+  `sotfs-ops/tests/regression_ops.rs::chmod_preserves_other_fields_regression`
+  (50 hand-picked modes).
 - `sotfs-ops/tests/proptest_ops.rs::deep_mkdir_chain_no_cycles`
-
-Both ship with
-`#[ignore = "proptest harness hang in rand_core::BlockRng — see docs/known-issues.md"]`
-so the workspace test suite stays unblocked.
+  → replaced by
+  `sotfs-ops/tests/regression_ops.rs::deep_mkdir_chain_no_cycles_regression`
+  (depths 10..60).
 
 **Symptom**
 
@@ -54,19 +64,21 @@ timeout 90 cargo test --release \
 git stash pop
 ```
 
-**Mitigation**
+**Mitigation (applied 2026-05-17)**
 
-Mark `#[ignore]` until the upstream proptest harness is fixed.
-The other 8 proptests in `proptest_ops.rs` cover the same code paths
-with regular `#[test]` cases.
+The two cases were ported to deterministic regression tests in
+`tests/regression_ops.rs` with hand-picked inputs (step 2 of the
+exit plan). The remaining 8 proptests in `proptest_ops.rs` are
+unaffected and run normally.
 
 **Exit plan**
 
 1. Bisect `proptest` and `rand_core` versions to find the regression.
-2. As an interim, port these two cases to deterministic unit tests
-   (~50 hand-picked inputs) — loses statistical coverage but unblocks
-   CI when the upstream fix is delayed.
+2. ✅ Done — see Mitigation above.
 3. File upstream once we have a minimal reproducer not tied to sotFS.
+4. When upstream is fixed and a proptest version provides genuine
+   coverage gain over the regression tests, the proptest bodies can
+   be restored alongside the regression file.
 
 ## ISSUE-QA-002 — closed in v0.2.4
 
