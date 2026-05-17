@@ -134,7 +134,7 @@ fn dpo_ops_record_with_active_cap_ctx() {
     // Caps 7 and 8 below are pre-inserted with WRITE+GRANT so the
     // create_file + write_data + chmod sequence is admitted; the
     // assertions on what provenance records remain unchanged.
-    use sotfs_graph::types::{Capability, CapContext, Rights};
+    use sotfs_graph::types::{CapContext, Capability, Rights};
     let mut g = fresh();
     let rd = g.root_dir;
 

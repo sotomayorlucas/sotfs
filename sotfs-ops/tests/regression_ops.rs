@@ -29,29 +29,16 @@ use sotfs_ops::*;
 /// exercise different bit-pattern combinations.
 const CHMOD_MODES: &[u16] = &[
     // empty
-    0o0000,
-    // single-bit owner / group / other / special
-    0o0001, 0o0002, 0o0004,
-    0o0010, 0o0020, 0o0040,
-    0o0100, 0o0200, 0o0400,
-    0o1000, 0o2000, 0o4000,
+    0o0000, // single-bit owner / group / other / special
+    0o0001, 0o0002, 0o0004, 0o0010, 0o0020, 0o0040, 0o0100, 0o0200, 0o0400, 0o1000, 0o2000, 0o4000,
     // common POSIX defaults
-    0o0644, 0o0664, 0o0666,
-    0o0755, 0o0775, 0o0777,
-    0o0600, 0o0700, 0o0750,
-    0o0400, 0o0500, 0o0550,
+    0o0644, 0o0664, 0o0666, 0o0755, 0o0775, 0o0777, 0o0600, 0o0700, 0o0750, 0o0400, 0o0500, 0o0550,
     // setuid + perms
-    0o4755, 0o4700, 0o4644,
-    // setgid + perms
-    0o2755, 0o2750, 0o2664,
-    // sticky + perms
-    0o1755, 0o1777, 0o1750,
-    // combinations
-    0o6755, 0o3755, 0o5755, 0o7777,
-    // mid-range odd patterns
-    0o0123, 0o0321, 0o0246, 0o0531,
-    0o1234, 0o4321, 0o2345, 0o5432,
-    0o3456, 0o6543, 0o7654, 0o0707,
+    0o4755, 0o4700, 0o4644, // setgid + perms
+    0o2755, 0o2750, 0o2664, // sticky + perms
+    0o1755, 0o1777, 0o1750, // combinations
+    0o6755, 0o3755, 0o5755, 0o7777, // mid-range odd patterns
+    0o0123, 0o0321, 0o0246, 0o0531, 0o1234, 0o4321, 0o2345, 0o5432, 0o3456, 0o6543, 0o7654, 0o0707,
     0o7070,
 ];
 
@@ -69,8 +56,7 @@ fn chmod_preserves_other_fields_regression() {
             .unwrap_or_else(|e| panic!("create_file failed for mode {:#o}: {}", mode, e));
         let before = g.get_inode(fid).unwrap().clone();
 
-        chmod(&mut g, fid, mode)
-            .unwrap_or_else(|e| panic!("chmod({:#o}) failed: {}", mode, e));
+        chmod(&mut g, fid, mode).unwrap_or_else(|e| panic!("chmod({:#o}) failed: {}", mode, e));
 
         let after = g.get_inode(fid).unwrap();
         assert_eq!(after.uid, before.uid, "uid changed by chmod {:#o}", mode);

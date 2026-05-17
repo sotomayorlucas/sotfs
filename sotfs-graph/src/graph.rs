@@ -697,7 +697,9 @@ impl TypeGraph {
             Some(id) => id,
             None => return Ok(()),
         };
-        let cap = self.get_cap(cap_id).ok_or(GraphError::CapNotFound(cap_id))?;
+        let cap = self
+            .get_cap(cap_id)
+            .ok_or(GraphError::CapNotFound(cap_id))?;
         if !cap.rights.contains(needed) {
             return Err(GraphError::CapInsufficientRights {
                 needed,
@@ -1045,9 +1047,7 @@ impl TypeGraph {
                     edges
                         .iter()
                         .filter_map(|&eid| match self.get_edge(eid) {
-                            Some(Edge::Contains { name, .. })
-                                if name != "." && name != ".." =>
-                            {
+                            Some(Edge::Contains { name, .. }) if name != "." && name != ".." => {
                                 Some(name.as_str())
                             }
                             _ => None,

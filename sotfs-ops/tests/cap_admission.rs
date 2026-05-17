@@ -24,7 +24,7 @@
 //!    `GraphError::CapNotFound(id)`.
 
 use sotfs_graph::graph::TypeGraph;
-use sotfs_graph::types::{Capability, CapContext, CapId, Permissions, Rights, XAttrNamespace};
+use sotfs_graph::types::{CapContext, CapId, Capability, Permissions, Rights, XAttrNamespace};
 use sotfs_graph::GraphError;
 use sotfs_ops::*;
 
@@ -77,7 +77,7 @@ fn write_cap_admits_write_class_ops() {
     removexattr(&mut g, fid, XAttrNamespace::User, "k").unwrap();
     rename(&mut g, rd, "f", rd, "f2").unwrap();
     let _ = symlink(&mut g, rd, "sl", "/tmp/x", 0, 0).unwrap();
-    let _ = link(&mut g, rd, "fl", fid).unwrap();
+    link(&mut g, rd, "fl", fid).unwrap();
     unlink(&mut g, rd, "fl").unwrap();
     unlink(&mut g, rd, "f2").unwrap();
     rmdir(&mut g, res.dir_id.unwrap_or(rd), ".").err(); // dir empty -> rmdir

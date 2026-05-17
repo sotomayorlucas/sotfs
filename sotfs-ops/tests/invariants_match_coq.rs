@@ -28,8 +28,7 @@ fn create_file_preserves_well_formed() {
     let mut g = TypeGraph::new();
     let root = g.root_dir;
     g.check_invariants().expect("init_graph well-formed");
-    create_file(&mut g, root, "hello.txt", 0, 0, Permissions(0o644))
-        .expect("create_file ok");
+    create_file(&mut g, root, "hello.txt", 0, 0, Permissions(0o644)).expect("create_file ok");
     g.check_invariants()
         .expect("WellFormed preserved by create_file (Coq: DpoCreate.v)");
 }
@@ -56,8 +55,7 @@ fn link_preserves_well_formed() {
     let mut g = TypeGraph::new();
     let root = g.root_dir;
     let target_inode =
-        create_file(&mut g, root, "orig", 0, 0, Permissions(0o644))
-            .expect("create_file ok");
+        create_file(&mut g, root, "orig", 0, 0, Permissions(0o644)).expect("create_file ok");
     link(&mut g, root, "alias", target_inode).expect("link ok");
     g.check_invariants()
         .expect("WellFormed preserved by link (Coq: DpoLink.v)");
@@ -71,8 +69,7 @@ fn link_preserves_well_formed() {
 fn unlink_preserves_well_formed() {
     let mut g = TypeGraph::new();
     let root = g.root_dir;
-    create_file(&mut g, root, "victim", 0, 0, Permissions(0o644))
-        .expect("create_file ok");
+    create_file(&mut g, root, "victim", 0, 0, Permissions(0o644)).expect("create_file ok");
     unlink(&mut g, root, "victim").expect("unlink ok");
     g.check_invariants()
         .expect("WellFormed preserved by unlink (Coq: DpoUnlink.v)");
@@ -86,8 +83,7 @@ fn unlink_preserves_well_formed() {
 fn rename_preserves_well_formed() {
     let mut g = TypeGraph::new();
     let root = g.root_dir;
-    create_file(&mut g, root, "old", 0, 0, Permissions(0o644))
-        .expect("create_file ok");
+    create_file(&mut g, root, "old", 0, 0, Permissions(0o644)).expect("create_file ok");
     rename(&mut g, root, "old", root, "new").expect("rename ok");
     g.check_invariants()
         .expect("WellFormed preserved by rename (Coq: DpoRename.v)");
