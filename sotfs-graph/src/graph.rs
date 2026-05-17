@@ -879,6 +879,7 @@ impl TypeGraph {
         self.check_block_refcount()?;
         self.check_no_dir_cycles()?;
         self.check_cap_monotonicity()?;
+        self.check_no_hard_link_to_dir()?;
         self.check_dir_name_idx_consistency()
             .map_err(GraphError::InvariantViolation)?;
         Ok(())
@@ -954,6 +955,49 @@ impl TypeGraph {
                 return Err(GraphError::InvariantViolation(format!(
                     "Directory {} missing '.' self-reference",
                     dir_id
+                )));
+            }
+        }
+        Ok(())
+    }
+
+    /// I8: directory inodes have at most one user-name incoming edge
+    /// (the parent's entry edge). Mirrors `NoHardLinkToDir` from
+    /// `formal/coq/SotfsGraph.v` and Rust's GC-LINK-2 rule (no hard
+    /// links to directories). Runtime check added in v0.2.8 to keep
+    /// the Coq `WellFormed` and `check_invariants()` in lockstep —
+    /// previously this fact was relied on by `rmdir` semantics but
+    /// never asserted by the graph itself.
+    fn check_no_hard_link_to_dir(&self) -> Result<(), GraphError> {
+        for (aid, inode) in self.inodes.iter() {
+            if inode.vtype != VnodeType::Directory {
+                continue;
+            }
+            let id = aid.0 as u64;
+            let user_names: Vec<&str> = self
+                .inode_incoming_contains
+                .get(&id)
+                .map(|edges| {
+                    edges
+                        .iter()
+                        .filter_map(|&eid| match self.get_edge(eid) {
+                            Some(Edge::Contains { name, .. })
+                                if name != "." && name != ".." =>
+                            {
+                                Some(name.as_str())
+                            }
+                            _ => None,
+                        })
+                        .collect()
+                })
+                .unwrap_or_default();
+            if user_names.len() > 1 {
+                return Err(GraphError::InvariantViolation(format!(
+                    "Directory inode {} has {} user-name incoming edges \
+                     (expected at most 1: parent's entry edge); names: {:?}",
+                    id,
+                    user_names.len(),
+                    user_names
                 )));
             }
         }
@@ -1159,5 +1203,77 @@ mod tests {
     fn root_link_count_is_one() {
         let g = TypeGraph::new();
         assert_eq!(g.get_inode(g.root_inode).unwrap().link_count, 1);
+    }
+
+    #[test]
+    fn check_no_hard_link_to_dir_passes_on_init() {
+        let g = TypeGraph::new_boxed();
+        g.check_no_hard_link_to_dir().unwrap();
+    }
+
+    fn add_contains_edge(g: &mut TypeGraph, src: u64, tgt: u64, name: &str) {
+        let eid = g.alloc_edge_id();
+        g.insert_edge(
+            eid,
+            Edge::Contains {
+                id: eid,
+                src,
+                tgt,
+                name: name.to_string(),
+            },
+        );
+        g.dir_contains.entry(src).or_default().insert(eid);
+        g.inode_incoming_contains
+            .entry(tgt)
+            .or_default()
+            .insert(eid);
+    }
+
+    #[test]
+    fn check_no_hard_link_to_dir_detects_two_parents() {
+        // Build a graph where one directory inode has TWO user-name
+        // incoming edges. Real Rust DPO ops refuse this via GC-LINK-2,
+        // but we build it manually to verify the check catches it.
+        let mut g = TypeGraph::new_boxed();
+        // Add a child directory inode + its dir record.
+        let child_ino_id = g.alloc_inode_id();
+        let child_ino = Inode::new_dir(child_ino_id, Permissions(0o755), 0, 0);
+        g.insert_inode(child_ino_id, child_ino);
+        let child_dir_id = g.alloc_dir_id();
+        g.insert_dir(
+            child_dir_id,
+            Directory {
+                id: child_dir_id,
+                inode_id: child_ino_id,
+            },
+        );
+        // Self-edge so DirHasSelfRef wouldn't fail.
+        add_contains_edge(&mut g, child_dir_id, child_ino_id, ".");
+        // Two user-name edges from root → child_ino.
+        let root = g.root_dir;
+        add_contains_edge(&mut g, root, child_ino_id, "alpha");
+        let root = g.root_dir;
+        add_contains_edge(&mut g, root, child_ino_id, "beta");
+        let err = g.check_no_hard_link_to_dir().unwrap_err();
+        let msg = format!("{:?}", err);
+        assert!(
+            msg.contains("user-name incoming edges"),
+            "expected NoHardLinkToDir violation message, got: {msg}"
+        );
+    }
+
+    #[test]
+    fn check_no_hard_link_to_dir_ignores_regular_inodes() {
+        // Two parents pointing to the same Regular inode is fine
+        // (normal hard-link semantics for files).
+        let mut g = TypeGraph::new_boxed();
+        let file_ino_id = g.alloc_inode_id();
+        let file_ino = Inode::new_file(file_ino_id, Permissions(0o644), 0, 0);
+        g.insert_inode(file_ino_id, file_ino);
+        let root = g.root_dir;
+        add_contains_edge(&mut g, root, file_ino_id, "a");
+        let root = g.root_dir;
+        add_contains_edge(&mut g, root, file_ino_id, "b");
+        g.check_no_hard_link_to_dir().unwrap();
     }
 }

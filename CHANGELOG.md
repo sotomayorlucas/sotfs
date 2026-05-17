@@ -5,6 +5,47 @@ All notable changes to sotFS will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased] — Rust runtime parity with Coq `WellFormed`
+
+`sotfs-graph::check_invariants()` now checks the same 7 invariants
+that the Coq formalism proves for `WellFormed`. Until this PR, only
+6 of the 7 were checked at runtime — `NoHardLinkToDir` (Rust's
+GC-LINK-2 rule) was assumed but never asserted by the graph layer.
+
+### Added
+
+- `TypeGraph::check_no_hard_link_to_dir()` in
+  [sotfs-graph/src/graph.rs](sotfs-graph/src/graph.rs) — iterates
+  every `Directory` inode and verifies it has at most one user-name
+  (non-`.`/`..`) incoming `Contains` edge. Mirrors the
+  `NoHardLinkToDir` conjunct of `WellFormed` in
+  `formal/coq/SotfsGraph.v`. Wired into `check_invariants()` so any
+  graph mutation that violates GC-LINK-2 is caught after the rewrite.
+- 3 unit tests in the existing `graph::tests` module:
+  - `check_no_hard_link_to_dir_passes_on_init` — sanity on `init_graph`.
+  - `check_no_hard_link_to_dir_detects_two_parents` — constructs a
+    pathological graph with two user-name edges to the same
+    directory inode and asserts the check rejects it.
+  - `check_no_hard_link_to_dir_ignores_regular_inodes` — regular
+    file inodes with two hard links are fine (the check only fires
+    on directories).
+
+### Linked Coq theorems
+
+The new runtime check mirrors `NoHardLinkToDir g` in
+`formal/coq/SotfsGraph.v`. Preservation theorems for each DPO
+rewrite rule are in:
+
+- `create_preserves_NoHardLinkToDir` ([DpoCreate.v](formal/coq/DpoCreate.v))
+- `mkdir_preserves_NoHardLinkToDir` ([DpoMkdir.v](formal/coq/DpoMkdir.v))
+- `link_preserves_NoHardLinkToDir` ([DpoLink.v](formal/coq/DpoLink.v))
+- `unlink_keep_preserves_NoHardLinkToDir` ([DpoUnlink.v](formal/coq/DpoUnlink.v))
+- `rename_preserves_NoHardLinkToDir` ([DpoRename.v](formal/coq/DpoRename.v))
+- `rmdir_preserves_NoHardLinkToDir` ([DpoRmdir.v](formal/coq/DpoRmdir.v))
+
+All six prove the runtime check would never fail after a DPO step
+on a `WellFormed` graph.
+
 ## [Unreleased] — close every Coq `Admitted` / `admit`
 
 Closes the remaining 7 `Admitted` lemmas and 4 inline `admit`s in the
